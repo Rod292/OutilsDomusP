@@ -6,7 +6,7 @@ import {
   signInWithPopup, 
   Auth,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
+  createUserWithEmailAndPassword as firebaseCreateUser,
   sendPasswordResetEmail
 } from "firebase/auth"
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"
@@ -47,6 +47,7 @@ console.log('Initializing Firebase...');
 let app: FirebaseApp;
 let db: Firestore;
 let auth: Auth;
+let storage: any;
 
 try {
   if (!getApps().length) {
@@ -81,6 +82,8 @@ try {
     auth = {} as Auth;
     console.log('Auth mock created for SSR');
   }
+
+  storage = getStorage(app);
 } catch (error) {
   console.error('Erreur lors de l\'initialisation de Firebase:', error);
   // Créer des objets factices en cas d'erreur
@@ -89,14 +92,45 @@ try {
   auth = {} as Auth;
 }
 
-// Fonction utilitaire pour uploader une image
-const uploadImage = async (file: File, path: string) => {
-  console.log('uploadImage called', { fileSize: file.size, path });
+// Liste des domaines d'email autorisés
+const ALLOWED_EMAIL_DOMAINS = [
+  'arthurloydbretagne.fr',
+  'arthur-loyd.com',
+  'arthur-loyd.fr'
+];
+
+// Fonction pour vérifier si un email a un domaine autorisé
+export function hasAllowedEmailDomain(email: string): boolean {
+  if (!email || !email.includes('@')) return false;
+  
+  const domain = email.split('@')[1].toLowerCase();
+  return ALLOWED_EMAIL_DOMAINS.includes(domain);
+}
+
+// Fonction pour créer un utilisateur avec vérification du domaine
+export async function createUserWithEmailAndPassword(auth: any, email: string, password: string) {
+  if (!hasAllowedEmailDomain(email)) {
+    throw new Error('Seuls les emails @arthurloydbretagne.fr et @arthur-loyd.com sont autorisés à s\'inscrire.');
+  }
+  
+  return await firebaseCreateUser(auth, email, password);
+}
+
+// Fonction pour uploader une image dans Firebase Storage
+export async function uploadImage(file: File, folder = 'uploads'): Promise<string> {
+  if (!storage) {
+    throw new Error('Firebase Storage n\'est pas initialisé');
+  }
+  
   try {
-    const storage = getStorage(app);
-    const storageRef = ref(storage, path);
+    const timestamp = new Date().getTime();
+    const fileName = `${timestamp}_${file.name}`;
+    const storageRef = ref(storage, `${folder}/${fileName}`);
+    
     const snapshot = await uploadBytes(storageRef, file);
-    return await getDownloadURL(snapshot.ref);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    
+    return downloadURL;
   } catch (error) {
     console.error('Erreur lors de l\'upload de l\'image:', error);
     throw error;
@@ -115,6 +149,14 @@ export async function signInWithGoogle() {
   try {
     console.log('Tentative de connexion avec Google...');
     const result = await signInWithPopup(auth, provider);
+    
+    // Vérifier si l'email a un domaine autorisé
+    if (!hasAllowedEmailDomain(result.user.email || '')) {
+      // Déconnecter l'utilisateur immédiatement
+      await auth.signOut();
+      throw new Error('Seuls les emails @arthurloydbretagne.fr et @arthur-loyd.com sont autorisés à se connecter.');
+    }
+    
     console.log('Connexion réussie avec Google', { userId: result.user.uid });
     return result.user;
   } catch (error) {
@@ -135,11 +177,10 @@ export {
   app, 
   auth, 
   db, 
-  uploadImage,
+  storage,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   sendPasswordResetEmail
 };
 
 // Export par défaut pour compatibilité
-export default { signInWithGoogle };
+export default { signInWithGoogle, hasAllowedEmailDomain };

@@ -16,6 +16,11 @@ import {
 import { Loader2 } from "lucide-react"
 import type { User } from "firebase/auth"
 import { updateProfile } from "firebase/auth"
+import { hasAllowedEmailDomain } from "@/app/lib/firebase"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 
 // Composant d'animation du personnage
 const AnimatedCharacter = ({ 
@@ -298,6 +303,13 @@ export function EmailAuthForm({ mode }: EmailAuthFormProps) {
     setError(null)
     setIsLoading(true)
 
+    // Validation de base
+    if (!email || !password) {
+      setError("Veuillez remplir tous les champs obligatoires")
+      setIsLoading(false)
+      return
+    }
+
     try {
       if (!auth) {
         throw new Error("Service d'authentification non disponible")
@@ -311,8 +323,13 @@ export function EmailAuthForm({ mode }: EmailAuthFormProps) {
           throw new Error("Veuillez remplir les champs prénom et nom")
         }
         
+        // Vérifier que l'email a un domaine autorisé
+        if (!hasAllowedEmailDomain(email)) {
+          throw new Error("Seuls les emails @arthurloydbretagne.fr et @arthur-loyd.com sont autorisés à s'inscrire")
+        }
+        
         // Créer l'utilisateur avec email et mot de passe
-        const userCredential = await createUserWithEmailAndPassword(email, password)
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password)
         
         // Mettre à jour le profil avec le prénom et le nom
         if (userCredential.user) {
@@ -328,15 +345,15 @@ export function EmailAuthForm({ mode }: EmailAuthFormProps) {
         const firebaseError = error as { code?: string }
         if (firebaseError.code === "auth/invalid-credential") {
           setError("Email ou mot de passe incorrect. Veuillez vérifier vos identifiants.")
-        } else if (firebaseError.code === "auth/user-not-found") {
-          setError("Aucun compte n'existe avec cet email. Veuillez créer un compte.")
         } else if (firebaseError.code === "auth/email-already-in-use") {
-          setError("Un compte existe déjà avec cet email. Veuillez vous connecter.")
+          setError("Cet email est déjà utilisé. Veuillez vous connecter ou utiliser un autre email.")
+        } else if (firebaseError.code === "auth/weak-password") {
+          setError("Le mot de passe est trop faible. Utilisez au moins 6 caractères.")
         } else {
           setError(error.message)
         }
       } else {
-        setError("Une erreur inconnue s'est produite. Veuillez réessayer.")
+        setError("Une erreur s'est produite. Veuillez réessayer.")
       }
     } finally {
       setIsLoading(false)
