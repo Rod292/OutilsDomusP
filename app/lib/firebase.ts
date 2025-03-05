@@ -99,9 +99,20 @@ const ALLOWED_EMAIL_DOMAINS = [
   'arthur-loyd.fr'
 ];
 
+// Liste des emails spécifiques autorisés (développeurs)
+const ALLOWED_SPECIFIC_EMAILS = [
+  'photos.pers@gmail.com',
+  'rodrigue.pers29@gmail.com'
+];
+
 // Fonction pour vérifier si un email a un domaine autorisé
 export function hasAllowedEmailDomain(email: string): boolean {
   if (!email || !email.includes('@')) return false;
+  
+  // Vérifier si l'email est dans la liste des exceptions
+  if (ALLOWED_SPECIFIC_EMAILS.includes(email.toLowerCase())) {
+    return true;
+  }
   
   const domain = email.split('@')[1].toLowerCase();
   return ALLOWED_EMAIL_DOMAINS.includes(domain);
@@ -110,7 +121,7 @@ export function hasAllowedEmailDomain(email: string): boolean {
 // Fonction pour créer un utilisateur avec vérification du domaine
 export async function createUserWithEmailAndPassword(auth: any, email: string, password: string) {
   if (!hasAllowedEmailDomain(email)) {
-    throw new Error('Seuls les emails @arthurloydbretagne.fr et @arthur-loyd.com sont autorisés à s\'inscrire.');
+    throw new Error('Vous n\'êtes pas autorisé à créer un compte. Contactez l\'administrateur.');
   }
   
   return await firebaseCreateUser(auth, email, password);
@@ -154,7 +165,7 @@ export async function signInWithGoogle() {
     if (!hasAllowedEmailDomain(result.user.email || '')) {
       // Déconnecter l'utilisateur immédiatement
       await auth.signOut();
-      throw new Error('Seuls les emails @arthurloydbretagne.fr et @arthur-loyd.com sont autorisés à se connecter.');
+      throw new Error('Vous n\'êtes pas autorisé à vous connecter. Contactez l\'administrateur.');
     }
     
     console.log('Connexion réussie avec Google', { userId: result.user.uid });
