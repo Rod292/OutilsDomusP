@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/app/lib/firebase';
-import { collection, query, where, getDocs, addDoc, Firestore } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, Firestore, doc, setDoc } from 'firebase/firestore';
 
 // Forcer le mode dynamique pour cette route API
 export const dynamic = 'force-dynamic';
@@ -37,6 +37,18 @@ export async function POST(request: Request) {
     }
     
     try {
+      // Essayer de créer un document directement dans la collection pour s'assurer qu'elle existe
+      console.log('Tentative de création d\'un document test pour vérifier la collection...');
+      
+      // Utiliser setDoc avec un ID spécifique pour éviter les doublons
+      const testDocRef = doc(db, 'unsubscribed', 'test-document');
+      await setDoc(testDocRef, { 
+        test: true, 
+        createdAt: new Date() 
+      }, { merge: true });
+      
+      console.log('Document test créé avec succès, la collection existe');
+      
       console.log('Tentative de création de la référence à la collection...');
       const unsubscribedRef = collection(db, 'unsubscribed');
       console.log('Référence à la collection créée avec succès');
@@ -55,12 +67,17 @@ export async function POST(request: Request) {
       }
 
       console.log('Ajout de l\'email à la liste des désinscrits...');
-      const docRef = await addDoc(unsubscribedRef, {
+      
+      // Utiliser setDoc avec un ID basé sur l'email pour éviter les doublons
+      const emailHash = Buffer.from(email).toString('base64').replace(/[+/=]/g, '');
+      const emailDocRef = doc(db, 'unsubscribed', emailHash);
+      
+      await setDoc(emailDocRef, {
         email,
         unsubscribedAt: new Date(),
       });
-      console.log('Email ajouté avec succès, ID du document:', docRef.id);
-
+      
+      console.log('Email ajouté avec succès, ID du document:', emailHash);
       console.log('Email désinscrit avec succès');
     } catch (firestoreError) {
       console.error('Erreur Firestore spécifique:', firestoreError);
