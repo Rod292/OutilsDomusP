@@ -4,13 +4,16 @@ import { Box, Typography, Container, Paper } from '@mui/material';
 import AvisGoogleEditorVisual from './components/AvisGoogleEditorVisual';
 import { useTheme } from '@mui/material/styles';
 import { Header } from '../components/header';
+import { Suspense } from 'react';
 
 export default function AvisGooglePage() {
   const theme = useTheme();
 
   return (
     <>
-      <Header />
+      <Suspense fallback={<div>Chargement de l'en-tête...</div>}>
+        <Header />
+      </Suspense>
       <Container maxWidth="lg">
         <Box sx={{ 
           py: 4,
@@ -54,7 +57,9 @@ export default function AvisGooglePage() {
               backgroundColor: theme.palette.background.paper
             }}
           >
-            <AvisGoogleEditorVisual />
+            <Suspense fallback={<div>Chargement...</div>}>
+              <AvisGoogleEditorVisual />
+            </Suspense>
           </Paper>
         </Box>
       </Container>
