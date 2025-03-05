@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '../hooks/useAuth';
-import { ClipboardList, FileSpreadsheet, Star, BookOpen, Mail } from 'lucide-react';
+import { ClipboardList, FileSpreadsheet, Star, BookOpen, Mail, Edit } from 'lucide-react';
 import { Header } from '../components/header';
 
 // Composant client qui utilise useSearchParams
@@ -228,6 +228,37 @@ function SelectionOutilClient() {
                   <li className="flex items-center">
                     <span className="bg-red-100 rounded-full p-0.5 mr-2 text-sm">✓</span>
                     Suivi des envois et statistiques
+                  </li>
+                </ul>
+              </CardContent>
+              <CardFooter className="pt-0 pb-4 px-5">
+                <Button className="w-full bg-[#DC0032] hover:bg-[#DC0032]/90 text-white text-base">
+                  Accéder à l'outil
+                </Button>
+              </CardFooter>
+            </Card>
+
+            <Card className="border border-gray-200 hover:border-[#DC0032] transition-all hover:shadow-md cursor-pointer" onClick={() => navigateTo('/email-professionnel')}>
+              <CardHeader className="bg-gradient-to-r from-red-50 to-pink-50 p-5">
+                <div className="flex items-center gap-4">
+                  <div className="bg-[#DC0032] text-white p-3 rounded-full w-14 h-14 flex items-center justify-center shadow-md">
+                    <Edit size={24} />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl text-[#2D2D2D]">Emails Professionnels</CardTitle>
+                    <CardDescription className="text-sm text-gray-600">Rédaction d'emails personnalisés</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="py-4 px-5">
+                <ul className="space-y-2 text-base text-gray-700">
+                  <li className="flex items-center">
+                    <span className="bg-red-100 rounded-full p-0.5 mr-2 text-sm">✓</span>
+                    Créer des emails professionnels
+                  </li>
+                  <li className="flex items-center">
+                    <span className="bg-red-100 rounded-full p-0.5 mr-2 text-sm">✓</span>
+                    Modèles personnalisables
                   </li>
                 </ul>
               </CardContent>
