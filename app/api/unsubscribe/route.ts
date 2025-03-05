@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
+import { db } from '@/app/lib/firebase';
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+
+// Forcer le mode dynamique pour cette route API
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
@@ -20,8 +23,11 @@ export async function POST(request: Request) {
     // Vérifier si l'email est déjà dans la liste des désinscrits
     console.log('Connexion à Firestore...');
     if (!db) {
+      console.error('Firestore non initialisé');
       throw new Error('Firestore non initialisé');
     }
+    
+    console.log('DB object:', db);
     
     const unsubscribedRef = collection(db, 'unsubscribed');
     const q = query(unsubscribedRef, where('email', '==', email));
@@ -58,7 +64,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Erreur lors de la désinscription:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de la désinscription' },
+      { error: 'Erreur lors de la désinscription', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

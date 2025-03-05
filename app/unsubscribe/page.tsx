@@ -29,6 +29,8 @@ export default function UnsubscribePage() {
 
       // Appeler notre API de désinscription
       const baseUrl = window.location.origin;
+      console.log('Appel API:', `${baseUrl}/api/unsubscribe`);
+      
       const response = await fetch(`${baseUrl}/api/unsubscribe`, {
         method: 'POST',
         headers: {
@@ -37,7 +39,9 @@ export default function UnsubscribePage() {
         body: JSON.stringify({ email }),
       });
 
+      console.log('Réponse API status:', response.status);
       const data = await response.json();
+      console.log('Réponse API data:', data);
 
       if (!response.ok) {
         throw new Error(data.error || 'Une erreur est survenue lors de la désinscription.');
@@ -82,7 +86,7 @@ export default function UnsubscribePage() {
         textAlign: 'center'
       }}>
         <img 
-          src="/arthur-loyd-logo.png" 
+          src="/images/logo-arthur-loyd.png" 
           alt="Arthur Loyd Bretagne" 
           style={{ 
             width: 200, 
