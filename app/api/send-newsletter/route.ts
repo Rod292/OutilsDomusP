@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { parse } from 'csv-parse/sync';
 import { uploadImage } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, addDoc, query, where, doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 // Configuration de l'envoi d'emails
@@ -121,74 +121,47 @@ async function sendEmail(
   });
 }
 
-// Utiliser le client SMTP pour envoyer un email test
-async function sendTestEmail(params: {
-  to: string;
-  subject: string;
-  templateId: string;
-  title: string;
-  headline: string;
-  introduction: string;
-  propertyTitle: string;
-  propertyLocation: string;
-  propertySize: string;
-  propertyPrice: string;
-  propertyDescription: string;
-  highlightsList: string;
-  ctaText: string;
-  ctaUrl: string;
-  imageUrls: string[];
-  clientName?: string; // Ajout du nom du client
-  clientCompany?: string; // Ajout de l'entreprise du client
-}) {
-  const {
-    to,
-    subject,
-    templateId,
-    title,
-    headline,
-    introduction,
-    propertyTitle,
-    propertyLocation,
-    propertySize,
-    propertyPrice,
-    propertyDescription,
-    highlightsList,
-    ctaText,
-    ctaUrl,
-    imageUrls,
-    clientName,
-    clientCompany
-  } = params;
-  
-  // ... existing code ...
-  
-  // Si c'est le template PEM Sud
-  if (templateId === 'pem_sud') {
-    // Générer le contenu HTML en utilisant le template PEM Sud
-    htmlContent = await generatePemSudTemplate({
-      title,
-      headline,
-      introduction,
-      propertyTitle,
-      propertyLocation,
-      propertySize,
-      propertyPrice,
-      propertyDescription,
-      highlightsList,
-      ctaText,
-      ctaUrl,
-      imageUrl1: imageUrls[0] || null,
-      imageUrl2: imageUrls[1] || null,
-      imageUrl3: imageUrls[2] || null,
-      imageUrl4: imageUrls[3] || null,
-      unsubscribeEmail: to,
-      clientName,
-      clientCompany
-    });
+// Vérifier si une newsletter a déjà été envoyée à un destinataire
+async function hasNewsletterBeenSent(email: string, newsletterId: string): Promise<boolean> {
+  try {
+    if (!db) {
+      console.error('Firebase DB non initialisé');
+      return false;
+    }
+
+    const sentRef = collection(db, 'newsletter_sent');
+    const q = query(sentRef, 
+      where('email', '==', email.toLowerCase()),
+      where('newsletterId', '==', newsletterId)
+    );
+    
+    const snapshot = await getDocs(q);
+    return !snapshot.empty;
+  } catch (error) {
+    console.error('Erreur lors de la vérification des newsletters envoyées:', error);
+    return false;
   }
-  
-  // ... existing code ...
+}
+
+// Enregistrer l'envoi d'une newsletter
+async function recordNewsletterSent(email: string, newsletterId: string, subject: string): Promise<void> {
+  try {
+    if (!db) {
+      console.error('Firebase DB non initialisé');
+      return;
+    }
+
+    await addDoc(collection(db, 'newsletter_sent'), {
+      email: email.toLowerCase(),
+      newsletterId,
+      subject,
+      sentAt: new Date().toISOString()
+    });
+    
+    console.log(`Enregistrement de l'envoi de la newsletter "${subject}" à ${email}`);
+  } catch (error) {
+    console.error('Erreur lors de l\'enregistrement de l\'envoi de la newsletter:', error);
+  }
 }
 
 // Filtrer les emails désinscrits avant envoi
@@ -239,13 +212,24 @@ async function filterUnsubscribedEmails(recipients: any[]) {
   }
 }
 
+// Vérifier la validité du domaine d'un email
+function isValidEmailDomain(email: string): boolean {
+  try {
+    const domain = email.split('@')[1];
+    // Cette vérification est simplifiée, une vérification complète nécessiterait une API DNS
+    return Boolean(domain && domain.includes('.'));
+  } catch (error) {
+    return false;
+  }
+}
+
 // Analyser le fichier CSV et envoyer la newsletter à tous les clients
 async function processCsvAndSendNewsletter(
   csvBuffer: Buffer,
   subject: string,
   templateId: string,
   templateParams: any
-): Promise<{ successful: number; failed: number; total: number }> {
+): Promise<{ successful: number; failed: number; total: number; skipped: { unsubscribed: number; alreadySent: number; invalidDomain: number } }> {
   if (!isSmtpConfigured) {
     throw new Error('La configuration SMTP est incomplète. Veuillez configurer les variables d\'environnement SMTP.');
   }
@@ -260,21 +244,43 @@ async function processCsvAndSendNewsletter(
   let successful = 0;
   let failed = 0;
   const total = records.length;
+  const skipped = {
+    unsubscribed: 0,
+    alreadySent: 0,
+    invalidDomain: 0
+  };
   
   // Filtrer les emails désinscrits
   const filteredRecipients = await filterUnsubscribedEmails(records);
+  skipped.unsubscribed = records.length - filteredRecipients.length;
 
   if (filteredRecipients.length === 0) {
-    return { successful: 0, failed: 0, total: 0 };
+    return { successful: 0, failed: 0, total: 0, skipped };
   }
   
   // Parcourir chaque enregistrement du CSV et envoyer l'email
-  for (const record of records) {
+  for (const record of filteredRecipients) {
     try {
-      const email = record.EMAIL;
+      const email = record.EMAIL || record.email || '';
       if (!email) {
         console.warn('Enregistrement sans adresse email:', record);
         failed++;
+        continue;
+      }
+      
+      // Vérifier si le domaine de l'email est valide
+      if (!isValidEmailDomain(email)) {
+        console.warn(`Email avec domaine invalide: ${email}`);
+        skipped.invalidDomain++;
+        continue;
+      }
+      
+      // Vérifier si cette newsletter a déjà été envoyée à ce destinataire
+      const newsletterId = `${templateId}_${templateParams.title}`;
+      const alreadySent = await hasNewsletterBeenSent(email, newsletterId);
+      if (alreadySent) {
+        console.log(`Newsletter déjà envoyée à ${email}, ignoré`);
+        skipped.alreadySent++;
         continue;
       }
       
@@ -293,6 +299,10 @@ async function processCsvAndSendNewsletter(
       
       // Envoyer l'email
       await sendEmail(email, subject, html, clientName);
+      
+      // Enregistrer l'envoi
+      await recordNewsletterSent(email, newsletterId, subject);
+      
       successful++;
     } catch (error) {
       console.error('Erreur lors de l\'envoi à un destinataire:', error);
@@ -300,7 +310,7 @@ async function processCsvAndSendNewsletter(
     }
   }
   
-  return { successful, failed, total };
+  return { successful, failed, total, skipped };
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -438,7 +448,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
     
-    // Envoi en masse
+    // Traitement de l'action "bulk"
     if (action === 'bulk') {
       const clientsFile = formData.get('clientsFile') as File;
       
@@ -469,15 +479,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         total: records.length,
         successful: 0,
         failed: 0,
+        skipped: {
+          unsubscribed: 0,
+          alreadySent: 0,
+          invalidDomain: 0
+        }
       };
       
       // Filtrer les emails désinscrits
       const filteredRecipients = await filterUnsubscribedEmails(records);
+      stats.skipped.unsubscribed = records.length - filteredRecipients.length;
 
       if (filteredRecipients.length === 0) {
         return NextResponse.json({
           success: false,
-          message: 'Aucun destinataire valide après filtrage des désinscrits'
+          message: 'Aucun destinataire valide après filtrage des désinscrits',
+          stats
         }, { status: 400 });
       }
       
@@ -493,6 +510,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             continue;
           }
           
+          // Vérifier si le domaine de l'email est valide
+          if (!isValidEmailDomain(email)) {
+            console.warn(`Email avec domaine invalide: ${email}`);
+            stats.skipped.invalidDomain++;
+            continue;
+          }
+          
+          // Vérifier si cette newsletter a déjà été envoyée à ce destinataire
+          const newsletterId = `${templateId}_${title}`;
+          const alreadySent = await hasNewsletterBeenSent(email, newsletterId);
+          if (alreadySent) {
+            console.log(`Newsletter déjà envoyée à ${email}, ignoré`);
+            stats.skipped.alreadySent++;
+            continue;
+          }
+          
           // Récupérer le HTML du template personnalisé pour chaque destinataire
           let html = await getNewsletterTemplate(templateId, {
             ...templateParams,
@@ -503,6 +536,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           // Envoyer l'email
           await sendEmail(email, subject, html, name);
           
+          // Enregistrer l'envoi
+          await recordNewsletterSent(email, newsletterId, subject);
+          
           stats.successful++;
         } catch (error) {
           console.error('Erreur lors de l\'envoi à un destinataire:', error);
@@ -511,10 +547,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
       
       return NextResponse.json({
-        message: `Newsletter envoyée: ${stats.successful} réussis, ${stats.failed} échecs sur ${stats.total} total`,
+        message: `Newsletter envoyée: ${stats.successful} réussis, ${stats.failed} échecs, ${stats.skipped.unsubscribed} désinscrits, ${stats.skipped.alreadySent} déjà envoyés, ${stats.skipped.invalidDomain} domaines invalides sur ${stats.total} total`,
         successful: stats.successful,
         failed: stats.failed,
         total: stats.total,
+        skipped: stats.skipped
       });
     }
     
