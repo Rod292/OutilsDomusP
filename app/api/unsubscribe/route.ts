@@ -1,0 +1,76 @@
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+
+export async function POST(request: Request) {
+  try {
+    console.log('Démarrage du processus de désinscription');
+    
+    // Log de la requête
+    console.log('Request headers:', Object.fromEntries(request.headers.entries()));
+    
+    const { email } = await request.json();
+    console.log('Email à désinscrire:', email);
+
+    if (!email) {
+      console.log('Email manquant dans la requête');
+      return NextResponse.json({ error: 'Email requis' }, { status: 400 });
+    }
+
+    // Vérifier si l'email est déjà dans la liste des désinscrits
+    console.log('Connexion à Firestore...');
+    if (!db) {
+      throw new Error('Firestore non initialisé');
+    }
+    
+    const unsubscribedRef = collection(db, 'unsubscribed');
+    const q = query(unsubscribedRef, where('email', '==', email));
+    
+    console.log('Exécution de la requête Firestore...');
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      console.log('Email déjà désinscrit');
+      return NextResponse.json({ success: true, message: 'Déjà désinscrit' });
+    }
+
+    // Ajouter l'email à la liste des désinscrits
+    await addDoc(unsubscribedRef, {
+      email,
+      unsubscribedAt: new Date(),
+    });
+
+    console.log('Email désinscrit avec succès');
+
+    // Ajouter des en-têtes CORS
+    return new NextResponse(
+      JSON.stringify({ success: true, message: 'Désabonnement réussi' }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Erreur lors de la désinscription:', error);
+    return NextResponse.json(
+      { error: 'Erreur lors de la désinscription' },
+      { status: 500 }
+    );
+  }
+} 
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
+} 

@@ -1,0 +1,215 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import './styles/glassbutton.css';
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 346 100% 43%; /* Updated to match #DC0032 */
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 346 100% 43%; /* Updated to match #DC0032 */
+    --radius: 0.5rem;
+    --progress-background: #dc0032;
+    --header-height: 65px;
+    --tab-active: #DC0032;
+    --tab-inactive: #f3f4f6;
+    --tab-hover: #e5e7eb;
+    --tab-text-active: #ffffff;
+    --tab-text-inactive: #4b5563;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Éviter les problèmes de largeur sur mobile */
+  html, body {
+    @apply overflow-x-hidden;
+    max-width: 100%;
+  }
+  /* Style des inputs pour être plus grands sur mobile */
+  input, select, textarea {
+    @apply text-base sm:text-sm;
+    font-size: 16px; /* Évite le zoom automatique sur iOS */
+  }
+}
+
+/* Safe area insets support */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Styles spécifiques pour le mode standalone (PWA) sur iOS */
+@media (display-mode: standalone) {
+  .standalone-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    z-index: 100;
+  }
+  
+  /* Ajustement spécifique pour éviter que le header soit caché sous la barre d'état */
+  .standalone-header > div > div {
+    padding-top: max(env(safe-area-inset-top), 70px);
+  }
+  
+  /* Créer de l'espace sous le header fixe */
+  body {
+    padding-top: calc(var(--header-height) + 30px);
+  }
+  
+  /* Contenu principal */
+  .main-content {
+    margin-top: 20px;
+  }
+}
+
+/* Progress bar custom styling */
+.progress-indicator {
+  @apply bg-[#DC0032];
+}
+
+/* Progress bar custom styling */
+[role="progressbar"] > div {
+  background-color: var(--progress-background);
+}
+
+/* Styles pour les onglets de navigation */
+.tabs-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: 20px;
+  position: relative;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  padding-bottom: 8px;
+}
+
+.tabs-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
+
+.tab-button {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  flex: 1 1 auto;
+  min-width: max-content;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  border: 1px solid #e5e7eb;
+  background-color: white;
+  color: #4b5563;
+}
+
+.tab-button.active {
+  background-color: var(--tab-active);
+  color: var(--tab-text-active);
+  border-color: var(--tab-active);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tab-button:not(.active):hover {
+  background-color: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.tab-button:active {
+  transform: translateY(1px);
+}
+
+/* Optimisations pour mobile */
+@media (max-width: 640px) {
+  .container {
+    @apply px-3;
+  }
+  
+  /* Réduire les marges et paddings sur petits écrans */
+  .card {
+    @apply p-3;
+  }
+  
+  /* Ajuster la taille des boutons sur mobile */
+  .btn-mobile-friendly {
+    @apply min-h-[44px] px-3 py-2;
+    touch-action: manipulation;
+  }
+  
+  /* Améliorer la disposition des onglets sur mobile */
+  .tabs-container {
+    padding: 0 4px;
+    gap: 6px;
+    justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 12px;
+    scroll-snap-type: x mandatory;
+  }
+  
+  .tab-button {
+    padding: 8px 12px;
+    font-size: 13px;
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    min-width: max-content;
+    max-width: none;
+  }
+}
+
+/* Styles pour les tablettes */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .tabs-container {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .tab-button {
+    flex: 0 1 auto;
+    min-width: 120px;
+  }
+}
+

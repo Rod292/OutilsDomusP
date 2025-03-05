@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Authentification Gmail</title>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Extraire le code d'autorisation de l'URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const error = urlParams.get('error');
+      
+      // Envoyer le code à la fenêtre parente
+      if (window.opener) {
+        window.opener.postMessage(
+          { 
+            type: 'gmail-auth', 
+            code: code,
+            error: error
+          }, 
+          window.location.origin
+        );
+      } else {
+        document.getElementById('status').textContent = 
+          'Erreur: Impossible de communiquer avec l\'application principale';
+      }
+    });
+  </script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f5f5f5;
+    }
+    .container {
+      text-align: center;
+      padding: 2rem;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #DC0032;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Authentification Gmail</h1>
+    <p>Authentification en cours, veuillez patienter...</p>
+    <p id="status">Cette fenêtre va se fermer automatiquement.</p>
+  </div>
+</body>
+</html> 

@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["http://localhost:3000", "http://localhost:3001", "https://etat-des-lieux-arthur-loyd.vercel.app"],
+    "method": ["GET", "HEAD", "PUT", "DELETE", "POST", "OPTIONS"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": ["Content-Type", "Content-Length", "Content-Disposition"]
+  }
+] 
