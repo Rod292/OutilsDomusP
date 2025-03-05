@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { db, storage } from '@/app/lib/firebase';
-import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import { toast } from '@/components/ui/use-toast';
@@ -20,6 +20,15 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Papa from 'papaparse';
 import { GMAIL_CONFIG } from '@/app/newsletter/components/gmail-config';
+import GmailSenderClient from '../../newsletter/components/GmailSenderClient';
+import { Box, TextField, Tab, Typography, Paper } from '@mui/material';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+import SendIcon from '@mui/icons-material/Send';
+import SaveIcon from '@mui/icons-material/Save';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 
 // Types pour nos templates d'emails
 type EmailTemplate = {
@@ -46,9 +55,9 @@ export default function EmailProfessionnelEditor({ consultant }: { consultant: s
   // État pour les templates sauvegardés
   const [savedTemplates, setSavedTemplates] = useState<EmailTemplate[]>([]);
   // État pour le template sélectionné
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('default');
   // État pour le mode (édition ou envoi)
-  const [activeTab, setActiveTab] = useState<string>('edit');
+  const [activeTab, setActiveTab] = useState<number>(0);
   // État pour le nom du template à sauvegarder
   const [templateName, setTemplateName] = useState<string>('');
   // État de chargement
@@ -60,9 +69,9 @@ export default function EmailProfessionnelEditor({ consultant }: { consultant: s
   // État pour l'objet de l'email
   const [emailSubject, setEmailSubject] = useState<string>('');
   // État pour le dialogue de sauvegarde
-  const [saveDialogOpen, setSaveDialogOpen] = useState<boolean>(false);
+  const [showSaveDialog, setShowSaveDialog] = useState<boolean>(false);
   // État pour le dialogue de suppression
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState<boolean>(false);
   // État pour le template à supprimer
   const [templateToDelete, setTemplateToDelete] = useState<string>('');
   // Référence à l'éditeur
@@ -75,11 +84,13 @@ export default function EmailProfessionnelEditor({ consultant }: { consultant: s
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
   // État pour le nom de l'expéditeur
-  const [senderName, setSenderName] = useState<string>('');
+  const [senderName, setSenderName] = useState<string>('Arthur Loyd Bretagne');
   // État pour l'authentification Gmail
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   // État pour les résultats d'envoi
   const [sendResult, setSendResult] = useState<{ success: number; failed: number } | null>(null);
+  // État pour le fichier CSV
+  const [csvFile, setCsvFile] = useState<File | null>(null);
 
   // Charger les templates sauvegardés au chargement du composant
   useEffect(() => {
@@ -137,7 +148,7 @@ export default function EmailProfessionnelEditor({ consultant }: { consultant: s
       } else {
         // Charger le premier template disponible
         console.log("Templates trouvés, chargement du premier template");
-        setSelectedTemplate(templates[0].id || '');
+        setSelectedTemplate(templates[0].id || 'default');
         setHtmlContent(templates[0].htmlContent);
         setSubject(templates[0].subject);
       }
@@ -226,7 +237,7 @@ export default function EmailProfessionnelEditor({ consultant }: { consultant: s
       // Sélectionner le nouveau template
       setSelectedTemplate(docRef.id);
       setTemplateName('');
-      setSaveDialogOpen(false);
+      setShowSaveDialog(false);
       
       toast({
         title: "Succès",
@@ -318,11 +329,11 @@ export default function EmailProfessionnelEditor({ consultant }: { consultant: s
       // Si le template supprimé était sélectionné, sélectionner un autre template
       if (selectedTemplate === templateToDelete) {
         if (updatedTemplates.length > 0) {
-          setSelectedTemplate(updatedTemplates[0].id || '');
+          setSelectedTemplate(updatedTemplates[0].id || 'default');
           setHtmlContent(updatedTemplates[0].htmlContent);
           setSubject(updatedTemplates[0].subject);
         } else {
-          setSelectedTemplate('');
+          setSelectedTemplate('default');
           const defaultTemplate = createDefaultTemplate();
           setHtmlContent(defaultTemplate.htmlContent);
           setSubject(defaultTemplate.subject);
@@ -330,7 +341,7 @@ export default function EmailProfessionnelEditor({ consultant }: { consultant: s
       }
       
       setTemplateToDelete('');
-      setDeleteDialogOpen(false);
+      setShowDeleteDialog(false);
       
       toast({
         title: "Succès",
@@ -515,15 +526,20 @@ export default function EmailProfessionnelEditor({ consultant }: { consultant: s
 
   // Gérer l'upload de fichier CSV
   const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    
     setError('');
     setSuccess('');
+    setCsvPreview([]);
     
+    if (!event.target.files || event.target.files.length === 0) {
+      return;
+    }
+    
+    const file = event.target.files[0];
+    setCsvFile(file);
+    
+    // Analyser le fichier CSV
     Papa.parse(file, {
       header: true,
-      skipEmptyLines: true,
       complete: (results) => {
         const data = results.data as any[];
         
@@ -705,397 +721,351 @@ export default function EmailProfessionnelEditor({ consultant }: { consultant: s
 
   // Gérer la complétion de l'envoi Gmail
   const handleGmailComplete = (results: { success: number; failed: number }) => {
+    setSendResult(results);
     if (results.success > 0) {
-      setSuccess(`${results.success} emails envoyés avec succès via Gmail.`);
+      toast.success(`${results.success} email(s) envoyé(s) avec succès`);
     }
     if (results.failed > 0) {
-      setError(`${results.failed} emails n'ont pas pu être envoyés.`);
+      toast.error(`${results.failed} email(s) n'ont pas pu être envoyés`);
     }
-    setSendResult(results);
   };
 
+  // Gérer le changement d'onglet
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
+  };
+
+  // Si en chargement, afficher un indicateur
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#DC0032] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full">
-      <Toaster />
-      
-      <Tabs defaultValue="edit" value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="edit">Édition</TabsTrigger>
-          <TabsTrigger value="preview">Aperçu</TabsTrigger>
-          <TabsTrigger value="send">Envoi</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="edit" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Gestion des templates</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <Label htmlFor="template-select">Template</Label>
-                  <Select 
-                    value={selectedTemplate} 
-                    onValueChange={(value) => loadTemplate(value)}
-                  >
-                    <SelectTrigger id="template-select">
-                      <SelectValue placeholder="Sélectionner un template" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {savedTemplates.map((template) => (
-                        <SelectItem key={template.id} value={template.id || ''}>
-                          {template.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="flex gap-2 self-end">
-                  <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Nouveau
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Sauvegarder le template</DialogTitle>
-                      </DialogHeader>
-                      <div className="py-4">
-                        <Label htmlFor="template-name">Nom du template</Label>
-                        <Input
-                          id="template-name"
-                          value={templateName}
-                          onChange={(e) => setTemplateName(e.target.value)}
-                          placeholder="Nom du template"
-                          className="mt-2"
-                        />
-                      </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
-                          Annuler
-                        </Button>
-                        <Button onClick={saveTemplate} disabled={loading}>
-                          {loading ? 'Sauvegarde...' : 'Sauvegarder'}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                  
-                  <Button 
-                    variant="default" 
-                    onClick={updateTemplate} 
-                    disabled={!selectedTemplate || loading}
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    Mettre à jour
-                  </Button>
-                  
-                  <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button 
-                        variant="destructive" 
-                        disabled={!selectedTemplate}
-                        onClick={() => setTemplateToDelete(selectedTemplate)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Supprimer
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Confirmer la suppression</DialogTitle>
-                      </DialogHeader>
-                      <div className="py-4">
-                        <p>Êtes-vous sûr de vouloir supprimer ce template ? Cette action est irréversible.</p>
-                      </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-                          Annuler
-                        </Button>
-                        <Button variant="destructive" onClick={deleteTemplate} disabled={loading}>
-                          {loading ? 'Suppression...' : 'Supprimer'}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
+    <div className="bg-gray-100 p-4 rounded-lg">
+      {/* Onglets pour basculer entre l'édition et l'envoi */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+        <Tabs value={activeTab} onChange={handleTabChange} aria-label="options d'éditeur email">
+          <Tab label="Éditer" id="tab-0" />
+          <Tab label="Envoyer" id="tab-1" />
+        </Tabs>
+      </Box>
+
+      {/* Onglet d'édition */}
+      {activeTab === 0 && (
+        <div className="bg-white p-4 rounded-lg shadow">
+          {/* Sélection de template */}
+          <div className="mb-4">
+            <label className="block mb-2 text-sm font-medium text-gray-700">
+              Sélectionner un template
+            </label>
+            <div className="flex gap-2">
+              <select
+                value={selectedTemplate}
+                onChange={(e) => loadTemplate(e.target.value)}
+                className="px-3 py-2 border rounded-md w-full"
+              >
+                {savedTemplates.map(template => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => setShowSaveDialog(true)}
+                className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                title="Sauvegarder comme nouveau template"
+              >
+                <SaveIcon className="h-4 w-4 mr-2" />
+              </button>
+              <button
+                onClick={() => setShowDeleteDialog(true)}
+                className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                title="Supprimer ce template"
+                disabled={savedTemplates.length <= 1}
+              >
+                <DeleteIcon className="h-4 w-4 mr-2" />
+              </button>
+            </div>
+          </div>
+
+          {/* Sujet de l'email */}
+          <div className="mb-4">
+            <label className="block mb-2 text-sm font-medium text-gray-700">
+              Sujet de l'email
+            </label>
+            <input
+              type="text"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="px-3 py-2 border rounded-md w-full"
+              placeholder="Sujet de l'email"
+            />
+          </div>
+
+          {/* Éditeur de contenu */}
+          <div className="mb-4">
+            <label className="block mb-2 text-sm font-medium text-gray-700">
+              Contenu de l'email
+            </label>
+            <div className="border rounded-md">
+              <div className="flex items-center gap-1 p-2 bg-gray-50 border-b">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => addElement('bold')}
+                  title="Gras"
+                >
+                  <Bold className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => addElement('italic')}
+                  title="Italique"
+                >
+                  <Italic className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => addElement('underline')}
+                  title="Souligné"
+                >
+                  <Underline className="h-4 w-4" />
+                </Button>
+                <div className="w-px h-6 bg-gray-300 mx-1"></div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => addElement('ul')}
+                  title="Liste à puces"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => addElement('ol')}
+                  title="Liste numérotée"
+                >
+                  <ListOrdered className="h-4 w-4" />
+                </Button>
+                <div className="w-px h-6 bg-gray-300 mx-1"></div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => addElement('image')}
+                  title="Insérer une image"
+                >
+                  <Image className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => addElement('attachment')}
+                  title="Ajouter une pièce jointe"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
               </div>
-              
-              <div>
-                <Label htmlFor="email-subject">Sujet de l'email</Label>
-                <Input
-                  id="email-subject"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  placeholder="Sujet de l'email"
-                  className="mt-2"
+              <div
+                ref={editorRef}
+                className="min-h-[400px] p-4 focus:outline-none"
+                contentEditable
+                dangerouslySetInnerHTML={{ __html: htmlContent }}
+                onBlur={(e) => setHtmlContent(e.currentTarget.innerHTML)}
+              />
+            </div>
+          </div>
+
+          {/* Aperçu de l'email */}
+          <div className="mt-6">
+            <h3 className="text-lg font-semibold mb-4">Aperçu</h3>
+            <div className="border rounded-lg overflow-hidden bg-white">
+              <iframe
+                srcDoc={htmlContent}
+                className="w-full h-[500px]"
+                title="Email Preview"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Onglet d'envoi */}
+      {activeTab === 1 && (
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4">Envoyer l'email</h3>
+          
+          {/* Formulaire d'envoi */}
+          <div className="space-y-4">
+            {/* Sujet de l'email */}
+            <div>
+              <label className="block mb-2 text-sm font-medium text-gray-700">
+                Sujet de l'email
+              </label>
+              <TextField
+                fullWidth
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                variant="outlined"
+                size="small"
+                placeholder="Sujet de l'email"
+              />
+            </div>
+            
+            {/* Nom de l'expéditeur */}
+            <div>
+              <label className="block mb-2 text-sm font-medium text-gray-700">
+                Nom de l'expéditeur (optionnel)
+              </label>
+              <TextField
+                fullWidth
+                value={senderName}
+                onChange={(e) => setSenderName(e.target.value)}
+                variant="outlined"
+                size="small"
+                placeholder="Arthur Loyd Bretagne"
+              />
+            </div>
+            
+            {/* Import de fichier CSV */}
+            <div>
+              <label className="block mb-2 text-sm font-medium text-gray-700">
+                Importez un fichier CSV de destinataires
+              </label>
+              <Button
+                variant="contained"
+                component="label"
+                startIcon={<Upload className="h-4 w-4 mr-2" />}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Importer CSV
+                <input
+                  type="file"
+                  accept=".csv"
+                  hidden
+                  onChange={handleCsvUpload}
                 />
-              </div>
-              
-              <div>
-                <Label>Contenu de l'email</Label>
-                <div className="border rounded-md mt-2">
-                  <div className="flex items-center gap-1 p-2 bg-gray-50 border-b">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => addElement('bold')}
-                      title="Gras"
-                    >
-                      <Bold className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => addElement('italic')}
-                      title="Italique"
-                    >
-                      <Italic className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => addElement('underline')}
-                      title="Souligné"
-                    >
-                      <Underline className="h-4 w-4" />
-                    </Button>
-                    <div className="w-px h-6 bg-gray-300 mx-1"></div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => addElement('ul')}
-                      title="Liste à puces"
-                    >
-                      <List className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => addElement('ol')}
-                      title="Liste numérotée"
-                    >
-                      <ListOrdered className="h-4 w-4" />
-                    </Button>
-                    <div className="w-px h-6 bg-gray-300 mx-1"></div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => addElement('image')}
-                      title="Insérer une image"
-                    >
-                      <Image className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => addElement('attachment')}
-                      title="Ajouter une pièce jointe"
-                    >
-                      <Paperclip className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div
-                    ref={editorRef}
-                    className="min-h-[400px] p-4 focus:outline-none"
-                    contentEditable
-                    dangerouslySetInnerHTML={{ __html: htmlContent }}
-                    onBlur={(e) => setHtmlContent(e.currentTarget.innerHTML)}
-                  />
-                </div>
-              </div>
-              
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Variables disponibles</AlertTitle>
-                <AlertDescription>
-                  Utilisez ces variables pour personnaliser votre email : {'{{'}'name{'}}'},  {'{{'}'company{'}}'},  {'{{'}'email{'}}'},  {'{{'}'consultant{'}}'} 
-                </AlertDescription>
-              </Alert>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="preview" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Aperçu de l'email</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="border rounded-md p-4">
-                <div className="mb-4 pb-4 border-b">
-                  <p className="font-semibold">Sujet: {subject}</p>
-                </div>
-                <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="send" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Envoyer l'email</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email-subject">Sujet de l'email</Label>
-                <Input 
-                  id="email-subject" 
-                  value={subject} 
-                  onChange={(e) => setSubject(e.target.value)} 
-                  placeholder="Entrez le sujet de l'email" 
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="sender-name">Nom de l'expéditeur (optionnel)</Label>
-                <Input 
-                  id="sender-name" 
-                  value={senderName} 
-                  onChange={(e) => setSenderName(e.target.value)} 
-                  placeholder="Laissez vide pour utiliser votre nom Gmail par défaut" 
-                />
-                <p className="text-sm text-gray-500">
-                  Note: Pour le mode Gmail, le nom d'expéditeur peut être remplacé par celui associé à votre compte Gmail pour des raisons de sécurité.
-                </p>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Destinataires</Label>
-                
-                <div className="border border-dashed border-gray-300 rounded-md p-4 text-center">
-                  <Button
-                    variant="outline"
-                    className="mb-2"
-                    onClick={() => document.getElementById('csv-upload')?.click()}
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Importer un fichier CSV
-                    <input
-                      id="csv-upload"
-                      type="file"
-                      accept=".csv"
-                      hidden
-                      onChange={handleCsvUpload}
-                    />
-                  </Button>
-                  <p className="text-sm text-gray-500">
-                    Le fichier CSV doit contenir les colonnes: email, name, company
-                  </p>
-                </div>
-                
-                {success && (
-                  <Alert variant="default" className="bg-green-50 text-green-800 border-green-200">
-                    <AlertDescription>{success}</AlertDescription>
-                  </Alert>
-                )}
-                
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-                
-                {csvPreview.length > 0 && (
-                  <div className="mt-4">
-                    <h4 className="text-sm font-medium mb-2">Aperçu des données CSV (3 premiers destinataires) :</h4>
-                    <div className="border rounded-md overflow-hidden">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Email</TableHead>
-                            <TableHead>Nom</TableHead>
-                            <TableHead>Entreprise</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {csvPreview.map((recipient, index) => (
-                            <TableRow key={index}>
-                              <TableCell>{recipient.email}</TableCell>
-                              <TableCell>{recipient.name || <em className="text-gray-400">Non spécifié</em>}</TableCell>
-                              <TableCell>{recipient.company || <em className="text-gray-400">Non spécifié</em>}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-2">
-                      Exemple de personnalisation : "Bonjour {csvPreview[0]?.name || '{{name}}'}, Une opportunité exceptionnelle pour {csvPreview[0]?.company || '{{company}}'}."
-                    </p>
-                  </div>
-                )}
-                
-                {recipients.length > 0 && (
-                  <Alert variant="default" className="bg-blue-50 text-blue-800 border-blue-200">
-                    <AlertDescription>{recipients.length} destinataires prêts à recevoir l'email.</AlertDescription>
-                  </Alert>
-                )}
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Aperçu de l'email</Label>
-                <div className="border rounded-md p-4 bg-white">
-                  <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Méthode d'envoi</Label>
-                
-                <div className="border rounded-md p-4">
-                  <h4 className="text-sm font-medium mb-2">Envoi via Gmail</h4>
-                  
-                  {!isAuthenticated ? (
-                    <Button onClick={handleAuthenticate} variant="outline" className="w-full">
-                      Se connecter à Gmail
-                    </Button>
-                  ) : (
-                    <div className="space-y-2">
-                      <Alert variant="default" className="bg-green-50 text-green-800 border-green-200">
-                        <AlertDescription>Connecté à Gmail</AlertDescription>
-                      </Alert>
-                      
-                      <div className="flex gap-2">
-                        <Button 
-                          onClick={handleGmailSend} 
-                          disabled={loading || recipients.length === 0} 
-                          className="flex-1"
-                        >
-                          <Send className="h-4 w-4 mr-2" />
-                          Envoyer via Gmail
-                        </Button>
-                        
-                        <Button onClick={handleLogout} variant="outline">
-                          Déconnexion
-                        </Button>
-                      </div>
-                      
-                      {sendResult && (
-                        <Alert variant={sendResult.failed > 0 ? "destructive" : "default"} className={sendResult.failed > 0 ? "" : "bg-green-50 text-green-800 border-green-200"}>
-                          <AlertDescription>
-                            {sendResult.success} emails envoyés avec succès.
-                            {sendResult.failed > 0 && ` ${sendResult.failed} emails ont échoué.`}
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <Button onClick={handleCopyToClipboard} variant="outline" className="w-full">
-                <FileText className="h-4 w-4 mr-2" />
-                Copier le HTML dans le presse-papier
               </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              
+              {error && (
+                <Alert severity="error" className="mt-2">
+                  {error}
+                </Alert>
+              )}
+              
+              {success && (
+                <Alert severity="success" className="mt-2">
+                  {success}
+                </Alert>
+              )}
+              
+              {csvPreview.length > 0 && (
+                <div className="mt-4">
+                  <Typography variant="subtitle2">
+                    Aperçu des destinataires:
+                  </Typography>
+                  <Paper variant="outlined" className="mt-2 p-2">
+                    <ul className="list-disc pl-5">
+                      {csvPreview.map((recipient, index) => (
+                        <li key={index}>
+                          {recipient.name || recipient.email} {recipient.company && `(${recipient.company})`}
+                        </li>
+                      ))}
+                      {recipients.length > 3 && (
+                        <li className="text-gray-500 italic">
+                          ...et {recipients.length - 3} autres
+                        </li>
+                      )}
+                    </ul>
+                  </Paper>
+                </div>
+              )}
+            </div>
+            
+            {/* Envoi via Gmail */}
+            <div className="mt-6">
+              <Typography variant="subtitle1" fontWeight="bold">
+                Envoi via Gmail
+              </Typography>
+              <GmailSenderClient
+                newsletterHtml={htmlContent}
+                recipients={recipients}
+                subject={subject}
+                senderName={senderName}
+                onComplete={handleGmailComplete}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dialogue de sauvegarde */}
+      {showSaveDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+            <h3 className="text-xl font-semibold mb-4">Sauvegarder le template</h3>
+            <TextField
+              fullWidth
+              label="Nom du template"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              variant="outlined"
+              size="small"
+              className="mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <Button 
+                variant="outlined" 
+                onClick={() => setShowSaveDialog(false)}
+              >
+                Annuler
+              </Button>
+              <Button 
+                variant="contained" 
+                onClick={saveTemplate}
+                disabled={!templateName}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                Sauvegarder
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dialogue de suppression */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+            <h3 className="text-xl font-semibold mb-4">Supprimer le template</h3>
+            <p className="mb-4">Êtes-vous sûr de vouloir supprimer ce template ? Cette action est irréversible.</p>
+            <div className="flex justify-end gap-2">
+              <Button 
+                variant="outlined" 
+                onClick={() => setShowDeleteDialog(false)}
+              >
+                Annuler
+              </Button>
+              <Button 
+                variant="contained" 
+                onClick={deleteTemplate}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Supprimer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

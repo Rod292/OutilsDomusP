@@ -50,13 +50,13 @@ function EmailProfessionnelClient() {
     <div className={`min-h-screen bg-gray-50 transition-opacity duration-300 ${transitionOpacity}`}>
       <Header />
       
-      <div className="py-10 px-4">
+      <div className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-[#2D2D2D]">Éditeur d'Emails Professionnels</h1>
-            {consultant && <span className="mt-2 text-[#DC0032] font-medium text-sm bg-red-50 px-3 py-1 rounded-md">Consultant: {consultant}</span>}
-            <p className="text-lg text-gray-600 mt-2">Créez et personnalisez des emails professionnels</p>
-          </div>
+          <h1 className="text-3xl font-bold mb-2 text-[#2D2D2D]">Éditeur d'Emails Professionnels</h1>
+          {consultant && <span className="mt-2 text-[#DC0032] font-medium text-sm bg-red-50 px-3 py-1 rounded-md">Consultant: {consultant}</span>}
+          <p className="mb-6 text-gray-600 pb-2 border-b border-gray-200 mt-2">
+            Créez et personnalisez des emails professionnels pour vos clients.
+          </p>
 
           <EmailProfessionnelEditor consultant={consultant} />
         </div>
