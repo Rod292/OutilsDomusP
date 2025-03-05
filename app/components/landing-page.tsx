@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { auth, signInWithGoogle } from "@/app/lib/firebase"
+import { auth } from "@/app/lib/firebase"
+import firebaseUtils, { signInWithGoogle } from "@/app/lib/firebase"
 import type { User } from "firebase/auth"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
@@ -72,7 +73,20 @@ export const LandingPage: React.FC = () => {
   const handleGoogleSignIn = async () => {
     setError(null)
     try {
-      const result = await signInWithGoogle()
+      console.log("Tentative de connexion avec Google...", { 
+        signInWithGoogleExists: typeof signInWithGoogle === "function",
+        firebaseUtils: firebaseUtils
+      });
+      
+      // Essayer d'abord la fonction exportée directement
+      let result;
+      try {
+        result = await signInWithGoogle();
+      } catch (e) {
+        console.log("Erreur avec signInWithGoogle direct, essai avec firebaseUtils", e);
+        // Si ça échoue, essayer via l'export par défaut
+        result = await firebaseUtils.signInWithGoogle();
+      }
       if (result) {
         // Ne pas rediriger - laisser sur la page de sélection de consultant
       }
