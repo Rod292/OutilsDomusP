@@ -164,7 +164,18 @@ export async function signInWithGoogle() {
     // Vérifier si l'email a un domaine autorisé
     if (!hasAllowedEmailDomain(result.user.email || '')) {
       // Déconnecter l'utilisateur immédiatement
-      await auth.signOut();
+      console.log('Email non autorisé, déconnexion et suppression du compte:', result.user.email);
+      
+      try {
+        // Supprimer l'utilisateur de Firebase
+        await result.user.delete();
+        console.log('Utilisateur supprimé de Firebase');
+      } catch (deleteError) {
+        console.error('Erreur lors de la suppression de l\'utilisateur:', deleteError);
+        // Déconnexion en cas d'échec de suppression
+        await auth.signOut();
+      }
+      
       throw new Error('Vous n\'êtes pas autorisé à vous connecter. Contactez l\'administrateur.');
     }
     
