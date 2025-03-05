@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import { Header } from '../components/header';
 import EmailProfessionnelEditor from './components/EmailProfessionnelEditor';
 
-export default function EmailProfessionnel() {
+// Composant client qui utilise useSearchParams
+function EmailProfessionnelClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const consultant = searchParams.get('consultant');
@@ -57,9 +58,25 @@ export default function EmailProfessionnel() {
             <p className="text-lg text-gray-600 mt-2">Créez et personnalisez des emails professionnels</p>
           </div>
 
-          <EmailProfessionnelEditor />
+          <EmailProfessionnelEditor consultant={consultant} />
         </div>
       </div>
     </div>
+  );
+}
+
+// Page principale avec Suspense
+export default function EmailProfessionnel() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#DC0032] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement...</p>
+        </div>
+      </div>
+    }>
+      <EmailProfessionnelClient />
+    </Suspense>
   );
 } 

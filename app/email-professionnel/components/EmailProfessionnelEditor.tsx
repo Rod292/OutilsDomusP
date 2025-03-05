@@ -15,8 +15,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
-import { AlertCircle, Bold, Italic, Underline, List, ListOrdered, Image, Paperclip, Save, Send, Eye, Trash2, Plus, FileText } from 'lucide-react';
+import { AlertCircle, Bold, Italic, Underline, List, ListOrdered, Image, Paperclip, Save, Send, Eye, Trash2, Plus, FileText, Upload } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import Papa from 'papaparse';
+import { GMAIL_CONFIG } from '@/app/newsletter/components/gmail-config';
 
 // Types pour nos templates d'emails
 type EmailTemplate = {
@@ -28,7 +31,14 @@ type EmailTemplate = {
   updatedAt: any;
 };
 
-export default function EmailProfessionnelEditor() {
+// Type pour les destinataires
+type Recipient = {
+  email: string;
+  name: string;
+  company?: string;
+};
+
+export default function EmailProfessionnelEditor({ consultant }: { consultant: string | null }) {
   // État pour le contenu HTML de l'email
   const [htmlContent, setHtmlContent] = useState<string>('');
   // État pour le sujet de l'email
@@ -57,6 +67,19 @@ export default function EmailProfessionnelEditor() {
   const [templateToDelete, setTemplateToDelete] = useState<string>('');
   // Référence à l'éditeur
   const editorRef = useRef<HTMLDivElement>(null);
+  // État pour les destinataires CSV
+  const [recipients, setRecipients] = useState<Recipient[]>([]);
+  // État pour l'aperçu CSV
+  const [csvPreview, setCsvPreview] = useState<Recipient[]>([]);
+  // État pour les messages d'erreur et de succès
+  const [error, setError] = useState<string>('');
+  const [success, setSuccess] = useState<string>('');
+  // État pour le nom de l'expéditeur
+  const [senderName, setSenderName] = useState<string>('');
+  // État pour l'authentification Gmail
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  // État pour les résultats d'envoi
+  const [sendResult, setSendResult] = useState<{ success: number; failed: number } | null>(null);
 
   // Charger les templates sauvegardés au chargement du composant
   useEffect(() => {
@@ -326,60 +349,51 @@ export default function EmailProfessionnelEditor() {
     }
   };
 
-  // Créer un template par défaut
+  // Charger un template par défaut
   const createDefaultTemplate = (): EmailTemplate => {
-    return {
-      name: 'Template par défaut',
-      subject: 'Opportunité immobilière exceptionnelle',
-      htmlContent: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202025-01-20%20at%2015.22.07-2zK5QMuADUDloHaTHRigGM1AMVs4hq.png" alt="Arthur Loyd" style="max-width: 200px;">
-          </div>
-          
-          <p style="margin-bottom: 15px;">Bonjour {{name}},</p>
-          
-          <p style="margin-bottom: 15px;">J'espère que ce message vous trouve en pleine forme.</p>
-          
-          <p style="margin-bottom: 15px;">Je me permets de vous contacter au sujet d'une opportunité immobilière exceptionnelle qui pourrait intéresser {{company}}.</p>
-          
-          <p style="margin-bottom: 15px;">Il s'agit d'un local commercial de 150m² situé en plein centre-ville de Rennes, dans un quartier en pleine expansion. Ce bien bénéficie d'une excellente visibilité et d'un fort passage piéton.</p>
-          
-          <p style="margin-bottom: 15px;">Caractéristiques principales :</p>
-          <ul style="margin-bottom: 15px;">
-            <li>Surface : 150m²</li>
-            <li>Emplacement : Centre-ville de Rennes</li>
-            <li>Disponibilité : Immédiate</li>
-            <li>Loyer : 2 500€ HT/mois</li>
-          </ul>
-          
-          <p style="margin-bottom: 15px;">Je reste à votre disposition pour organiser une visite ou vous fournir des informations complémentaires.</p>
-          
-          <p style="margin-bottom: 15px;">Bien cordialement,</p>
-          
-          <p style="margin-bottom: 15px;">{{consultant}}<br>Arthur Loyd Bretagne</p>
-          
-          <div style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px; font-size: 12px; color: #777; text-align: center;">
-            <p>Arthur Loyd Bretagne - 1 Place de la Gare, 35000 Rennes</p>
-            <p>Pour vous désinscrire, <a href="https://etatdeslieux.vercel.app/unsubscribe?email={{email}}" style="color: #777;">cliquez ici</a></p>
-          </div>
+    // Créer un template par défaut avec seulement le logo dans l'en-tête et le pied de page
+    const defaultHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <!-- En-tête avec logo -->
+        <div style="text-align: center; padding: 20px 0; border-bottom: 1px solid #eee;">
+          <img src="/images/logo-arthur-loyd.png" alt="Arthur Loyd" style="max-width: 200px; height: auto;">
         </div>
-      `,
+        
+        <!-- Corps de l'email vide -->
+        <div style="padding: 20px; min-height: 300px;">
+          <!-- Le contenu sera ajouté ici -->
+        </div>
+        
+        <!-- Pied de page avec logo -->
+        <div style="text-align: center; padding: 20px 0; border-top: 1px solid #eee; font-size: 12px; color: #777;">
+          <img src="/images/logo-arthur-loyd.png" alt="Arthur Loyd" style="max-width: 150px; height: auto; margin-bottom: 10px;">
+          <p>Arthur Loyd - Conseil en immobilier d'entreprise</p>
+        </div>
+      </div>
+    `;
+    
+    return {
+      name: "Template par défaut",
+      htmlContent: defaultHtml,
+      subject: "Sujet par défaut",
       createdAt: new Date(),
       updatedAt: new Date()
     };
   };
 
-  // Ajouter un élément au contenu HTML
+  // Fonction pour ajouter un élément à l'éditeur
   const addElement = (elementType: string) => {
     if (!editorRef.current) return;
     
+    // Obtenir la sélection actuelle
     const selection = window.getSelection();
-    const range = selection?.getRangeAt(0);
+    if (!selection) return;
     
-    if (!range) return;
+    // Créer un range à partir de la sélection
+    const range = selection.getRangeAt(0);
     
-    let newElement = '';
+    // Créer l'élément à insérer
+    let element: HTMLImageElement | null = null;
     
     switch (elementType) {
       case 'bold':
@@ -400,21 +414,65 @@ export default function EmailProfessionnelEditor() {
       case 'image':
         const imageUrl = prompt('Entrez l\'URL de l\'image:');
         if (imageUrl) {
-          newElement = `<div style="text-align: center; margin: 15px 0;"><img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto;"></div>`;
-          document.execCommand('insertHTML', false, newElement);
+          element = document.createElement('img');
+          element.src = imageUrl;
+          element.style.maxWidth = '100%';
+          element.alt = 'Image';
         }
         break;
       case 'attachment':
-        toast({
-          title: "Information",
-          description: "La fonctionnalité d'attachement sera disponible prochainement",
-        });
+        alert('Fonctionnalité de pièce jointe non disponible pour le moment.');
         break;
-      default:
+      case 'font-size':
+        const size = prompt('Entrez la taille de police (en px):', '16');
+        if (size) {
+          document.execCommand('fontSize', false, '7');
+          const fontElements = editorRef.current.getElementsByTagName('font');
+          if (fontElements.length > 0) {
+            const lastFont = fontElements[fontElements.length - 1];
+            lastFont.removeAttribute('size');
+            lastFont.style.fontSize = `${size}px`;
+          }
+        }
+        break;
+      case 'font-family':
+        const font = prompt('Entrez la police de caractères:', 'Arial');
+        if (font) {
+          document.execCommand('fontName', false, font);
+        }
+        break;
+      case 'text-color':
+        const color = prompt('Entrez la couleur du texte (nom ou code hex):', '#000000');
+        if (color) {
+          document.execCommand('foreColor', false, color);
+        }
+        break;
+      case 'signature':
+        // Insérer la signature du consultant
+        if (consultant) {
+          const signatureHtml = `
+            <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">
+              <p style="margin: 0; font-weight: bold;">${consultant}</p>
+              <p style="margin: 0;">Arthur Loyd - Conseil en immobilier d'entreprise</p>
+              <p style="margin: 0; font-size: 12px; color: #777;">Tel: 02 99 XX XX XX | Email: ${consultant.toLowerCase()}@arthur-loyd.com</p>
+            </div>
+          `;
+          document.execCommand('insertHTML', false, signatureHtml);
+        }
         break;
     }
     
-    // Mettre à jour le contenu HTML après modification
+    // Insérer l'élément créé s'il existe
+    if (element) {
+      range.deleteContents();
+      range.insertNode(element);
+      range.setStartAfter(element);
+      range.setEndAfter(element);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+    
+    // Mettre à jour le contenu HTML
     setHtmlContent(editorRef.current.innerHTML);
   };
 
@@ -453,6 +511,207 @@ export default function EmailProfessionnelEditor() {
       title: "Copié !",
       description: "L'email a été copié dans le presse-papier",
     });
+  };
+
+  // Gérer l'upload de fichier CSV
+  const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    setError('');
+    setSuccess('');
+    
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const data = results.data as any[];
+        
+        // Vérifier si les colonnes requises existent
+        if (data.length > 0) {
+          if (!data[0].email) {
+            setError('Le fichier CSV doit contenir une colonne "email"');
+            return;
+          }
+          
+          // Vérifier les colonnes recommandées
+          const hasNameColumn = 'name' in data[0];
+          const hasCompanyColumn = 'company' in data[0];
+          
+          if (!hasNameColumn || !hasCompanyColumn) {
+            console.warn(`Attention: Colonnes manquantes dans le CSV - ${!hasNameColumn ? '"name"' : ''} ${!hasCompanyColumn ? '"company"' : ''}`);
+          }
+          
+          // Créer les destinataires à partir des données CSV
+          const parsedRecipients: Recipient[] = data
+            .filter(row => row.email && row.email.trim() !== '')
+            .map(row => {
+              const recipient: Recipient = {
+                email: row.email.trim(),
+                name: (row.name || '').trim(),
+                company: (row.company || '').trim()
+              };
+              
+              return recipient;
+            });
+          
+          if (parsedRecipients.length === 0) {
+            setError('Aucun destinataire valide trouvé dans le fichier CSV');
+            return;
+          }
+          
+          setRecipients(parsedRecipients);
+          // Afficher un aperçu des 3 premiers destinataires
+          setCsvPreview(parsedRecipients.slice(0, 3));
+          setSuccess(`${parsedRecipients.length} destinataires chargés avec succès.${!hasNameColumn || !hasCompanyColumn ? '\nNote: Certaines colonnes sont manquantes, la personnalisation sera limitée.' : ''}`);
+        } else {
+          setError('Le fichier CSV est vide ou mal formaté');
+        }
+      },
+      error: (error) => {
+        console.error('Erreur CSV:', error);
+        setError(`Erreur lors de l'analyse du fichier CSV: ${error.message}`);
+      }
+    });
+  };
+
+  // Vérifier le statut d'authentification Gmail
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      try {
+        const response = await fetch('/api/gmail-auth');
+        const data = await response.json();
+        setIsAuthenticated(data.isAuthenticated);
+      } catch (error) {
+        console.error('Erreur lors de la vérification du statut d\'authentification:', error);
+      }
+    };
+
+    checkAuthStatus();
+  }, []);
+
+  // Gérer l'authentification Gmail
+  const handleAuthenticate = () => {
+    try {
+      // Construire l'URL de redirection basée sur l'origine actuelle
+      const origin = window.location.origin;
+      const redirectUri = `${origin}/newsletter/oauth-redirect`;
+      
+      // Construire l'URL d'authentification Google
+      const { CLIENT_ID, SCOPES } = GMAIL_CONFIG;
+      const scope = encodeURIComponent(SCOPES);
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+        `client_id=${encodeURIComponent(CLIENT_ID)}&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `response_type=code&` +
+        `scope=${scope}&` +
+        `access_type=offline&` +
+        `prompt=consent`;
+      
+      // Ouvrir la fenêtre d'authentification
+      const authWindow = window.open(authUrl, 'oauth', 'width=600,height=600');
+      
+      if (!authWindow) {
+        setError('Impossible d\'ouvrir la fenêtre d\'authentification. Veuillez vérifier que les popups sont autorisés.');
+        return;
+      }
+      
+      // Vérifier périodiquement si l'authentification est terminée
+      const checkAuth = setInterval(async () => {
+        try {
+          if (authWindow.closed) {
+            clearInterval(checkAuth);
+            
+            // Vérifier si l'authentification a réussi
+            const response = await fetch('/api/gmail-auth');
+            const data = await response.json();
+            
+            if (data.isAuthenticated) {
+              setIsAuthenticated(true);
+              setSuccess('Authentification Gmail réussie!');
+            }
+          }
+        } catch (error) {
+          console.error('Erreur lors de la vérification de l\'authentification:', error);
+        }
+      }, 1000);
+    } catch (error) {
+      console.error('Erreur lors de l\'authentification:', error);
+      setError('Erreur lors de l\'authentification Gmail');
+    }
+  };
+
+  // Gérer la déconnexion Gmail
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/gmail-auth/logout', { method: 'POST' });
+      setIsAuthenticated(false);
+      setSuccess('Déconnexion réussie');
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion:', error);
+      setError('Erreur lors de la déconnexion');
+    }
+  };
+
+  // Gérer l'envoi d'email via Gmail
+  const handleGmailSend = async () => {
+    if (!isAuthenticated) {
+      setError('Veuillez vous connecter à Gmail d\'abord');
+      return;
+    }
+    
+    if (recipients.length === 0) {
+      setError('Veuillez ajouter au moins un destinataire');
+      return;
+    }
+    
+    if (!subject) {
+      setError('Veuillez spécifier un sujet pour l\'email');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      // Envoyer les emails via l'API
+      const response = await fetch('/api/gmail-send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipients,
+          subject,
+          htmlContent,
+          senderName,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        setSendResult(result);
+        setSuccess(`${result.success} emails envoyés avec succès.`);
+      } else {
+        setError(`Erreur: ${result.message || 'Échec de l\'envoi des emails'}`);
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi des emails:', error);
+      setError('Erreur lors de l\'envoi des emails');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Gérer la complétion de l'envoi Gmail
+  const handleGmailComplete = (results: { success: number; failed: number }) => {
+    if (results.success > 0) {
+      setSuccess(`${results.success} emails envoyés avec succès via Gmail.`);
+    }
+    if (results.failed > 0) {
+      setError(`${results.failed} emails n'ont pas pu être envoyés.`);
+    }
+    setSendResult(results);
   };
 
   return (
@@ -679,48 +938,160 @@ export default function EmailProfessionnelEditor() {
         <TabsContent value="send" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Envoi de l'email</CardTitle>
+              <CardTitle>Envoyer l'email</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="recipient">Destinataire</Label>
-                <Input
-                  id="recipient"
-                  value={recipient}
-                  onChange={(e) => setRecipient(e.target.value)}
-                  placeholder="Adresse email du destinataire"
-                  className="mt-2"
+              <div className="space-y-2">
+                <Label htmlFor="email-subject">Sujet de l'email</Label>
+                <Input 
+                  id="email-subject" 
+                  value={subject} 
+                  onChange={(e) => setSubject(e.target.value)} 
+                  placeholder="Entrez le sujet de l'email" 
                 />
               </div>
               
-              <div>
-                <Label htmlFor="send-subject">Objet</Label>
-                <Input
-                  id="send-subject"
-                  value={emailSubject || subject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                  placeholder="Objet de l'email"
-                  className="mt-2"
+              <div className="space-y-2">
+                <Label htmlFor="sender-name">Nom de l'expéditeur (optionnel)</Label>
+                <Input 
+                  id="sender-name" 
+                  value={senderName} 
+                  onChange={(e) => setSenderName(e.target.value)} 
+                  placeholder="Laissez vide pour utiliser votre nom Gmail par défaut" 
                 />
+                <p className="text-sm text-gray-500">
+                  Note: Pour le mode Gmail, le nom d'expéditeur peut être remplacé par celui associé à votre compte Gmail pour des raisons de sécurité.
+                </p>
               </div>
               
-              <div>
-                <Label>Aperçu du contenu</Label>
-                <div className="border rounded-md p-4 mt-2 max-h-[300px] overflow-y-auto">
+              <div className="space-y-2">
+                <Label>Destinataires</Label>
+                
+                <div className="border border-dashed border-gray-300 rounded-md p-4 text-center">
+                  <Button
+                    variant="outline"
+                    className="mb-2"
+                    onClick={() => document.getElementById('csv-upload')?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Importer un fichier CSV
+                    <input
+                      id="csv-upload"
+                      type="file"
+                      accept=".csv"
+                      hidden
+                      onChange={handleCsvUpload}
+                    />
+                  </Button>
+                  <p className="text-sm text-gray-500">
+                    Le fichier CSV doit contenir les colonnes: email, name, company
+                  </p>
+                </div>
+                
+                {success && (
+                  <Alert variant="default" className="bg-green-50 text-green-800 border-green-200">
+                    <AlertDescription>{success}</AlertDescription>
+                  </Alert>
+                )}
+                
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                
+                {csvPreview.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium mb-2">Aperçu des données CSV (3 premiers destinataires) :</h4>
+                    <div className="border rounded-md overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Nom</TableHead>
+                            <TableHead>Entreprise</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {csvPreview.map((recipient, index) => (
+                            <TableRow key={index}>
+                              <TableCell>{recipient.email}</TableCell>
+                              <TableCell>{recipient.name || <em className="text-gray-400">Non spécifié</em>}</TableCell>
+                              <TableCell>{recipient.company || <em className="text-gray-400">Non spécifié</em>}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Exemple de personnalisation : "Bonjour {csvPreview[0]?.name || '{{name}}'}, Une opportunité exceptionnelle pour {csvPreview[0]?.company || '{{company}}'}."
+                    </p>
+                  </div>
+                )}
+                
+                {recipients.length > 0 && (
+                  <Alert variant="default" className="bg-blue-50 text-blue-800 border-blue-200">
+                    <AlertDescription>{recipients.length} destinataires prêts à recevoir l'email.</AlertDescription>
+                  </Alert>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Aperçu de l'email</Label>
+                <div className="border rounded-md p-4 bg-white">
                   <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
                 </div>
               </div>
               
-              <div className="flex gap-2 pt-4">
-                <Button variant="outline" onClick={handleCopyToClipboard} className="flex-1">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Copier
-                </Button>
-                <Button onClick={handleSendEmail} className="flex-1">
-                  <Send className="h-4 w-4 mr-2" />
-                  Envoyer
-                </Button>
+              <div className="space-y-2">
+                <Label>Méthode d'envoi</Label>
+                
+                <div className="border rounded-md p-4">
+                  <h4 className="text-sm font-medium mb-2">Envoi via Gmail</h4>
+                  
+                  {!isAuthenticated ? (
+                    <Button onClick={handleAuthenticate} variant="outline" className="w-full">
+                      Se connecter à Gmail
+                    </Button>
+                  ) : (
+                    <div className="space-y-2">
+                      <Alert variant="default" className="bg-green-50 text-green-800 border-green-200">
+                        <AlertDescription>Connecté à Gmail</AlertDescription>
+                      </Alert>
+                      
+                      <div className="flex gap-2">
+                        <Button 
+                          onClick={handleGmailSend} 
+                          disabled={loading || recipients.length === 0} 
+                          className="flex-1"
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          Envoyer via Gmail
+                        </Button>
+                        
+                        <Button onClick={handleLogout} variant="outline">
+                          Déconnexion
+                        </Button>
+                      </div>
+                      
+                      {sendResult && (
+                        <Alert variant={sendResult.failed > 0 ? "destructive" : "default"} className={sendResult.failed > 0 ? "" : "bg-green-50 text-green-800 border-green-200"}>
+                          <AlertDescription>
+                            {sendResult.success} emails envoyés avec succès.
+                            {sendResult.failed > 0 && ` ${sendResult.failed} emails ont échoué.`}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
+              
+              <Button onClick={handleCopyToClipboard} variant="outline" className="w-full">
+                <FileText className="h-4 w-4 mr-2" />
+                Copier le HTML dans le presse-papier
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
