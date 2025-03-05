@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app"
-import { getFirestore } from "firebase/firestore"
+import { getFirestore, Firestore } from "firebase/firestore"
 import { 
   getAuth, 
   GoogleAuthProvider, 
@@ -17,11 +17,20 @@ console.log('Environment Variables Check:', {
   NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
 });
 
+// Vérifier que les variables d'environnement essentielles sont définies
+if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+  console.error('NEXT_PUBLIC_FIREBASE_API_KEY n\'est pas défini');
+}
+
+if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
+  console.error('NEXT_PUBLIC_FIREBASE_PROJECT_ID n\'est pas défini');
+}
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebaseapp.com`,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebasestorage.app`,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '602323147221',
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:602323147221:web:7a1d976ac0478b593b455c',
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || ''
@@ -36,36 +45,62 @@ console.log('Initializing Firebase...');
 
 // Initialize Firebase
 let app: FirebaseApp;
-if (!getApps().length) {
-  console.log('Creating new Firebase app');
-  app = initializeApp(firebaseConfig);
-} else {
-  console.log('Using existing Firebase app');
-  app = getApp();
-}
-
-// Initialize Firestore
-const db = getFirestore(app);
-console.log('Firestore initialized');
-
-// Initialize Auth only in browser environment
+let db: Firestore;
 let auth: Auth;
-if (typeof window !== 'undefined') {
-  auth = getAuth(app);
-  console.log('Auth initialized (browser environment)', { authInitialized: !!auth });
-} else {
-  // Créer un objet factice pour SSR
+
+try {
+  if (!getApps().length) {
+    console.log('Creating new Firebase app');
+    app = initializeApp(firebaseConfig);
+  } else {
+    console.log('Using existing Firebase app');
+    app = getApp();
+  }
+
+  // Initialize Firestore
+  console.log('Initializing Firestore...');
+  db = getFirestore(app);
+  console.log('Firestore initialized:', {
+    dbType: typeof db,
+    dbExists: !!db,
+    dbProperties: Object.keys(db)
+  });
+
+  // Initialize Auth only in browser environment
+  if (typeof window !== 'undefined') {
+    console.log('Initializing Auth in browser environment...');
+    auth = getAuth(app);
+    console.log('Auth initialized (browser environment)', { 
+      authInitialized: !!auth,
+      authType: typeof auth,
+      authProperties: Object.keys(auth)
+    });
+  } else {
+    // Créer un objet factice pour SSR
+    console.log('Creating Auth mock for SSR...');
+    auth = {} as Auth;
+    console.log('Auth mock created for SSR');
+  }
+} catch (error) {
+  console.error('Erreur lors de l\'initialisation de Firebase:', error);
+  // Créer des objets factices en cas d'erreur
+  app = {} as FirebaseApp;
+  db = {} as Firestore;
   auth = {} as Auth;
-  console.log('Auth mock created for SSR');
 }
 
 // Fonction utilitaire pour uploader une image
 const uploadImage = async (file: File, path: string) => {
   console.log('uploadImage called', { fileSize: file.size, path });
-  const storage = getStorage(app);
-  const storageRef = ref(storage, path);
-  const snapshot = await uploadBytes(storageRef, file);
-  return await getDownloadURL(snapshot.ref);
+  try {
+    const storage = getStorage(app);
+    const storageRef = ref(storage, path);
+    const snapshot = await uploadBytes(storageRef, file);
+    return await getDownloadURL(snapshot.ref);
+  } catch (error) {
+    console.error('Erreur lors de l\'upload de l\'image:', error);
+    throw error;
+  }
 }
 
 // Fonction pour se connecter avec Google

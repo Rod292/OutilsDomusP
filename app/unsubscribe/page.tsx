@@ -6,6 +6,7 @@ import { Box, Typography, Button, Paper, Alert, CircularProgress } from '@mui/ma
 export default function UnsubscribePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [errorDetails, setErrorDetails] = useState<any>(null);
   const [success, setSuccess] = useState(false);
   const [email, setEmail] = useState('');
 
@@ -14,10 +15,15 @@ export default function UnsubscribePage() {
     const params = new URLSearchParams(window.location.search);
     const emailParam = params.get('email');
     
+    console.log('Email param from URL:', emailParam);
+    
     if (emailParam) {
-      setEmail(decodeURIComponent(emailParam));
+      const decodedEmail = decodeURIComponent(emailParam);
+      console.log('Decoded email:', decodedEmail);
+      setEmail(decodedEmail);
       setLoading(false);
     } else {
+      console.error('Email param missing from URL');
       setError('Lien de désinscription invalide. Veuillez vérifier que vous avez utilisé le lien complet de l\'email.');
       setLoading(false);
     }
@@ -26,10 +32,13 @@ export default function UnsubscribePage() {
   const handleUnsubscribe = async () => {
     try {
       setLoading(true);
+      setError('');
+      setErrorDetails(null);
 
       // Appeler notre API de désinscription
       const baseUrl = window.location.origin;
       console.log('Appel API:', `${baseUrl}/api/unsubscribe`);
+      console.log('Email à désinscrire:', email);
       
       const response = await fetch(`${baseUrl}/api/unsubscribe`, {
         method: 'POST',
@@ -44,6 +53,8 @@ export default function UnsubscribePage() {
       console.log('Réponse API data:', data);
 
       if (!response.ok) {
+        console.error('Erreur API:', data);
+        setErrorDetails(data);
         throw new Error(data.error || 'Une erreur est survenue lors de la désinscription.');
       }
 
@@ -95,7 +106,29 @@ export default function UnsubscribePage() {
         />
 
         {error ? (
-          <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+          <>
+            <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+            {errorDetails && (
+              <Box sx={{ mt: 2, mb: 2, textAlign: 'left', p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                <Typography variant="caption" component="pre" sx={{ whiteSpace: 'pre-wrap', fontSize: '0.7rem' }}>
+                  {JSON.stringify(errorDetails, null, 2)}
+                </Typography>
+              </Box>
+            )}
+            <Button
+              variant="contained"
+              onClick={handleUnsubscribe}
+              sx={{
+                bgcolor: '#DC0032',
+                '&:hover': {
+                  bgcolor: '#B00028',
+                },
+                mt: 2
+              }}
+            >
+              Réessayer
+            </Button>
+          </>
         ) : success ? (
           <>
             <Alert severity="success" sx={{ mb: 2 }}>
