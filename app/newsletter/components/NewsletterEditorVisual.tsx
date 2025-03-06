@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db, storage } from '@/lib/firebase';
 import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { uploadImage } from '@/lib/firebase';
@@ -11,6 +11,7 @@ import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 // Ajouter l'import pour react-beautiful-dnd
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import EmojiPicker from './EmojiPicker';
+import NewsletterPreview from './NewsletterPreview';
 
 // Types pour nos templates de newsletter
 type NewsletterTemplate = {
@@ -77,6 +78,10 @@ export default function NewsletterEditorVisual() {
   const [user, setUser] = useState<User | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [showAddSectionModal, setShowAddSectionModal] = useState(false);
+  // Référence pour l'élément de prévisualisation
+  const previewRef = useRef<HTMLDivElement>(null);
+  // État pour stocker la position de défilement
+  const [scrollPosition, setScrollPosition] = useState<number>(0);
 
   // Charger le template par défaut au chargement
   useEffect(() => {
