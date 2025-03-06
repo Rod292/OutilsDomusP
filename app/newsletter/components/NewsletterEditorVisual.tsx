@@ -23,7 +23,7 @@ type NewsletterTemplate = {
 
 type NewsletterSection = {
   id: string;
-  type: 'header' | 'headline' | 'content' | 'photos' | 'characteristics' | 'location' | 'availability' | 'footer' | 'custom' | 'surface';
+  type: 'header' | 'headline' | 'content' | 'photos' | 'characteristics' | 'location' | 'availability' | 'footer' | 'custom' | 'surface' | 'button';
   content: {
     logo?: string;
     image?: string;
@@ -63,6 +63,15 @@ type NewsletterSection = {
       icon: string;
       title?: string;
       content: string;
+    };
+    button?: {
+      text: string;
+      backgroundColor: string;
+      textColor: string;
+      emailTo: string;
+      emailSubject: string;
+      emailBody?: string;
+      width?: string;
     };
     surfaceBackgroundColor?: string; // Nouvelle propriété pour la couleur de fond
     surfaceTextColor?: string; // Nouvelle propriété pour la couleur du texte
@@ -1439,19 +1448,19 @@ export default function NewsletterEditorVisual() {
                             <td valign="middle" style="padding-right: 10px; color: #e50019; font-size: 24px; text-shadow: 0 1px 1px rgba(0,0,0,0.1);">${section.content.custom?.icon || '✨'}</td>
                             <td valign="middle">
                               <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || section.content.custom?.title || 'Section personnalisée'}</h2>
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-                </table>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
                 </div>
                 
                 <div class="info-section" style="background-color: #ffffff; padding: 25px; border-radius: 12px; margin: 20px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border-left: 3px solid #e50019; border: 1px solid #e0e0e0;">
-                  <p style="color: #333333;">${section.content.custom?.content || ''}</p>
+                  <div style="font-family: 'Open Sans', Arial, sans-serif; line-height: 1.6; color: #333333;">${section.content.custom?.content || ''}</div>
                 </div>
                 `;
-              
+                
               case 'surface':
                 if (!section.content.surfaceValue) return '';
                 
@@ -1471,6 +1480,17 @@ export default function NewsletterEditorVisual() {
                     <div style="font-family: 'Montserrat', Arial, sans-serif; font-size: 36px; font-weight: 700;">${surfaceValue} ${surfaceUnit}</div>
                     ${section.content.surfaceDescription ? `<p style="margin-top: 15px; font-family: 'Montserrat', Arial, sans-serif;">${section.content.surfaceDescription}</p>` : ''}
                   </div>
+                </div>
+                `;
+              
+              case 'button':
+                return `
+                <!-- SECTION BOUTON -->
+                <div style="text-align: center; padding: 30px 0;">
+                  <a href="mailto:${section.content.button?.emailTo || 'contact@arthurloydbretagne.fr'}?subject=${encodeURIComponent(section.content.button?.emailSubject || 'Demande d\'information')}${section.content.button?.emailBody ? `&body=${encodeURIComponent(section.content.button?.emailBody)}` : ''}" 
+                     style="display: inline-block; width: ${section.content.button?.width || '80%'}; background-color: ${section.content.button?.backgroundColor || '#e50019'}; color: ${section.content.button?.textColor || '#ffffff'}; font-family: 'Montserrat', Arial, sans-serif; font-size: 18px; font-weight: 700; text-decoration: none; padding: 15px 20px; border-radius: 5px; text-align: center; letter-spacing: 0.5px;">
+                    ${section.content.button?.text || 'DEMANDER PLUS D\'INFORMATIONS'}
+                  </a>
                 </div>
                 `;
               
@@ -1777,8 +1797,24 @@ export default function NewsletterEditorVisual() {
             availability: {
               date: 'Immédiate',
               details: 'Contactez-nous pour plus d\'informations',
-              dateLabel: 'Date de disponibilité',
-              detailsLabel: 'Détails supplémentaires'
+            }
+          }
+        };
+        break;
+      
+      case 'button':
+        newSection = {
+          id: newId,
+          type: 'button',
+          content: {
+            button: {
+              text: 'DEMANDER PLUS D\'INFORMATIONS',
+              backgroundColor: '#e50019',
+              textColor: '#ffffff',
+              emailTo: 'contact@arthurloydbretagne.fr',
+              emailSubject: 'Demande d\'information PEM SUD',
+              emailBody: '',
+              width: '80%'
             }
           }
         };
@@ -2132,6 +2168,7 @@ export default function NewsletterEditorVisual() {
       { type: 'location', label: 'Localisation', icon: '📍', description: 'Ajouter des informations de localisation' },
       { type: 'surface', label: 'Surface', icon: '📏', description: 'Ajouter une section dédiée à la surface' },
       { type: 'availability', label: 'Disponibilité', icon: '📅', description: 'Ajouter des informations de disponibilité' },
+      { type: 'button', label: 'Bouton', icon: '🔘', description: 'Ajouter un bouton d\'appel à l\'action' },
       { type: 'footer', label: 'Pied de page', icon: '🔄', description: 'Ajouter un pied de page avec liens sociaux' },
       { type: 'custom', label: 'Section personnalisée', icon: '✨', description: 'Ajouter une section personnalisée' }
     ];
@@ -2317,6 +2354,8 @@ export default function NewsletterEditorVisual() {
                       {section.type === 'characteristics' && 'Caractéristiques'}
                       {section.type === 'location' && 'Localisation'}
                       {section.type === 'availability' && 'Disponibilité'}
+                      {section.type === 'button' && 'Bouton d\'action'}
+                      {section.type === 'surface' && 'Surface'}
                                   {section.type === 'footer' && 'Pied de page'}
                     </h3>
                                 <div className="flex space-x-2">
@@ -2358,7 +2397,7 @@ export default function NewsletterEditorVisual() {
 
                               {/* Champ pour personnaliser le titre de la section */}
                               {!section.isCollapsed && section.type !== 'header' && section.type !== 'footer' && 
-                               section.type !== 'headline' && section.type !== 'content' && section.type !== 'photos' && (
+                               section.type !== 'headline' && section.type !== 'content' && section.type !== 'photos' && section.type !== 'characteristics' && section.type !== 'location' && section.type !== 'availability' && section.type !== 'button' && section.type !== 'surface' && (
                                 <div className="mb-4">
                                   <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Titre affiché de la section
@@ -2374,7 +2413,9 @@ export default function NewsletterEditorVisual() {
                                       section.type === 'characteristics' ? 'Caractéristiques' :
                                       section.type === 'location' ? 'Localisation' :
                                       section.type === 'availability' ? 'Disponibilité' :
-                                      section.type === 'custom' ? 'Section personnalisée' : ''
+                                      section.type === 'button' ? 'Bouton d\'action' :
+                                      section.type === 'custom' ? 'Section personnalisée' :
+                                      section.type === 'surface' ? 'Surface' : ''
                                     }
                                     className="w-full p-2 border rounded"
                                   />
@@ -3329,6 +3370,173 @@ export default function NewsletterEditorVisual() {
                               + Ajouter un lien social
                             </button>
                           </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {section.type === 'button' && (
+                      <div className="flex flex-col gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Texte du bouton
+                          </label>
+                          <input
+                            type="text"
+                            value={section.content.button?.text || ''}
+                            onChange={(e) => updateSection(section.id, {
+                              ...section,
+                              content: {
+                                ...section.content,
+                                button: {
+                                  ...(section.content.button || {}),
+                                  text: e.target.value
+                                }
+                              }
+                            })}
+                            className="w-full p-2 border rounded"
+                            placeholder="DEMANDER PLUS D'INFORMATIONS"
+                          />
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Couleur de fond
+                            </label>
+                            <input
+                              type="color"
+                              value={section.content.button?.backgroundColor || '#e50019'}
+                              onChange={(e) => updateSection(section.id, {
+                                ...section,
+                                content: {
+                                  ...section.content,
+                                  button: {
+                                    ...(section.content.button || {}),
+                                    backgroundColor: e.target.value
+                                  }
+                                }
+                              })}
+                              className="w-full p-1 border rounded h-10"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Couleur du texte
+                            </label>
+                            <input
+                              type="color"
+                              value={section.content.button?.textColor || '#ffffff'}
+                              onChange={(e) => updateSection(section.id, {
+                                ...section,
+                                content: {
+                                  ...section.content,
+                                  button: {
+                                    ...(section.content.button || {}),
+                                    textColor: e.target.value
+                                  }
+                                }
+                              })}
+                              className="w-full p-1 border rounded h-10"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Adresse email de destination
+                          </label>
+                          <input
+                            type="email"
+                            value={section.content.button?.emailTo || ''}
+                            onChange={(e) => updateSection(section.id, {
+                              ...section,
+                              content: {
+                                ...section.content,
+                                button: {
+                                  ...(section.content.button || {}),
+                                  emailTo: e.target.value
+                                }
+                              }
+                            })}
+                            className="w-full p-2 border rounded"
+                            placeholder="contact@arthurloydbretagne.fr"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Objet de l'email
+                          </label>
+                          <input
+                            type="text"
+                            value={section.content.button?.emailSubject || ''}
+                            onChange={(e) => updateSection(section.id, {
+                              ...section,
+                              content: {
+                                ...section.content,
+                                button: {
+                                  ...(section.content.button || {}),
+                                  emailSubject: e.target.value
+                                }
+                              }
+                            })}
+                            className="w-full p-2 border rounded"
+                            placeholder="Demande d'information PEM SUD"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Corps de l'email (optionnel)
+                          </label>
+                          <textarea
+                            value={section.content.button?.emailBody || ''}
+                            onChange={(e) => updateSection(section.id, {
+                              ...section,
+                              content: {
+                                ...section.content,
+                                button: {
+                                  ...(section.content.button || {}),
+                                  emailBody: e.target.value
+                                }
+                              }
+                            })}
+                            className="w-full p-2 border rounded"
+                            rows={3}
+                            placeholder="Bonjour, je souhaite obtenir plus d'informations..."
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Largeur du bouton
+                          </label>
+                          <input
+                            type="text"
+                            value={section.content.button?.width || '80%'}
+                            onChange={(e) => updateSection(section.id, {
+                              ...section,
+                              content: {
+                                ...section.content,
+                                button: {
+                                  ...(section.content.button || {}),
+                                  width: e.target.value
+                                }
+                              }
+                            })}
+                            className="w-full p-2 border rounded"
+                            placeholder="80%"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Exemple: 80%, 300px, etc.
+                          </p>
+                        </div>
+                        
+                        <div className="mt-2 p-3 bg-gray-50 rounded-md">
+                          <p className="text-sm text-gray-600">
+                            Ce bouton créera un lien "mailto:" qui ouvrira le client email du destinataire avec l'adresse, l'objet et le corps pré-remplis.
+                          </p>
                         </div>
                       </div>
                     )}
