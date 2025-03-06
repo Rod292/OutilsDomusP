@@ -945,187 +945,202 @@ export default function NewsletterEditorVisual() {
 
     return `
     <!DOCTYPE html>
-    <html>
+    <html lang="fr">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="x-apple-disable-message-reformatting">
+      <meta name="color-scheme" content="light">
+      <meta name="supported-color-schemes" content="light">
       <title>Newsletter PEM SUD</title>
-      <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+      <!--[if mso]>
+      <noscript>
+        <xml>
+          <o:OfficeDocumentSettings>
+            <o:PixelsPerInch>96</o:PixelsPerInch>
+          </o:OfficeDocumentSettings>
+        </xml>
+      </noscript>
+      <![endif]-->
       <style>
         body {
-          font-family: 'Montserrat', Arial, sans-serif;
+          font-family: 'Arial', sans-serif;
           margin: 0;
           padding: 0;
-          background-color: #f5f5f5;
-          color: #333;
-          line-height: 1.6;
+          background-color: #f0f0f0;
+          color: #333333;
+          -webkit-text-size-adjust: 100%;
+          -ms-text-size-adjust: 100%;
         }
-        
-        .container {
-          max-width: 600px;
+        .newsletter-container {
+          width: 100%;
+          max-width: 700px;
           margin: 0 auto;
           background-color: #ffffff;
         }
-        
         .header {
-          background-color: #2c3e50;
-          color: white;
-          padding: 20px;
           text-align: center;
+          padding: 20px;
+          background-color: #ffffff;
         }
-        
         .logo {
-          max-width: 150px;
+          max-width: 180px;
+          width: 180px;
           height: auto;
+          display: block;
+          margin: 0 auto;
         }
-        
-        .content {
-          padding: 20px;
-        }
-        
-        h1 {
-          color: #2c3e50;
-          font-size: 24px;
-          margin-top: 0;
-          margin-bottom: 20px;
-          text-align: center;
-        }
-        
-        p {
-          margin-bottom: 20px;
-          font-size: 16px;
-        }
-        
-        .greeting {
-          font-weight: 600;
-          font-size: 18px;
-          margin-bottom: 25px;
-        }
-        
-        .intro-text {
-          margin-bottom: 20px;
-        }
-        
-        .footer {
-          background-color: #2c3e50;
-          color: white;
-          padding: 20px;
-          text-align: center;
-          font-size: 14px;
-        }
-        
-        .footer a {
+        .headline {
+          background-color: #e50019;
           color: #ffffff;
-          text-decoration: underline;
+          text-align: center;
+          padding: 30px 20px;
+          font-family: 'Montserrat', Arial, sans-serif;
+          font-weight: 700;
+          font-size: 22px;
+          line-height: 1.4;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
         }
-        
-        .social-links {
-          margin-top: 15px;
+        .content {
+          padding: 30px 20px;
         }
-        
-        .social-links a {
-          display: inline-block;
-          margin: 0 10px;
+        .content h1 {
+          color: #2c3e50;
+          font-family: 'Montserrat', Arial, sans-serif;
+          font-size: 24px;
+          font-weight: 700;
+          margin-bottom: 25px;
+          text-align: center;
+          line-height: 1.3;
         }
-        
-        .social-icon {
-          width: 30px;
-          height: 30px;
-        }
-        
-        .button {
-          display: inline-block;
-          background-color: #e74c3c;
-          color: white;
-          padding: 12px 25px;
-          text-decoration: none;
-          border-radius: 5px;
+        .greeting {
+          font-family: 'Montserrat', Arial, sans-serif;
           font-weight: 600;
-          margin: 20px 0;
+          margin-bottom: 20px;
+          color: #2c3e50;
         }
-        
-        .characteristics {
+        .intro-text {
+          font-family: 'Open Sans', Arial, sans-serif;
+          margin-bottom: 20px;
+          line-height: 1.6;
+          color: #333333;
+        }
+        .project-photos {
           display: flex;
           flex-wrap: wrap;
-          justify-content: center;
+          justify-content: space-between;
+          align-items: flex-start;
           margin: 30px 0;
         }
-        
-        .characteristic {
+        .photo-container {
           width: 45%;
-          margin: 10px;
+          display: inline-block;
+          margin-bottom: 30px;
           text-align: center;
+          vertical-align: top;
         }
-        
-        .characteristic-icon {
-          font-size: 40px;
-          margin-bottom: 10px;
-          color: #2c3e50;
+        .photo-container img {
+          width: 100%;
+          height: 250px;
+          object-fit: cover;
+          border-radius: 8px;
+          box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+          margin-bottom: 15px;
         }
-        
-        .characteristic-title {
+        .photo-caption {
+          background-color: #2c3e50;
+          color: white;
+          padding: 8px;
+          border-radius: 5px;
+          margin-top: 10px;
+          font-family: 'Montserrat', Arial, sans-serif;
           font-weight: 600;
-          margin-bottom: 5px;
-          color: #2c3e50;
+          font-size: 14px;
         }
-        
-        .characteristic-value {
-          color: #555;
-        }
-        
-        .price {
-          font-size: 28px;
-          font-weight: 700;
-          color: #e74c3c;
+        .footer {
+          background-color: #464254 !important;
+          color: #ffffff;
+          padding: 50px 20px;
           text-align: center;
-          margin: 30px 0;
+          font-size: 14px;
+          line-height: 1.8;
         }
-        
-        .price-label {
+        .footer img {
+          max-width: 400px;
+          width: 100%;
+          height: auto;
+          display: inline-block;
+        }
+        .social-links {
+          margin: 25px 0;
+        }
+        .social-links a {
+          color: #ffffff;
+          text-decoration: none;
           font-size: 16px;
-          color: #777;
+          font-weight: 600;
           display: block;
-          margin-bottom: 5px;
+          padding: 8px 5px;
+          border-radius: 4px;
+          background-color: #363143;
+          white-space: nowrap;
         }
         
-        /* Styles responsives pour mobile */
-        @media only screen and (max-width: 480px) {
-          .container {
+        /* Styles spécifiques pour mobile */
+        @media only screen and (max-width: 600px) {
+          .photo-container {
             width: 100% !important;
+            height: auto !important;
+            line-height: normal !important;
+            margin-bottom: 25px;
           }
-          
-          h1 {
-            font-size: 22px !important;
+          .photo-container img {
+            height: auto !important;
+            max-height: 250px !important;
+            max-width: 100% !important;
           }
-          
-          .content {
-            padding: 15px !important;
+          .footer img {
+            max-width: 90%;
           }
-          
-          .characteristic {
-            width: 100% !important;
-            margin: 10px 0 !important;
+          .logo {
+            max-width: 160px !important;
+            width: 160px !important;
+            margin: 0 auto !important;
+            display: block !important;
+            float: none !important;
           }
-          
-          .secondary-photos td {
+          table[class="secondary-photos"] td {
             display: block !important;
             width: 100% !important;
             padding: 0 0 15px 0 !important;
           }
           
-          .secondary-photos img {
+          table[class="secondary-photos"] img {
             max-height: 150px !important;
           }
           
-          .secondary-photos div[style*="background-color: #2c3e50"] {
+          table[class="secondary-photos"] div[style*="background-color: #2c3e50"] {
             font-size: 11px !important;
             padding: 6px !important;
+            max-width: 90% !important;
+          }
+        }
+        
+        @media print {
+          body {
+            background-color: #ffffff;
+          }
+          .newsletter-container {
+            box-shadow: none;
+            border: none;
           }
         }
       </style>
     </head>
     <body>
-      <div class="container">
+      <div class="newsletter-container">
         <!-- En-tête fixe -->
         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff;">
           <tr>
