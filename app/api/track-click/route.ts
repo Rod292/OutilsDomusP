@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { trackEmailClick } from '@/app/newsletter/services/analytics';
 
+// Indiquer à Next.js que cette route est dynamique
+export const dynamic = 'force-dynamic';
+
 // Endpoint pour le tracking des clics sur les liens dans les emails
 // Sera utilisé comme proxy pour rediriger vers l'URL réelle après avoir enregistré le clic
 export async function GET(request: NextRequest) {
