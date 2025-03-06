@@ -2410,12 +2410,7 @@ export default function NewsletterEditorVisual() {
                                       customTitle: e.target.value
                                     })}
                                     placeholder={
-                                      section.type === 'characteristics' ? 'Caractéristiques' :
-                                      section.type === 'location' ? 'Localisation' :
-                                      section.type === 'availability' ? 'Disponibilité' :
-                                      section.type === 'button' ? 'Bouton d\'action' :
-                                      section.type === 'custom' ? 'Section personnalisée' :
-                                      section.type === 'surface' ? 'Surface' : ''
+                                      section.type === 'custom' ? 'Section personnalisée' : ''
                                     }
                                     className="w-full p-2 border rounded"
                                   />
