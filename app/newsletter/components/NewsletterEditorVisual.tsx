@@ -40,6 +40,7 @@ type NewsletterSection = {
       icon: string;
       title: string;
       value: string;
+      imageUrl?: string; // Nouvelle propriété pour stocker l'URL de l'image
     }>;
     locationFeatures?: string[];
     address?: string; // Ajout du champ adresse
@@ -1246,96 +1247,43 @@ export default function NewsletterEditorVisual() {
             const chars = section.content.characteristics;
             
             return `
-            <!-- SECTION CARACTÉRISTIQUES -->
+            <!-- CARACTÉRISTIQUES -->
             <div style="background-color: #ffffff; padding: 10px; border-radius: 8px; margin-top: 30px;">
               <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 15px 0 10px 0;">
                 <tr>
                   <td width="6" style="background-color: #e50019; padding: 0;" valign="top">&nbsp;</td>
                   <td width="15" style="padding: 0;"></td>
                   <td style="padding: 0;">
-                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                      <tr>
-                        <td valign="middle" style="padding-right: 10px; color: #e50019; font-size: 24px; text-shadow: 0 1px 1px rgba(0,0,0,0.1);">✨</td>
-                        <td valign="middle">
-                          <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || 'Section personnalisée'}</h2>
-                        </td>
-                      </tr>
-                    </table>
+                    <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || 'Caractéristiques'}</h2>
                   </td>
                 </tr>
               </table>
             </div>
             
-            <!-- GRID DE CARACTÉRISTIQUES -->
-            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0;">
-              <tr>
-                <td>
-                  <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                    <tr>
-                      ${chars.length >= 1 ? `
-                      <td width="49%" valign="top">
-                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e0e0e0; height: 220px; min-height: 220px;">
-                          <tr>
-                            <td align="center" style="padding: 25px 15px;">
-                              <div style="font-size: 32px; margin-bottom: 15px; color: #e50019; display: inline-block; background-color: rgba(229,0,25,0.08); width: 60px; height: 60px; line-height: 60px; border-radius: 50%;">${chars[0].icon}</div>
-                              <h3 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; margin-bottom: 12px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background-color: #ffffff;">${chars[0].title}</h3>
-                              <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; background-color: #ffffff;">${chars[0].value}</p>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                      ` : ''}
-                      
-                      <td width="2%">&nbsp;</td>
-                      ${chars.length >= 2 ? `
-                      <td width="49%" valign="top">
-                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e0e0e0; height: 220px; min-height: 220px;">
-                          <tr>
-                            <td align="center" style="padding: 25px 15px;">
-                              <div style="font-size: 32px; margin-bottom: 15px; color: #e50019; display: inline-block; background-color: rgba(229,0,25,0.08); width: 60px; height: 60px; line-height: 60px; border-radius: 50%;">${chars[1].icon}</div>
-                              <h3 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; margin-bottom: 12px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background-color: #ffffff;">${chars[1].title}</h3>
-                              <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; background-color: #ffffff;">${chars[1].value}</p>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                      ` : ''}
-                    </tr>
-                    <tr><td colspan="3" height="20"></td></tr>
-                    <tr>
-                      ${chars.length >= 3 ? `
-                      <td width="49%" valign="top">
-                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e0e0e0; height: 220px; min-height: 220px;">
-                          <tr>
-                            <td align="center" style="padding: 25px 15px;">
-                              <div style="font-size: 32px; margin-bottom: 15px; color: #e50019; display: inline-block; background-color: rgba(229,0,25,0.08); width: 60px; height: 60px; line-height: 60px; border-radius: 50%;">${chars[2].icon}</div>
-                              <h3 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; margin-bottom: 12px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background-color: #ffffff;">${chars[2].title}</h3>
-                              <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; background-color: #ffffff;">${chars[2].value}</p>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                      ` : ''}
-                      
-                      <td width="2%">&nbsp;</td>
-                      ${chars.length >= 4 ? `
-                      <td width="49%" valign="top">
-                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e0e0e0; height: 220px; min-height: 220px;">
-                          <tr>
-                            <td align="center" style="padding: 25px 15px;">
-                              <div style="font-size: 32px; margin-bottom: 15px; color: #e50019; display: inline-block; background-color: rgba(229,0,25,0.08); width: 60px; height: 60px; line-height: 60px; border-radius: 50%;">${chars[3].icon}</div>
-                              <h3 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; margin-bottom: 12px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background-color: #ffffff;">${chars[3].title}</h3>
-                              <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; background-color: #ffffff;">${chars[3].value}</p>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                      ` : ''}
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
+            <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; margin: 20px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border: 1px solid #e0e0e0;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                ${section.content.characteristics?.map((char, i) => `
+                  <tr>
+                    <td style="padding: 12px 0; ${i > 0 ? 'border-top: 1px solid #eaeaea;' : ''}">
+                      <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                        <tr>
+                          <td width="40" valign="top" style="padding-right: 15px;">
+                            ${char.imageUrl ? 
+                              `<img src="${char.imageUrl}" alt="${char.title}" style="width: 40px; height: 40px; object-fit: contain; display: block;" />` : 
+                              `<div style="font-size: 28px; color: #e50019; text-align: center; width: 40px;">${char.icon}</div>`
+                            }
+                          </td>
+                          <td>
+                            <p style="margin: 0; font-weight: 600; color: #2c3e50; font-size: 16px;">${char.title}</p>
+                            <p style="margin: 4px 0 0 0; color: #333333; font-size: 15px;">${char.value}</p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                `).join('')}
+              </table>
+            </div>
             `;
           
           case 'location':
@@ -1771,7 +1719,7 @@ export default function NewsletterEditorVisual() {
     if (sectionIndex === -1) return;
 
     const section = sections[sectionIndex];
-    const characteristics = [...(section.content.characteristics || []), { icon: '✨', title: 'Nouvelle caractéristique', value: 'Valeur' }];
+    const characteristics = [...(section.content.characteristics || []), { icon: '✨', title: 'Nouvelle caractéristique', value: 'Valeur', imageUrl: '' }];
 
     const updatedSection = {
       ...section,
@@ -2330,26 +2278,161 @@ export default function NewsletterEditorVisual() {
                             </button>
                           </div>
                           {section.content.paragraphs?.map((paragraph, index) => (
-                                          <div key={index} className="mb-2 relative">
+                            <div key={index} className="mb-4 relative border rounded-lg p-2">
+                              <div className="flex gap-2 mb-2 border-b pb-2">
+                                <button
+                                  onClick={() => {
+                                    const newParagraphs = [...(section.content.paragraphs || [])];
+                                    newParagraphs[index] = `<strong>${newParagraphs[index].replace(/<\/?strong>/g, '')}</strong>`;
+                                    updateSection(section.id, {
+                                      ...section,
+                                      content: { ...section.content, paragraphs: newParagraphs }
+                                    });
+                                  }}
+                                  className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 font-bold"
+                                  title="Mettre en gras"
+                                >
+                                  B
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const newParagraphs = [...(section.content.paragraphs || [])];
+                                    newParagraphs[index] = `<em>${newParagraphs[index].replace(/<\/?em>/g, '')}</em>`;
+                                    updateSection(section.id, {
+                                      ...section,
+                                      content: { ...section.content, paragraphs: newParagraphs }
+                                    });
+                                  }}
+                                  className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 italic"
+                                  title="Mettre en italique"
+                                >
+                                  I
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const newParagraphs = [...(section.content.paragraphs || [])];
+                                    newParagraphs[index] = `<u>${newParagraphs[index].replace(/<\/?u>/g, '')}</u>`;
+                                    updateSection(section.id, {
+                                      ...section,
+                                      content: { ...section.content, paragraphs: newParagraphs }
+                                    });
+                                  }}
+                                  className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 underline"
+                                  title="Souligner"
+                                >
+                                  U
+                                </button>
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => {
+                                      const target = e.currentTarget;
+                                      const colorPicker = target.nextElementSibling as HTMLInputElement;
+                                      if (colorPicker) colorPicker.click();
+                                    }}
+                                    className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 flex items-center"
+                                    title="Changer la couleur"
+                                  >
+                                    <span className="mr-1">A</span>
+                                    <div className="w-3 h-3 bg-black rounded-full"></div>
+                                  </button>
+                                  <input 
+                                    type="color" 
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const color = e.target.value;
+                                      const newParagraphs = [...(section.content.paragraphs || [])];
+                                      // Remplacer la couleur existante ou ajouter une nouvelle
+                                      if (newParagraphs[index].includes('color:')) {
+                                        newParagraphs[index] = newParagraphs[index].replace(/color:[^;"]+(;|")/, `color:${color}$1`);
+                                      } else {
+                                        newParagraphs[index] = `<span style="color:${color}">${newParagraphs[index].replace(/<\/?span[^>]*>/g, '')}</span>`;
+                                      }
+                                      updateSection(section.id, {
+                                        ...section,
+                                        content: { ...section.content, paragraphs: newParagraphs }
+                                      });
+                                    }}
+                                  />
+                                </div>
+                                <select
+                                  className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 text-sm"
+                                  onChange={(e) => {
+                                    const fontFamily = e.target.value;
+                                    const newParagraphs = [...(section.content.paragraphs || [])];
+                                    // Remplacer la police existante ou ajouter une nouvelle
+                                    if (newParagraphs[index].includes('font-family:')) {
+                                      newParagraphs[index] = newParagraphs[index].replace(/font-family:[^;"]+(;|")/, `font-family:${fontFamily}$1`);
+                                    } else {
+                                      newParagraphs[index] = `<span style="font-family:${fontFamily}">${newParagraphs[index].replace(/<\/?span[^>]*>/g, '')}</span>`;
+                                    }
+                                    updateSection(section.id, {
+                                      ...section,
+                                      content: { ...section.content, paragraphs: newParagraphs }
+                                    });
+                                  }}
+                                  title="Changer la police"
+                                >
+                                  <option value="inherit">Police</option>
+                                  <option value="'Montserrat', sans-serif">Montserrat</option>
+                                  <option value="'Arial', sans-serif">Arial</option>
+                                  <option value="'Georgia', serif">Georgia</option>
+                                  <option value="'Courier New', monospace">Courier</option>
+                                </select>
+                                <select
+                                  className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 text-sm"
+                                  onChange={(e) => {
+                                    const fontSize = e.target.value;
+                                    const newParagraphs = [...(section.content.paragraphs || [])];
+                                    // Remplacer la taille existante ou ajouter une nouvelle
+                                    if (newParagraphs[index].includes('font-size:')) {
+                                      newParagraphs[index] = newParagraphs[index].replace(/font-size:[^;"]+(;|")/, `font-size:${fontSize}$1`);
+                                    } else {
+                                      newParagraphs[index] = `<span style="font-size:${fontSize}">${newParagraphs[index].replace(/<\/?span[^>]*>/g, '')}</span>`;
+                                    }
+                                    updateSection(section.id, {
+                                      ...section,
+                                      content: { ...section.content, paragraphs: newParagraphs }
+                                    });
+                                  }}
+                                  title="Changer la taille"
+                                >
+                                  <option value="inherit">Taille</option>
+                                  <option value="12px">Petit</option>
+                                  <option value="16px">Normal</option>
+                                  <option value="20px">Grand</option>
+                                  <option value="24px">Très grand</option>
+                                </select>
+                              </div>
                               <textarea
-                                value={paragraph}
+                                value={paragraph.replace(/<[^>]+>/g, '')}
                                 onChange={(e) => {
                                   const newParagraphs = [...(section.content.paragraphs || [])];
-                                  newParagraphs[index] = e.target.value;
+                                  // Préserver le formatage existant
+                                  const existingFormatting = newParagraphs[index].match(/<([^>]+)>.*<\/\1>/);
+                                  if (existingFormatting) {
+                                    const tag = existingFormatting[1];
+                                    newParagraphs[index] = `<${tag}>${e.target.value}</${tag}>`;
+                                  } else {
+                                    newParagraphs[index] = e.target.value;
+                                  }
                                   updateSection(section.id, {
                                     ...section,
                                     content: { ...section.content, paragraphs: newParagraphs }
                                   });
                                 }}
-                                              className="w-full p-2 border rounded min-h-[100px] pr-8"
-                                            />
-                                            <button
-                                              onClick={() => deleteParagraph(section.id, index)}
-                                              className="absolute top-2 right-2 text-red-500 hover:bg-red-100 p-1 rounded"
-                                              title="Supprimer ce paragraphe"
-                                            >
-                                              🗑️
-                                            </button>
+                                className="w-full p-2 border rounded min-h-[100px] pr-8"
+                              />
+                              <div className="mt-2 text-xs text-gray-500">
+                                Aperçu:
+                                <div className="p-2 border rounded mt-1 bg-gray-50" dangerouslySetInnerHTML={{ __html: paragraph }}></div>
+                              </div>
+                              <button
+                                onClick={() => deleteParagraph(section.id, index)}
+                                className="absolute top-2 right-2 text-red-500 hover:bg-red-100 p-1 rounded"
+                                title="Supprimer ce paragraphe"
+                              >
+                                🗑️
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -2462,29 +2545,117 @@ export default function NewsletterEditorVisual() {
                                             <div className="grid grid-cols-1 gap-3">
                                               <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                  Icône
+                                                  Icône ou Image
                                                 </label>
-                                                <div className="flex items-center gap-3">
-                                                  <div className="text-3xl">
-                                                    {characteristic.icon}
+                                                <div className="flex flex-col gap-2">
+                                                  <div className="flex items-center gap-3">
+                                                    <div className="text-3xl">
+                                                      {characteristic.icon}
+                                                    </div>
+                                                    <EmojiPicker 
+                                                      currentEmoji={characteristic.icon} 
+                                                      onEmojiSelect={(emoji: string) => {
+                                                        const newCharacteristics = [...(section.content.characteristics || [])];
+                                                        newCharacteristics[index] = {
+                                                          ...newCharacteristics[index],
+                                                          icon: emoji
+                                                        };
+                                                        updateSection(section.id, {
+                                                          ...section,
+                                                          content: {
+                                                            ...section.content,
+                                                            characteristics: newCharacteristics
+                                                          }
+                                                        });
+                                                      }}
+                                                    />
                                                   </div>
-                                                  <EmojiPicker 
-                                                    currentEmoji={characteristic.icon} 
-                                                    onEmojiSelect={(emoji: string) => {
-                                                      const newCharacteristics = [...(section.content.characteristics || [])];
-                                                      newCharacteristics[index] = {
-                                                        ...newCharacteristics[index],
-                                                        icon: emoji
-                                                      };
-                                                      updateSection(section.id, {
-                                                        ...section,
-                                                        content: {
-                                                          ...section.content,
-                                                          characteristics: newCharacteristics
-                                                        }
-                                                      });
-                                                    }}
-                                                  />
+                                                  <div className="flex flex-col gap-2 mt-2">
+                                                    <label className="block text-sm font-medium text-gray-700">
+                                                      Ou utiliser une image
+                                                    </label>
+                                                    <div className="flex items-center gap-2">
+                                                      {characteristic.imageUrl && (
+                                                        <div className="relative w-12 h-12 border rounded overflow-hidden">
+                                                          <img 
+                                                            src={characteristic.imageUrl} 
+                                                            alt="Icône" 
+                                                            className="w-full h-full object-contain"
+                                                          />
+                                                        </div>
+                                                      )}
+                                                      <label className="cursor-pointer px-3 py-2 bg-blue-50 text-blue-700 rounded-md text-sm hover:bg-blue-100">
+                                                        {characteristic.imageUrl ? 'Changer l\'image' : 'Ajouter une image'}
+                                                        <input
+                                                          type="file"
+                                                          accept="image/png,image/jpeg,image/gif"
+                                                          className="hidden"
+                                                          onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (file) {
+                                                              // Créer une URL temporaire pour afficher l'image
+                                                              const tempUrl = URL.createObjectURL(file);
+                                                              
+                                                              // Mettre à jour l'état avec l'URL temporaire
+                                                              const newCharacteristics = [...(section.content.characteristics || [])];
+                                                              newCharacteristics[index] = { 
+                                                                ...newCharacteristics[index], 
+                                                                imageUrl: tempUrl 
+                                                              };
+                                                              updateSection(section.id, {
+                                                                ...section,
+                                                                content: { 
+                                                                  ...section.content, 
+                                                                  characteristics: newCharacteristics 
+                                                                }
+                                                              });
+                                                              
+                                                              // Uploader l'image vers Firebase Storage
+                                                              uploadImage(file, `newsletter-characteristics/${file.name}`).then(url => {
+                                                                const updatedCharacteristics = [...(section.content.characteristics || [])];
+                                                                updatedCharacteristics[index] = { 
+                                                                  ...updatedCharacteristics[index], 
+                                                                  imageUrl: url 
+                                                                };
+                                                                updateSection(section.id, {
+                                                                  ...section,
+                                                                  content: { 
+                                                                    ...section.content, 
+                                                                    characteristics: updatedCharacteristics 
+                                                                  }
+                                                                });
+                                                              }).catch(error => {
+                                                                console.error('Erreur lors de l\'upload de l\'image:', error);
+                                                                toast.error('Erreur lors de l\'upload de l\'image');
+                                                              });
+                                                            }
+                                                          }}
+                                                        />
+                                                      </label>
+                                                      {characteristic.imageUrl && (
+                                                        <button
+                                                          onClick={() => {
+                                                            const newCharacteristics = [...(section.content.characteristics || [])];
+                                                            newCharacteristics[index] = {
+                                                              ...newCharacteristics[index],
+                                                              imageUrl: ''
+                                                            };
+                                                            updateSection(section.id, {
+                                                              ...section,
+                                                              content: {
+                                                                ...section.content,
+                                                                characteristics: newCharacteristics
+                                                              }
+                                                            });
+                                                          }}
+                                                          className="px-2 py-1 text-red-600 text-sm hover:text-red-800"
+                                                          title="Supprimer l'image"
+                                                        >
+                                                          Supprimer
+                                                        </button>
+                                                      )}
+                                                    </div>
+                                                  </div>
                                                 </div>
                                               </div>
                                               <div>
