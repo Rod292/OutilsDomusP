@@ -79,23 +79,36 @@ export default function NewsletterEditorVisual() {
   const [user, setUser] = useState<User | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [showAddSectionModal, setShowAddSectionModal] = useState(false);
+  
   // Référence pour l'élément de prévisualisation
   const previewRef = useRef<HTMLDivElement>(null);
   // État pour stocker la position de défilement
   const [scrollPosition, setScrollPosition] = useState<number>(0);
-  
+
   // Fonction pour sauvegarder la position de défilement
   const saveScrollPosition = () => {
     if (previewRef.current) {
-      setScrollPosition(previewRef.current.scrollTop);
+      const position = previewRef.current.scrollTop;
+      const scrollHeight = previewRef.current.scrollHeight;
+      const clientHeight = previewRef.current.clientHeight;
+      setScrollPosition(position);
+      console.log('Position de défilement sauvegardée:', position);
+      console.log('Hauteur totale du contenu:', scrollHeight);
+      console.log('Hauteur visible du conteneur:', clientHeight);
+      console.log('Différence (défilable):', scrollHeight - clientHeight);
     }
   };
 
   // Fonction pour restaurer la position de défilement
   const restoreScrollPosition = () => {
-    if (previewRef.current) {
-      previewRef.current.scrollTop = scrollPosition;
-    }
+    requestAnimationFrame(() => {
+      if (previewRef.current) {
+        previewRef.current.scrollTop = scrollPosition;
+        console.log('Position de défilement restaurée:', scrollPosition);
+        console.log('Hauteur totale après restauration:', previewRef.current.scrollHeight);
+        console.log('Hauteur visible après restauration:', previewRef.current.clientHeight);
+      }
+    });
   };
 
   // Charger le template spécifique au chargement
@@ -665,8 +678,11 @@ export default function NewsletterEditorVisual() {
       console.log('Sections après mise à jour:', updatedSections);
       return updatedSections;
     });
-    // Restaurer la position de défilement après le rendu
-    setTimeout(restoreScrollPosition, 0);
+    
+    // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
+    requestAnimationFrame(() => {
+      setTimeout(restoreScrollPosition, 10);
+    });
   };
 
   // Fonctions pour gérer les liens sociaux
@@ -1664,8 +1680,10 @@ export default function NewsletterEditorVisual() {
     newSections[sectionIndex] = updatedSection;
     setSections(newSections);
     
-    // Restaurer la position de défilement après le rendu
-    setTimeout(restoreScrollPosition, 0);
+    // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
+    requestAnimationFrame(() => {
+      setTimeout(restoreScrollPosition, 10);
+    });
   };
 
   // Nouvelle fonction pour supprimer un paragraphe
@@ -1689,8 +1707,10 @@ export default function NewsletterEditorVisual() {
     newSections[sectionIndex] = updatedSection;
     setSections(newSections);
     
-    // Restaurer la position de défilement après le rendu
-    setTimeout(restoreScrollPosition, 0);
+    // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
+    requestAnimationFrame(() => {
+      setTimeout(restoreScrollPosition, 10);
+    });
   };
 
   // Nouvelle fonction pour ajouter une photo
@@ -1711,8 +1731,10 @@ export default function NewsletterEditorVisual() {
     newSections[sectionIndex] = updatedSection;
     setSections(newSections);
     
-    // Restaurer la position de défilement après le rendu
-    setTimeout(restoreScrollPosition, 0);
+    // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
+    requestAnimationFrame(() => {
+      setTimeout(restoreScrollPosition, 10);
+    });
   };
 
   // Nouvelle fonction pour supprimer une photo
@@ -1736,8 +1758,10 @@ export default function NewsletterEditorVisual() {
     newSections[sectionIndex] = updatedSection;
     setSections(newSections);
     
-    // Restaurer la position de défilement après le rendu
-    setTimeout(restoreScrollPosition, 0);
+    // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
+    requestAnimationFrame(() => {
+      setTimeout(restoreScrollPosition, 10);
+    });
   };
 
   // Nouvelle fonction pour ajouter une caractéristique
@@ -1758,8 +1782,10 @@ export default function NewsletterEditorVisual() {
     newSections[sectionIndex] = updatedSection;
     setSections(newSections);
     
-    // Restaurer la position de défilement après le rendu
-    setTimeout(restoreScrollPosition, 0);
+    // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
+    requestAnimationFrame(() => {
+      setTimeout(restoreScrollPosition, 10);
+    });
   };
 
   // Nouvelle fonction pour supprimer une caractéristique
@@ -1783,8 +1809,10 @@ export default function NewsletterEditorVisual() {
     newSections[sectionIndex] = updatedSection;
     setSections(newSections);
     
-    // Restaurer la position de défilement après le rendu
-    setTimeout(restoreScrollPosition, 0);
+    // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
+    requestAnimationFrame(() => {
+      setTimeout(restoreScrollPosition, 10);
+    });
   };
 
   // Nouvelle fonction pour ajouter une fonctionnalité de localisation
@@ -1805,8 +1833,10 @@ export default function NewsletterEditorVisual() {
     newSections[sectionIndex] = updatedSection;
     setSections(newSections);
     
-    // Restaurer la position de défilement après le rendu
-    setTimeout(restoreScrollPosition, 0);
+    // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
+    requestAnimationFrame(() => {
+      setTimeout(restoreScrollPosition, 10);
+    });
   };
 
   // Nouvelle fonction pour supprimer une fonctionnalité de localisation
@@ -1830,8 +1860,10 @@ export default function NewsletterEditorVisual() {
     newSections[sectionIndex] = updatedSection;
     setSections(newSections);
     
-    // Restaurer la position de défilement après le rendu
-    setTimeout(restoreScrollPosition, 0);
+    // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
+    requestAnimationFrame(() => {
+      setTimeout(restoreScrollPosition, 10);
+    });
   };
 
   // Nouvelle fonction pour réduire/développer une section
@@ -1847,8 +1879,10 @@ export default function NewsletterEditorVisual() {
     };
     setSections(newSections);
     
-    // Restaurer la position de défilement après le rendu
-    setTimeout(restoreScrollPosition, 0);
+    // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
+    requestAnimationFrame(() => {
+      setTimeout(restoreScrollPosition, 10);
+    });
   };
 
   // Nouvelle fonction pour déplacer une section vers le haut
@@ -1864,8 +1898,10 @@ export default function NewsletterEditorVisual() {
     
     setSections(newSections);
     
-    // Restaurer la position de défilement après le rendu
-    setTimeout(restoreScrollPosition, 0);
+    // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
+    requestAnimationFrame(() => {
+      setTimeout(restoreScrollPosition, 10);
+    });
   };
   
   // Nouvelle fonction pour déplacer une section vers le bas
@@ -1881,8 +1917,10 @@ export default function NewsletterEditorVisual() {
     
     setSections(newSections);
     
-    // Restaurer la position de défilement après le rendu
-    setTimeout(restoreScrollPosition, 0);
+    // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
+    requestAnimationFrame(() => {
+      setTimeout(restoreScrollPosition, 10);
+    });
   };
 
   // Composant de modal pour ajouter une section
@@ -2009,17 +2047,37 @@ export default function NewsletterEditorVisual() {
     // Mettre à jour l'état
     setSections(newSections);
     
-    // Restaurer la position de défilement après le rendu
-    setTimeout(restoreScrollPosition, 0);
+    // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
+    requestAnimationFrame(() => {
+      setTimeout(restoreScrollPosition, 10);
+    });
   };
 
   // Effet pour restaurer la position de défilement après chaque mise à jour des sections
   useEffect(() => {
     // Restaurer la position de défilement après le rendu
-    if (previewRef.current) {
-      previewRef.current.scrollTop = scrollPosition;
-    }
+    const timer = setTimeout(() => {
+      restoreScrollPosition();
+    }, 50);
+    
+    return () => clearTimeout(timer);
   }, [sections, scrollPosition]);
+
+  // Effet pour vérifier la hauteur du contenu après chaque rendu
+  useEffect(() => {
+    if (previewRef.current) {
+      const scrollHeight = previewRef.current.scrollHeight;
+      const clientHeight = previewRef.current.clientHeight;
+      console.log('Hauteur totale après rendu:', scrollHeight);
+      console.log('Hauteur visible après rendu:', clientHeight);
+      console.log('Différence (défilable):', scrollHeight - clientHeight);
+      
+      // Afficher les 100 premiers caractères du HTML généré
+      const html = generateHtml(sections);
+      console.log('Début du HTML généré:', html.substring(0, 100) + '...');
+      console.log('Longueur du HTML généré:', html.length);
+    }
+  }, [sections, generateHtml]);
 
   // Générer le HTML une seule fois par rendu
 
@@ -2729,13 +2787,18 @@ export default function NewsletterEditorVisual() {
         </div>
 
         {/* Prévisualisation persistante à droite */}
-        <div className="bg-white p-4 rounded-lg shadow-md sticky top-4 max-h-[calc(100vh-2rem)] overflow-auto" ref={previewRef}>
+        <div 
+          className="bg-white p-4 rounded-lg shadow-md sticky top-4 max-h-[calc(100vh-2rem)]" 
+          id="newsletter-preview-container"
+        >
           <h3 className="text-lg font-semibold mb-4">Aperçu</h3>
-          <div className="border rounded-lg overflow-hidden">
-            <iframe
-              srcDoc={generateHtml(sections)}
-              className="w-full h-[1200px]"
-              title="Newsletter Preview"
+          <div 
+            className="border rounded-lg overflow-auto max-h-[calc(100vh-8rem)]"
+            ref={previewRef}
+          >
+            <div
+              className="p-4"
+              dangerouslySetInnerHTML={{ __html: generateHtml(sections) }}
             />
           </div>
         </div>
