@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { db, storage } from '@/lib/firebase';
-import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { uploadImage } from '@/lib/firebase';
 import SendEmailForm from './SendEmailForm';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -1218,14 +1218,14 @@ export default function NewsletterEditorVisual() {
                   <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 30px 0; table-layout: fixed;" class="secondary-photos">
                     <tr>
                       <td width="50%" valign="top" style="padding: 0 5px; text-align: center;">
-                        <div style="max-width: 100%; height: auto; margin: 0 auto 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                          <img src="${photos[0].url}" alt="${photos[0].caption}" style="width: 100%; height: auto; object-fit: cover; max-height: 190px;">
+                        <div style="width: 100%; height: 190px; margin: 0 auto 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                          <img src="${photos[0].url}" alt="${photos[0].caption}" style="width: 100%; height: 100%; object-fit: cover;">
                         </div>
                         ${photos[0].caption ? `<div style="background-color: #2c3e50; color: white; padding: 8px; border-radius: 5px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 600; font-size: 12px; display: inline-block; max-width: 90%; margin: 0 auto;">${photos[0].caption}</div>` : ''}
                       </td>
                       <td width="50%" valign="top" style="padding: 0 5px; text-align: center;">
-                        <div style="max-width: 100%; height: auto; margin: 0 auto 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                          <img src="${photos[1].url}" alt="${photos[1].caption}" style="width: 100%; height: auto; object-fit: cover; max-height: 190px;">
+                        <div style="width: 100%; height: 190px; margin: 0 auto 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                          <img src="${photos[1].url}" alt="${photos[1].caption}" style="width: 100%; height: 100%; object-fit: cover;">
                         </div>
                         ${photos[1].caption ? `<div style="background-color: #2c3e50; color: white; padding: 8px; border-radius: 5px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 600; font-size: 12px; display: inline-block; max-width: 90%; margin: 0 auto;">${photos[1].caption}</div>` : ''}
                       </td>
@@ -1254,8 +1254,8 @@ export default function NewsletterEditorVisual() {
                   <tr>
                     ${secondaryPhotos.map((photo, index) => `
                       <td width="50%" valign="top" style="padding: 0 5px; text-align: center;">
-                        <div style="max-width: 100%; height: auto; margin: 0 auto 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                          <img src="${photo.url}" alt="${photo.caption}" style="width: 100%; height: auto; object-fit: cover; max-height: 190px;">
+                        <div style="width: 100%; height: 190px; margin: 0 auto 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                          <img src="${photo.url}" alt="${photo.caption}" style="width: 100%; height: 100%; object-fit: cover;">
                         </div>
                         ${photo.caption ? `<div style="background-color: #2c3e50; color: white; padding: 8px; border-radius: 5px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 600; font-size: 12px; display: inline-block; max-width: 90%; margin: 0 auto;">${photo.caption}</div>` : ''}
                       </td>
@@ -1594,7 +1594,7 @@ export default function NewsletterEditorVisual() {
       }
 
       setIsLoading(true);
-      console.log("Début de la mise à jour du template");
+      console.log("Début de la mise à jour du template", selectedTemplate);
 
       // Vérifier l'état de l'authentification
       const auth = getAuth();
@@ -1682,27 +1682,44 @@ export default function NewsletterEditorVisual() {
                 char.imageUrl = imageCache[char.imageUrl];
                 continue;
               }
+              
+              // Sinon, essayer de trouver le fichier et l'uploader
+              try {
+                // Logique pour uploader l'image si nécessaire
+                // Cette partie peut être complétée si besoin
+              } catch (error) {
+                console.error('Erreur lors de l\'upload de l\'image de caractéristique:', error);
+              }
             }
           }
         }
       }
 
+      console.log("Mise à jour du template avec ID:", selectedTemplate);
+      console.log("Sections à sauvegarder:", sectionsToSave);
+
       // Mettre à jour le template dans Firestore
       const templateRef = doc(db, 'newsletterTemplates', selectedTemplate);
       await updateDoc(templateRef, {
         sections: sectionsToSave,
-        updatedAt: new Date()
+        updatedAt: serverTimestamp()
       });
 
-      // Mettre à jour la liste des templates sauvegardés
-      setSavedTemplates(prevTemplates => 
-        prevTemplates.map(t => 
-          t.id === selectedTemplate 
-            ? { ...t, sections: sectionsToSave, updatedAt: new Date() } 
-            : t
-        )
-      );
+      console.log("Template mis à jour avec succès dans Firestore");
 
+      // Mettre à jour la liste des templates sauvegardés en local
+      const updatedTemplates = savedTemplates.map(t => {
+        if (t.id === selectedTemplate) {
+          return {
+            ...t,
+            sections: sectionsToSave,
+            updatedAt: new Date()
+          };
+        }
+        return t;
+      });
+      
+      setSavedTemplates(updatedTemplates);
       toast.success(`Le template "${templateToUpdate.name}" a été mis à jour avec succès`);
     } catch (error) {
       console.error('Erreur lors de la mise à jour du template:', error);
