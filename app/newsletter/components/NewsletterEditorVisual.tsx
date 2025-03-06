@@ -944,562 +944,555 @@ export default function NewsletterEditorVisual() {
     const footerLogoUrl = directFooterLogoUrl;
 
     return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="x-apple-disable-message-reformatting">
-  <meta name="color-scheme" content="light">
-  <meta name="supported-color-schemes" content="light">
-  <title>Newsletter PEM SUD</title>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
-  <!--[if mso]>
-  <noscript>
-    <xml>
-      <o:OfficeDocumentSettings>
-        <o:PixelsPerInch>96</o:PixelsPerInch>
-      </o:OfficeDocumentSettings>
-    </xml>
-  </noscript>
-  <![endif]-->
-  <style>
-    body {
-      font-family: 'Arial', sans-serif;
-      margin: 0;
-      padding: 0;
-      background-color: #f0f0f0;
-      color: #333333;
-      -webkit-text-size-adjust: 100%;
-      -ms-text-size-adjust: 100%;
-    }
-    .newsletter-container {
-      width: 100%;
-      max-width: 700px;
-      margin: 0 auto;
-      background-color: #ffffff;
-    }
-    .header {
-      text-align: center;
-      padding: 20px;
-      background-color: #ffffff;
-    }
-    .logo {
-      max-width: 180px;
-      width: 180px;
-      height: auto;
-      display: block;
-      margin: 0 auto;
-    }
-    .headline {
-      background-color: #e50019;
-      color: #ffffff;
-      text-align: center;
-      padding: 30px 20px;
-      font-family: 'Montserrat', Arial, sans-serif;
-      font-weight: 700;
-      font-size: 22px;
-      line-height: 1.4;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-    }
-    .content {
-      padding: 30px 20px;
-    }
-    .content h1 {
-      color: #2c3e50;
-      font-family: 'Montserrat', Arial, sans-serif;
-      font-size: 24px;
-      font-weight: 700;
-      margin-bottom: 25px;
-      text-align: center;
-      line-height: 1.3;
-    }
-    .greeting {
-      font-family: 'Montserrat', Arial, sans-serif;
-      font-weight: 600;
-      margin-bottom: 20px;
-      color: #2c3e50;
-    }
-    .intro-text {
-      font-family: 'Open Sans', Arial, sans-serif;
-      margin-bottom: 20px;
-      line-height: 1.6;
-      color: #333333;
-    }
-    .project-photos {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin: 30px 0;
-    }
-    .photo-container {
-      width: 45%;
-      display: inline-block;
-      margin-bottom: 30px;
-      text-align: center;
-      vertical-align: top;
-    }
-    .photo-container img {
-      width: 100%;
-      height: 250px;
-      object-fit: cover;
-      border-radius: 8px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      margin-bottom: 15px;
-    }
-    .photo-caption {
-      background-color: #2c3e50;
-      color: white;
-      padding: 8px;
-      border-radius: 5px;
-      margin-top: 10px;
-      font-family: 'Montserrat', Arial, sans-serif;
-      font-weight: 600;
-      font-size: 14px;
-    }
-    .footer {
-      background-color: #464254 !important;
-      color: #ffffff;
-      padding: 50px 20px;
-      text-align: center;
-      font-size: 14px;
-      line-height: 1.8;
-    }
-    .footer img {
-      max-width: 400px;
-      width: 100%;
-      height: auto;
-      display: inline-block;
-    }
-    .social-links {
-      margin: 25px 0;
-    }
-    .social-links a {
-      color: #ffffff;
-      text-decoration: none;
-      font-size: 16px;
-      font-weight: 600;
-      display: block;
-      padding: 8px 5px;
-      border-radius: 4px;
-      background-color: #363143;
-      white-space: nowrap;
-    }
-    
-    /* Styles spécifiques pour mobile */
-    @media only screen and (max-width: 600px) {
-      .photo-container {
-        width: 100% !important;
-        height: auto !important;
-        line-height: normal !important;
-        margin-bottom: 25px;
-      }
-      .photo-container img {
-        height: auto !important;
-        max-height: 250px !important;
-        max-width: 100% !important;
-      }
-      .footer img {
-        max-width: 90%;
-      }
-      .logo {
-        max-width: 160px !important;
-        width: 160px !important;
-        margin: 0 auto !important;
-        display: block !important;
-        float: none !important;
-      }
-      table[class="secondary-photos"] td {
-        padding: 0 10px !important;
-      }
-      table[class="secondary-photos"] div {
-        width: 240px !important;
-        height: 180px !important;
-      }
-    }
-    
-    @media print {
-      body {
-        background-color: #ffffff;
-      }
-      .newsletter-container {
-        box-shadow: none;
-        border: none;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="newsletter-container">
-    <!-- En-tête fixe -->
-    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff;">
-      <tr>
-        <td align="center" style="padding: 20px; text-align: center;">
-          <img src="${headerLogoUrl}" alt="Arthur Loyd Logo" class="logo" width="180" height="auto" style="display: block; margin: 0 auto; float: none; text-align: center;">
-        </td>
-      </tr>
-    </table>
-    
-    <!-- Titre principal modifiable -->
-    ${sections.map(section => {
-      if (section.type === 'headline') {
-        return `
-        <div class="headline">
-          ${section.content.title || 'Découvrez notre nouvelle offre immobilière exceptionnelle'}
-        </div>
-        <div class="content">
-        `;
-      }
-      return '';
-    }).join('')}
-    
-    <!-- Corps de la newsletter -->
-    <div class="content">
-      ${sections.map(section => {
-        switch (section.type) {
-          case 'content':
-            return `
-            <h1>${section.customTitle || section.content.title}</h1>
-            
-            <p class="greeting">${section.content.greeting}</p>
-            
-            ${(section.content.paragraphs || []).map(p => `<p class="intro-text">${p}</p>`).join('')}
-            `;
-          
-          case 'photos':
-            if (!section.content.photos || section.content.photos.length === 0) return '';
-            
-            // Si une seule photo, l'afficher en grand
-            if (section.content.photos.length === 1) {
-              const photo = section.content.photos[0];
-              return `
-              <!-- Image unique en plein écran -->
-              <div style="margin: 30px 0; text-align: center;">
-                <div style="height: 350px; line-height: 350px; text-align: center; margin-bottom: 20px; max-width: 600px; margin-left: auto; margin-right: auto;">
-                  <img src="${photo.url}" alt="${photo.caption}" style="max-width: 100%; max-height: 350px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: inline-block; vertical-align: middle; object-fit: contain;">
-                </div>
-                <div style="background-color: #2c3e50; color: white; padding: 10px; border-radius: 5px; display: inline-block; margin-bottom: 30px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 600;">${photo.caption || 'Vue d\'ensemble'}</div>
-              </div>
-              `;
-            } 
-            // Si deux photos, les afficher côte à côte
-            else if (section.content.photos.length === 2) {
-              const photos = section.content.photos;
-              return `
-              <!-- Deux photos côte à côte -->
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 30px 0; table-layout: fixed;" class="secondary-photos">
-                <tr>
-                  <td width="50%" valign="top" style="padding: 0 10px; text-align: center;">
-                    <div style="width: 260px; height: 190px; margin: 0 auto 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                      <img src="${photos[0].url}" alt="${photos[0].caption}" style="width: 100%; height: 100%; object-fit: cover;">
-                    </div>
-                    <div style="background-color: #2c3e50; color: white; padding: 8px; border-radius: 5px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 600; font-size: 14px; display: inline-block; min-width: 200px; max-width: 260px; margin: 0 auto;">${photos[0].caption || 'Légende de la photo'}</div>
-                  </td>
-                  <td width="50%" valign="top" style="padding: 0 10px; text-align: center;">
-                    <div style="width: 260px; height: 190px; margin: 0 auto 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                      <img src="${photos[1].url}" alt="${photos[1].caption}" style="width: 100%; height: 100%; object-fit: cover;">
-                    </div>
-                    <div style="background-color: #2c3e50; color: white; padding: 8px; border-radius: 5px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 600; font-size: 14px; display: inline-block; min-width: 200px; max-width: 260px; margin: 0 auto;">${photos[1].caption || 'Légende de la photo'}</div>
-                  </td>
-                </tr>
-              </table>
-              `;
-            }
-            // Pour 3 photos ou plus, utiliser le format actuel
-            else {
-            // Image principale
-            const mainPhoto = section.content.photos[0];
-            const secondaryPhotos = section.content.photos.slice(1);
-            
-            return `
-            <!-- Images du projet - Image principale -->
-            <div style="margin: 30px 0; text-align: center;">
-              <div style="height: 350px; line-height: 350px; text-align: center; margin-bottom: 20px; max-width: 600px; margin-left: auto; margin-right: auto;">
-                <img src="${mainPhoto.url}" alt="${mainPhoto.caption}" style="max-width: 100%; max-height: 350px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: inline-block; vertical-align: middle; object-fit: contain;">
-              </div>
-              <div style="background-color: #2c3e50; color: white; padding: 10px; border-radius: 5px; display: inline-block; margin-bottom: 30px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 600;">${mainPhoto.caption || 'Vue d\'ensemble'}</div>
-            </div>
-            
-            <!-- Photos secondaires côte à côte -->
-            ${secondaryPhotos.length > 0 ? `
-            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 30px 0; table-layout: fixed;" class="secondary-photos">
-              <tr>
-                ${secondaryPhotos.map((photo, index) => `
-                  <td width="50%" valign="top" style="padding: 0 20px; text-align: center;">
-                    <div style="width: 260px; height: 190px; margin: 0 auto 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                      <img src="${photo.url}" alt="${photo.caption}" style="width: 100%; height: 100%; object-fit: cover;">
-                    </div>
-                    <div style="background-color: #2c3e50; color: white; padding: 8px; border-radius: 5px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 600; font-size: 14px; display: inline-block; min-width: 200px; max-width: 260px; margin: 0 auto;">${photo.caption || 'Légende de la photo'}</div>
-                  </td>
-                  ${(index + 1) % 2 === 0 && index < secondaryPhotos.length - 1 ? '</tr><tr>' : ''}
-                `).join('')}
-              </tr>
-            </table>
-            ` : ''}
-            `;
-            }
-          
-          case 'characteristics':
-            if (!section.content.characteristics || section.content.characteristics.length === 0) return '';
-            
-            const chars = section.content.characteristics;
-            
-            return `
-            <!-- CARACTÉRISTIQUES -->
-            <div style="background-color: #ffffff; padding: 10px; border-radius: 8px; margin-top: 30px;">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 15px 0 10px 0;">
-                <tr>
-                  <td width="6" style="background-color: #e50019; padding: 0;" valign="top">&nbsp;</td>
-                  <td width="15" style="padding: 0;"></td>
-                  <td style="padding: 0;">
-                    <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || 'Caractéristiques'}</h2>
-                  </td>
-                </tr>
-              </table>
-            </div>
-            
-            <!-- GRID DE CARACTÉRISTIQUES -->
-            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0;">
-              <tr>
-                <td>
-                  <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                    <tr>
-                      ${chars.length >= 1 ? `
-                      <td width="49%" valign="top">
-                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e0e0e0; height: 220px; min-height: 220px;">
-                          <tr>
-                            <td align="center" style="padding: 25px 15px;">
-                              ${chars[0].imageUrl ? 
-                                `<div style="margin-bottom: 15px;"><img src="${chars[0].imageUrl}" alt="${chars[0].title}" style="width: 60px; height: 60px; object-fit: contain; display: inline-block; background-color: rgba(229,0,25,0.08); border-radius: 50%; padding: 5px;" /></div>` : 
-                                `<div style="font-size: 32px; margin-bottom: 15px; color: #e50019; display: inline-block; background-color: rgba(229,0,25,0.08); width: 60px; height: 60px; line-height: 60px; border-radius: 50%;">${chars[0].icon}</div>`
-                              }
-                              <h3 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; margin-bottom: 12px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background-color: #ffffff;">${chars[0].title}</h3>
-                              <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; background-color: #ffffff;">${chars[0].value}</p>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                      ` : ''}
-                      
-                      <td width="2%">&nbsp;</td>
-                      ${chars.length >= 2 ? `
-                      <td width="49%" valign="top">
-                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e0e0e0; height: 220px; min-height: 220px;">
-                          <tr>
-                            <td align="center" style="padding: 25px 15px;">
-                              ${chars[1].imageUrl ? 
-                                `<div style="margin-bottom: 15px;"><img src="${chars[1].imageUrl}" alt="${chars[1].title}" style="width: 60px; height: 60px; object-fit: contain; display: inline-block; background-color: rgba(229,0,25,0.08); border-radius: 50%; padding: 5px;" /></div>` : 
-                                `<div style="font-size: 32px; margin-bottom: 15px; color: #e50019; display: inline-block; background-color: rgba(229,0,25,0.08); width: 60px; height: 60px; line-height: 60px; border-radius: 50%;">${chars[1].icon}</div>`
-                              }
-                              <h3 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; margin-bottom: 12px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background-color: #ffffff;">${chars[1].title}</h3>
-                              <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; background-color: #ffffff;">${chars[1].value}</p>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                      ` : ''}
-                    </tr>
-                    ${chars.length > 2 ? `
-                    <tr><td colspan="3" height="20"></td></tr>
-                    <tr>
-                      ${chars.length >= 3 ? `
-                      <td width="49%" valign="top">
-                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e0e0e0; height: 220px; min-height: 220px;">
-                          <tr>
-                            <td align="center" style="padding: 25px 15px;">
-                              ${chars[2].imageUrl ? 
-                                `<div style="margin-bottom: 15px;"><img src="${chars[2].imageUrl}" alt="${chars[2].title}" style="width: 60px; height: 60px; object-fit: contain; display: inline-block; background-color: rgba(229,0,25,0.08); border-radius: 50%; padding: 5px;" /></div>` : 
-                                `<div style="font-size: 32px; margin-bottom: 15px; color: #e50019; display: inline-block; background-color: rgba(229,0,25,0.08); width: 60px; height: 60px; line-height: 60px; border-radius: 50%;">${chars[2].icon}</div>`
-                              }
-                              <h3 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; margin-bottom: 12px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background-color: #ffffff;">${chars[2].title}</h3>
-                              <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; background-color: #ffffff;">${chars[2].value}</p>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                      ` : ''}
-                      
-                      <td width="2%">&nbsp;</td>
-                      ${chars.length >= 4 ? `
-                      <td width="49%" valign="top">
-                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e0e0e0; height: 220px; min-height: 220px;">
-                          <tr>
-                            <td align="center" style="padding: 25px 15px;">
-                              ${chars[3].imageUrl ? 
-                                `<div style="margin-bottom: 15px;"><img src="${chars[3].imageUrl}" alt="${chars[3].title}" style="width: 60px; height: 60px; object-fit: contain; display: inline-block; background-color: rgba(229,0,25,0.08); border-radius: 50%; padding: 5px;" /></div>` : 
-                                `<div style="font-size: 32px; margin-bottom: 15px; color: #e50019; display: inline-block; background-color: rgba(229,0,25,0.08); width: 60px; height: 60px; line-height: 60px; border-radius: 50%;">${chars[3].icon}</div>`
-                              }
-                              <h3 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; margin-bottom: 12px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background-color: #ffffff;">${chars[3].title}</h3>
-                              <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; background-color: #ffffff;">${chars[3].value}</p>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                      ` : ''}
-                    </tr>
-                    ` : ''}
-                  </table>
-                </td>
-              </tr>
-            </table>
-            `;
-          
-          case 'location':
-            if (!section.content.locationFeatures || section.content.locationFeatures.length === 0) return '';
-            
-            return `
-            <!-- LOCATION & SPACES COMBINED SECTION -->
-            <div style="background-color: #ffffff; padding: 10px; border-radius: 8px; margin-top: 20px;">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 15px 0 10px 0;">
-                <tr>
-                  <td width="6" style="background-color: #e50019; padding: 0;" valign="top">&nbsp;</td>
-                  <td width="15" style="padding: 0;"></td>
-                  <td style="padding: 0;">
-                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                      <tr>
-                        <td valign="middle" style="padding-right: 10px; color: #e50019; font-size: 24px; text-shadow: 0 1px 1px rgba(0,0,0,0.1);">📍</td>
-                        <td valign="middle">
-                          <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || 'Localisation & Espaces'}</h2>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </div>
-
-            <div class="info-section" style="background-color: #ffffff; padding: 25px; border-radius: 12px; margin: 20px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border-left: 3px solid #e50019; border: 1px solid #e0e0e0;">
-              <p style="color: #333333;"><strong style="color: #333333;">Adresse :</strong> ${section.content.address || 'Boulevard Carnot, 22000 Saint-Brieuc'}</p>
-              <p style="color: #333333;"><strong style="color: #333333;">Surface :</strong> <span style="background-color: #ffeeee; color: #e50019; padding: 4px 10px; font-weight: 600; border-radius: 4px; display: inline-block; border: 1px solid rgba(229,0,25,0.2);">${section.content.surface || '4 540 m² SUBL'}</span></p>
-              <ul style="padding-left: 25px; margin: 20px 0; list-style: none;">
-                ${section.content.locationFeatures.map(feature => `
-                  <li style="margin-bottom: 12px; position: relative; color: #333333;"><span style="color: #e50019; position: absolute; left: -25px;">✓</span> ${feature}</li>
-                `).join('')}
-              </ul>
-            </div>
-            `;
-          
-          case 'availability':
-            return `
-            <!-- DISPONIBILITÉ -->
-            <div style="background-color: #ffffff; padding: 10px; border-radius: 8px; margin-top: 30px;">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 15px 0 10px 0;">
-                <tr>
-                  <td width="6" style="background-color: #e50019; padding: 0;" valign="top">&nbsp;</td>
-                  <td width="15" style="padding: 0;"></td>
-                  <td style="padding: 0;">
-                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                      <tr>
-                        <td valign="middle" style="padding-right: 10px; color: #e50019; font-size: 24px; text-shadow: 0 1px 1px rgba(0,0,0,0.1);">📅</td>
-                        <td valign="middle">
-                          <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || 'Disponibilité'}</h2>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </div>
-            
-            <div class="info-section" style="background-color: #ffffff; padding: 25px; border-radius: 12px; margin: 20px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border-left: 3px solid #e50019; border: 1px solid #e0e0e0;">
-              <p style="color: #333333;"><strong style="color: #333333;">Date de ${section.customTitle?.toLowerCase() || 'disponibilité'} :</strong> ${section.content.availability?.date || ''}</p>
-              <p style="color: #333333;"><strong style="color: #333333;">Détails :</strong> ${section.content.availability?.details || ''}</p>
-            </div>
-            `;
-            
-          case 'custom':
-            return `
-            <!-- SECTION PERSONNALISÉE -->
-            <div style="background-color: #ffffff; padding: 10px; border-radius: 8px; margin-top: 30px;">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 15px 0 10px 0;">
-                <tr>
-                  <td width="6" style="background-color: #e50019; padding: 0;" valign="top">&nbsp;</td>
-                  <td width="15" style="padding: 0;"></td>
-                  <td style="padding: 0;">
-                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                      <tr>
-                        <td valign="middle" style="padding-right: 10px; color: #e50019; font-size: 24px; text-shadow: 0 1px 1px rgba(0,0,0,0.1);">${section.content.custom?.icon || '✨'}</td>
-                        <td valign="middle">
-                          <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || section.content.custom?.title || 'Section personnalisée'}</h2>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-            </div>
-            
-            <div class="info-section" style="background-color: #ffffff; padding: 25px; border-radius: 12px; margin: 20px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border-left: 3px solid #e50019; border: 1px solid #e0e0e0;">
-              <p style="color: #333333;">${section.content.custom?.content || ''}</p>
-            </div>
-            `;
-          
-          default:
-            return '';
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Newsletter PEM SUD</title>
+      <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+      <style>
+        body {
+          font-family: 'Montserrat', Arial, sans-serif;
+          margin: 0;
+          padding: 0;
+          background-color: #f5f5f5;
+          color: #333;
+          line-height: 1.6;
         }
-      }).join('')}
-    </div>
-    
-    <!-- Pied de page fixe -->
-    <table border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#464254" style="background-color: #464254 !important; background: #464254 !important; mso-background-themecolor: #464254 !important;">
-      <tr bgcolor="#464254" style="background-color: #464254 !important;">
-        <td align="center" bgcolor="#464254" style="padding: 50px 20px; color: #ffffff; text-align: center; font-size: 14px; line-height: 1.8; background-color: #464254 !important; background: #464254 !important;">
-          <!-- Table wrapper pour garantir la couleur de fond -->
-          <table border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#464254" style="background-color: #464254 !important; background: #464254 !important;">
-            <tr bgcolor="#464254" style="background-color: #464254 !important;">
-              <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 0;">
-                <img src="${footerLogoUrl}" alt="Arthur Loyd - Créateur de possibilités" style="width: 400px; max-width: 100%; height: auto; display: inline-block;" width="400">
-              </td>
-            </tr>
-            <tr bgcolor="#464254" style="background-color: #464254 !important;">
-              <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 25px 0;">
-                <!-- Séparateur dans le footer -->
-                <table border="0" cellpadding="0" cellspacing="0" width="50" bgcolor="#464254" style="background-color: #464254 !important;">
-                  <tr bgcolor="#464254" style="background-color: #464254 !important;">
-                    <td height="3" bgcolor="#464254" style="background-color: rgba(255,255,255,0.3); height: 3px;"></td>
+        
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          background-color: #ffffff;
+        }
+        
+        .header {
+          background-color: #2c3e50;
+          color: white;
+          padding: 20px;
+          text-align: center;
+        }
+        
+        .logo {
+          max-width: 150px;
+          height: auto;
+        }
+        
+        .content {
+          padding: 20px;
+        }
+        
+        h1 {
+          color: #2c3e50;
+          font-size: 24px;
+          margin-top: 0;
+          margin-bottom: 20px;
+          text-align: center;
+        }
+        
+        p {
+          margin-bottom: 20px;
+          font-size: 16px;
+        }
+        
+        .greeting {
+          font-weight: 600;
+          font-size: 18px;
+          margin-bottom: 25px;
+        }
+        
+        .intro-text {
+          margin-bottom: 20px;
+        }
+        
+        .footer {
+          background-color: #2c3e50;
+          color: white;
+          padding: 20px;
+          text-align: center;
+          font-size: 14px;
+        }
+        
+        .footer a {
+          color: #ffffff;
+          text-decoration: underline;
+        }
+        
+        .social-links {
+          margin-top: 15px;
+        }
+        
+        .social-links a {
+          display: inline-block;
+          margin: 0 10px;
+        }
+        
+        .social-icon {
+          width: 30px;
+          height: 30px;
+        }
+        
+        .button {
+          display: inline-block;
+          background-color: #e74c3c;
+          color: white;
+          padding: 12px 25px;
+          text-decoration: none;
+          border-radius: 5px;
+          font-weight: 600;
+          margin: 20px 0;
+        }
+        
+        .characteristics {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          margin: 30px 0;
+        }
+        
+        .characteristic {
+          width: 45%;
+          margin: 10px;
+          text-align: center;
+        }
+        
+        .characteristic-icon {
+          font-size: 40px;
+          margin-bottom: 10px;
+          color: #2c3e50;
+        }
+        
+        .characteristic-title {
+          font-weight: 600;
+          margin-bottom: 5px;
+          color: #2c3e50;
+        }
+        
+        .characteristic-value {
+          color: #555;
+        }
+        
+        .price {
+          font-size: 28px;
+          font-weight: 700;
+          color: #e74c3c;
+          text-align: center;
+          margin: 30px 0;
+        }
+        
+        .price-label {
+          font-size: 16px;
+          color: #777;
+          display: block;
+          margin-bottom: 5px;
+        }
+        
+        /* Styles responsives pour mobile */
+        @media only screen and (max-width: 480px) {
+          .container {
+            width: 100% !important;
+          }
+          
+          h1 {
+            font-size: 22px !important;
+          }
+          
+          .content {
+            padding: 15px !important;
+          }
+          
+          .characteristic {
+            width: 100% !important;
+            margin: 10px 0 !important;
+          }
+          
+          .secondary-photos td {
+            display: block !important;
+            width: 100% !important;
+            padding: 0 0 15px 0 !important;
+          }
+          
+          .secondary-photos img {
+            max-height: 150px !important;
+          }
+          
+          .secondary-photos div[style*="background-color: #2c3e50"] {
+            font-size: 11px !important;
+            padding: 6px !important;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <!-- En-tête fixe -->
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff;">
+          <tr>
+            <td align="center" style="padding: 20px; text-align: center;">
+              <img src="${headerLogoUrl}" alt="Arthur Loyd Logo" class="logo" width="180" height="auto" style="display: block; margin: 0 auto; float: none; text-align: center;">
+            </td>
+          </tr>
+        </table>
+        
+        <!-- Titre principal modifiable -->
+        ${sections.map(section => {
+          if (section.type === 'headline') {
+            return `
+            <div class="headline">
+              ${section.content.title || 'Découvrez notre nouvelle offre immobilière exceptionnelle'}
+            </div>
+            <div class="content">
+            `;
+          }
+          return '';
+        }).join('')}
+        
+        <!-- Corps de la newsletter -->
+        <div class="content">
+          ${sections.map(section => {
+            switch (section.type) {
+              case 'content':
+                return `
+                <h1>${section.customTitle || section.content.title}</h1>
+                
+                <p class="greeting">${section.content.greeting}</p>
+                
+                ${(section.content.paragraphs || []).map(p => `<p class="intro-text">${p}</p>`).join('')}
+                `;
+              
+              case 'photos':
+                if (!section.content.photos || section.content.photos.length === 0) return '';
+                
+                // Si une seule photo, l'afficher en grand
+                if (section.content.photos.length === 1) {
+                  const photo = section.content.photos[0];
+                  return `
+                  <!-- Image unique en plein écran -->
+                  <div style="margin: 30px 0; text-align: center;">
+                    <div style="max-height: 350px; text-align: center; margin-bottom: 20px; max-width: 100%; margin-left: auto; margin-right: auto;">
+                      <img src="${photo.url}" alt="${photo.caption}" style="max-width: 100%; max-height: 350px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: inline-block; vertical-align: middle; object-fit: contain;">
+                    </div>
+                    ${photo.caption ? `<div style="background-color: #2c3e50; color: white; padding: 10px; border-radius: 5px; display: inline-block; margin-bottom: 30px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 600; font-size: 14px; max-width: 90%;">${photo.caption}</div>` : ''}
+                  </div>
+                  `;
+                } 
+                // Si deux photos, les afficher côte à côte
+                else if (section.content.photos.length === 2) {
+                  const photos = section.content.photos;
+                  return `
+                  <!-- Deux photos côte à côte -->
+                  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 30px 0; table-layout: fixed;" class="secondary-photos">
+                    <tr>
+                      <td width="50%" valign="top" style="padding: 0 5px; text-align: center;">
+                        <div style="max-width: 100%; height: auto; margin: 0 auto 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                          <img src="${photos[0].url}" alt="${photos[0].caption}" style="width: 100%; height: auto; object-fit: cover; max-height: 190px;">
+                        </div>
+                        ${photos[0].caption ? `<div style="background-color: #2c3e50; color: white; padding: 8px; border-radius: 5px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 600; font-size: 12px; display: inline-block; max-width: 90%; margin: 0 auto;">${photos[0].caption}</div>` : ''}
+                      </td>
+                      <td width="50%" valign="top" style="padding: 0 5px; text-align: center;">
+                        <div style="max-width: 100%; height: auto; margin: 0 auto 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                          <img src="${photos[1].url}" alt="${photos[1].caption}" style="width: 100%; height: auto; object-fit: cover; max-height: 190px;">
+                        </div>
+                        ${photos[1].caption ? `<div style="background-color: #2c3e50; color: white; padding: 8px; border-radius: 5px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 600; font-size: 12px; display: inline-block; max-width: 90%; margin: 0 auto;">${photos[1].caption}</div>` : ''}
+                      </td>
+                    </tr>
+                  </table>
+                  `;
+                }
+                // Pour 3 photos ou plus, utiliser le format actuel
+                else {
+                // Image principale
+                const mainPhoto = section.content.photos[0];
+                const secondaryPhotos = section.content.photos.slice(1);
+                
+                return `
+                <!-- Images du projet - Image principale -->
+                <div style="margin: 30px 0; text-align: center;">
+                  <div style="max-height: 350px; text-align: center; margin-bottom: 20px; max-width: 100%; margin-left: auto; margin-right: auto;">
+                    <img src="${mainPhoto.url}" alt="${mainPhoto.caption}" style="max-width: 100%; max-height: 350px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: inline-block; vertical-align: middle; object-fit: contain;">
+                  </div>
+                  ${mainPhoto.caption ? `<div style="background-color: #2c3e50; color: white; padding: 10px; border-radius: 5px; display: inline-block; margin-bottom: 30px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 600; font-size: 14px; max-width: 90%;">${mainPhoto.caption}</div>` : ''}
+                </div>
+                
+                <!-- Photos secondaires côte à côte -->
+                ${secondaryPhotos.length > 0 ? `
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 30px 0; table-layout: fixed;" class="secondary-photos">
+                  <tr>
+                    ${secondaryPhotos.map((photo, index) => `
+                      <td width="50%" valign="top" style="padding: 0 5px; text-align: center;">
+                        <div style="max-width: 100%; height: auto; margin: 0 auto 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                          <img src="${photo.url}" alt="${photo.caption}" style="width: 100%; height: auto; object-fit: cover; max-height: 190px;">
+                        </div>
+                        ${photo.caption ? `<div style="background-color: #2c3e50; color: white; padding: 8px; border-radius: 5px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 600; font-size: 12px; display: inline-block; max-width: 90%; margin: 0 auto;">${photo.caption}</div>` : ''}
+                      </td>
+                      ${(index + 1) % 2 === 0 && index < secondaryPhotos.length - 1 ? '</tr><tr>' : ''}
+                    `).join('')}
                   </tr>
                 </table>
-              </td>
-            </tr>
-            <tr bgcolor="#464254" style="background-color: #464254 !important;">
-              <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 0;">
-                <div class="social-links">
-                  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 400px; margin: 0 auto;" bgcolor="#464254">
-                    <tr bgcolor="#464254" style="background-color: #464254 !important;">
-                      <td align="center" width="33.33%" bgcolor="#464254" style="padding: 5px; background-color: #464254 !important;">
-                        <a href="https://www.linkedin.com/company/arthur-loyd-bretagne/" style="color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; display: block; padding: 8px 5px; border-radius: 4px; background-color: #363143; white-space: nowrap;">LinkedIn</a>
-                      </td>
-                      <td align="center" width="33.33%" bgcolor="#464254" style="padding: 5px; background-color: #464254 !important;">
-                        <a href="https://www.instagram.com/arthurloydbretagne/" style="color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; display: block; padding: 8px 5px; border-radius: 4px; background-color: #363143; white-space: nowrap;">Instagram</a>
-                      </td>
-                      <td align="center" width="33.33%" bgcolor="#464254" style="padding: 5px; background-color: #464254 !important;">
-                        <a href="https://www.arthur-loyd-bretagne.com/" style="color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; display: block; padding: 8px 5px; border-radius: 4px; background-color: #363143; white-space: nowrap;">Site Web</a>
+                ` : ''}
+                `;
+                }
+              
+              case 'characteristics':
+                if (!section.content.characteristics || section.content.characteristics.length === 0) return '';
+                
+                const chars = section.content.characteristics;
+                
+                return `
+                <!-- CARACTÉRISTIQUES -->
+                <div style="background-color: #ffffff; padding: 10px; border-radius: 8px; margin-top: 30px;">
+                  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 15px 0 10px 0;">
+                    <tr>
+                      <td width="6" style="background-color: #e50019; padding: 0;" valign="top">&nbsp;</td>
+                      <td width="15" style="padding: 0;"></td>
+                      <td style="padding: 0;">
+                        <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || 'Caractéristiques'}</h2>
                       </td>
                     </tr>
                   </table>
                 </div>
-              </td>
-            </tr>
-            <tr bgcolor="#464254" style="background-color: #464254 !important;">
-              <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 15px 0 0 0;">
-                <p style="margin-top: 0; opacity: 0.8; color: #ffffff;">© 2025 Arthur Loyd Bretagne. Tous droits réservés.</p>
-              </td>
-            </tr>
-            <tr bgcolor="#464254" style="background-color: #464254 !important;">
-              <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 10px 0 0 0; border-top: 1px solid rgba(255,255,255,0.1);">
-                <!-- Bouton de désinscription amélioré -->
-                <a href="{{UNSUBSCRIBE_URL}}" style="color: #ffffff !important; text-decoration: underline; font-size: 13px; opacity: 0.7;">Se désinscrire de cette liste de diffusion</a>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </div>
-</body>
-</html>`;
+                
+                <!-- GRID DE CARACTÉRISTIQUES -->
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0;">
+                  <tr>
+                    <td>
+                      <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                        <tr>
+                          ${chars.length >= 1 ? `
+                          <td width="49%" valign="top">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e0e0e0; height: 220px; min-height: 220px;">
+                              <tr>
+                                <td align="center" style="padding: 25px 15px;">
+                                  ${chars[0].imageUrl ? 
+                                    `<div style="margin-bottom: 15px;"><img src="${chars[0].imageUrl}" alt="${chars[0].title}" style="width: 60px; height: 60px; object-fit: contain; display: inline-block; background-color: rgba(229,0,25,0.08); border-radius: 50%; padding: 5px;" /></div>` : 
+                                    `<div style="font-size: 32px; margin-bottom: 15px; color: #e50019; display: inline-block; background-color: rgba(229,0,25,0.08); width: 60px; height: 60px; line-height: 60px; border-radius: 50%;">${chars[0].icon}</div>`
+                                  }
+                                  <h3 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; margin-bottom: 12px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background-color: #ffffff;">${chars[0].title}</h3>
+                                  <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; background-color: #ffffff;">${chars[0].value}</p>
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                          ` : ''}
+                          
+                          <td width="2%">&nbsp;</td>
+                          ${chars.length >= 2 ? `
+                          <td width="49%" valign="top">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e0e0e0; height: 220px; min-height: 220px;">
+                              <tr>
+                                <td align="center" style="padding: 25px 15px;">
+                                  ${chars[1].imageUrl ? 
+                                    `<div style="margin-bottom: 15px;"><img src="${chars[1].imageUrl}" alt="${chars[1].title}" style="width: 60px; height: 60px; object-fit: contain; display: inline-block; background-color: rgba(229,0,25,0.08); border-radius: 50%; padding: 5px;" /></div>` : 
+                                    `<div style="font-size: 32px; margin-bottom: 15px; color: #e50019; display: inline-block; background-color: rgba(229,0,25,0.08); width: 60px; height: 60px; line-height: 60px; border-radius: 50%;">${chars[1].icon}</div>`
+                                  }
+                                  <h3 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; margin-bottom: 12px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background-color: #ffffff;">${chars[1].title}</h3>
+                                  <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; background-color: #ffffff;">${chars[1].value}</p>
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                          ` : ''}
+                        </tr>
+                        ${chars.length > 2 ? `
+                        <tr><td colspan="3" height="20"></td></tr>
+                        <tr>
+                          ${chars.length >= 3 ? `
+                          <td width="49%" valign="top">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e0e0e0; height: 220px; min-height: 220px;">
+                              <tr>
+                                <td align="center" style="padding: 25px 15px;">
+                                  ${chars[2].imageUrl ? 
+                                    `<div style="margin-bottom: 15px;"><img src="${chars[2].imageUrl}" alt="${chars[2].title}" style="width: 60px; height: 60px; object-fit: contain; display: inline-block; background-color: rgba(229,0,25,0.08); border-radius: 50%; padding: 5px;" /></div>` : 
+                                    `<div style="font-size: 32px; margin-bottom: 15px; color: #e50019; display: inline-block; background-color: rgba(229,0,25,0.08); width: 60px; height: 60px; line-height: 60px; border-radius: 50%;">${chars[2].icon}</div>`
+                                  }
+                                  <h3 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; margin-bottom: 12px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background-color: #ffffff;">${chars[2].title}</h3>
+                                  <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; background-color: #ffffff;">${chars[2].value}</p>
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                          ` : ''}
+                          
+                          <td width="2%">&nbsp;</td>
+                          ${chars.length >= 4 ? `
+                          <td width="49%" valign="top">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e0e0e0; height: 220px; min-height: 220px;">
+                              <tr>
+                                <td align="center" style="padding: 25px 15px;">
+                                  ${chars[3].imageUrl ? 
+                                    `<div style="margin-bottom: 15px;"><img src="${chars[3].imageUrl}" alt="${chars[3].title}" style="width: 60px; height: 60px; object-fit: contain; display: inline-block; background-color: rgba(229,0,25,0.08); border-radius: 50%; padding: 5px;" /></div>` : 
+                                    `<div style="font-size: 32px; margin-bottom: 15px; color: #e50019; display: inline-block; background-color: rgba(229,0,25,0.08); width: 60px; height: 60px; line-height: 60px; border-radius: 50%;">${chars[3].icon}</div>`
+                                  }
+                                  <h3 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; margin-bottom: 12px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background-color: #ffffff;">${chars[3].title}</h3>
+                                  <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; background-color: #ffffff;">${chars[3].value}</p>
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                          ` : ''}
+                        </tr>
+                        ` : ''}
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+                `;
+              
+              case 'location':
+                if (!section.content.locationFeatures || section.content.locationFeatures.length === 0) return '';
+                
+                return `
+                <!-- LOCATION & SPACES COMBINED SECTION -->
+                <div style="background-color: #ffffff; padding: 10px; border-radius: 8px; margin-top: 20px;">
+                  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 15px 0 10px 0;">
+                    <tr>
+                      <td width="6" style="background-color: #e50019; padding: 0;" valign="top">&nbsp;</td>
+                      <td width="15" style="padding: 0;"></td>
+                      <td style="padding: 0;">
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                          <tr>
+                            <td valign="middle" style="padding-right: 10px; color: #e50019; font-size: 24px; text-shadow: 0 1px 1px rgba(0,0,0,0.1);">📍</td>
+                            <td valign="middle">
+                              <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || 'Localisation & Espaces'}</h2>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+
+                <div class="info-section" style="background-color: #ffffff; padding: 25px; border-radius: 12px; margin: 20px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border-left: 3px solid #e50019; border: 1px solid #e0e0e0;">
+                  <p style="color: #333333;"><strong style="color: #333333;">Adresse :</strong> ${section.content.address || 'Boulevard Carnot, 22000 Saint-Brieuc'}</p>
+                  <p style="color: #333333;"><strong style="color: #333333;">Surface :</strong> <span style="background-color: #ffeeee; color: #e50019; padding: 4px 10px; font-weight: 600; border-radius: 4px; display: inline-block; border: 1px solid rgba(229,0,25,0.2);">${section.content.surface || '4 540 m² SUBL'}</span></p>
+                  <ul style="padding-left: 25px; margin: 20px 0; list-style: none;">
+                    ${section.content.locationFeatures.map(feature => `
+                      <li style="margin-bottom: 12px; position: relative; color: #333333;"><span style="color: #e50019; position: absolute; left: -25px;">✓</span> ${feature}</li>
+                    `).join('')}
+                  </ul>
+                </div>
+                `;
+              
+              case 'availability':
+                return `
+                <!-- DISPONIBILITÉ -->
+                <div style="background-color: #ffffff; padding: 10px; border-radius: 8px; margin-top: 30px;">
+                  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 15px 0 10px 0;">
+                    <tr>
+                      <td width="6" style="background-color: #e50019; padding: 0;" valign="top">&nbsp;</td>
+                      <td width="15" style="padding: 0;"></td>
+                      <td style="padding: 0;">
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                          <tr>
+                            <td valign="middle" style="padding-right: 10px; color: #e50019; font-size: 24px; text-shadow: 0 1px 1px rgba(0,0,0,0.1);">📅</td>
+                            <td valign="middle">
+                              <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || 'Disponibilité'}</h2>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+                
+                <div class="info-section" style="background-color: #ffffff; padding: 25px; border-radius: 12px; margin: 20px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border-left: 3px solid #e50019; border: 1px solid #e0e0e0;">
+                  <p style="color: #333333;"><strong style="color: #333333;">Date de ${section.customTitle?.toLowerCase() || 'disponibilité'} :</strong> ${section.content.availability?.date || ''}</p>
+                  <p style="color: #333333;"><strong style="color: #333333;">Détails :</strong> ${section.content.availability?.details || ''}</p>
+                </div>
+                `;
+                
+              case 'custom':
+                return `
+                <!-- SECTION PERSONNALISÉE -->
+                <div style="background-color: #ffffff; padding: 10px; border-radius: 8px; margin-top: 30px;">
+                  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 15px 0 10px 0;">
+                    <tr>
+                      <td width="6" style="background-color: #e50019; padding: 0;" valign="top">&nbsp;</td>
+                      <td width="15" style="padding: 0;"></td>
+                      <td style="padding: 0;">
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                          <tr>
+                            <td valign="middle" style="padding-right: 10px; color: #e50019; font-size: 24px; text-shadow: 0 1px 1px rgba(0,0,0,0.1);">${section.content.custom?.icon || '✨'}</td>
+                            <td valign="middle">
+                              <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || section.content.custom?.title || 'Section personnalisée'}</h2>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+                </div>
+                
+                <div class="info-section" style="background-color: #ffffff; padding: 25px; border-radius: 12px; margin: 20px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border-left: 3px solid #e50019; border: 1px solid #e0e0e0;">
+                  <p style="color: #333333;">${section.content.custom?.content || ''}</p>
+                </div>
+                `;
+              
+              default:
+                return '';
+            }
+          }).join('')}
+        </div>
+        
+        <!-- Pied de page fixe -->
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#464254" style="background-color: #464254 !important; background: #464254 !important; mso-background-themecolor: #464254 !important;">
+          <tr bgcolor="#464254" style="background-color: #464254 !important;">
+            <td align="center" bgcolor="#464254" style="padding: 50px 20px; color: #ffffff; text-align: center; font-size: 14px; line-height: 1.8; background-color: #464254 !important; background: #464254 !important;">
+              <!-- Table wrapper pour garantir la couleur de fond -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#464254" style="background-color: #464254 !important; background: #464254 !important;">
+                <tr bgcolor="#464254" style="background-color: #464254 !important;">
+                  <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 0;">
+                    <img src="${footerLogoUrl}" alt="Arthur Loyd - Créateur de possibilités" style="width: 400px; max-width: 100%; height: auto; display: inline-block;" width="400">
+                  </td>
+                </tr>
+                <tr bgcolor="#464254" style="background-color: #464254 !important;">
+                  <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 25px 0;">
+                    <!-- Séparateur dans le footer -->
+                    <table border="0" cellpadding="0" cellspacing="0" width="50" bgcolor="#464254" style="background-color: #464254 !important;">
+                      <tr bgcolor="#464254" style="background-color: #464254 !important;">
+                        <td height="3" bgcolor="#464254" style="background-color: rgba(255,255,255,0.3); height: 3px;"></td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr bgcolor="#464254" style="background-color: #464254 !important;">
+                  <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 0;">
+                    <div class="social-links">
+                      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 400px; margin: 0 auto;" bgcolor="#464254">
+                        <tr bgcolor="#464254" style="background-color: #464254 !important;">
+                          <td align="center" width="33.33%" bgcolor="#464254" style="padding: 5px; background-color: #464254 !important;">
+                            <a href="https://www.linkedin.com/company/arthur-loyd-bretagne/" style="color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; display: block; padding: 8px 5px; border-radius: 4px; background-color: #363143; white-space: nowrap;">LinkedIn</a>
+                          </td>
+                          <td align="center" width="33.33%" bgcolor="#464254" style="padding: 5px; background-color: #464254 !important;">
+                            <a href="https://www.instagram.com/arthurloydbretagne/" style="color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; display: block; padding: 8px 5px; border-radius: 4px; background-color: #363143; white-space: nowrap;">Instagram</a>
+                          </td>
+                          <td align="center" width="33.33%" bgcolor="#464254" style="padding: 5px; background-color: #464254 !important;">
+                            <a href="https://www.arthur-loyd-bretagne.com/" style="color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; display: block; padding: 8px 5px; border-radius: 4px; background-color: #363143; white-space: nowrap;">Site Web</a>
+                          </td>
+                        </tr>
+                      </table>
+                    </div>
+                  </td>
+                </tr>
+                <tr bgcolor="#464254" style="background-color: #464254 !important;">
+                  <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 15px 0 0 0;">
+                    <p style="margin-top: 0; opacity: 0.8; color: #ffffff;">© 2025 Arthur Loyd Bretagne. Tous droits réservés.</p>
+                  </td>
+                </tr>
+                <tr bgcolor="#464254" style="background-color: #464254 !important;">
+                  <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 10px 0 0 0; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <!-- Bouton de désinscription amélioré -->
+                    <a href="{{UNSUBSCRIBE_URL}}" style="color: #ffffff !important; text-decoration: underline; font-size: 13px; opacity: 0.7;">Se désinscrire de cette liste de diffusion</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </body>
+    </html>`;
   };
 
   // Fonction pour filtrer les sections éditables
@@ -2315,6 +2308,11 @@ export default function NewsletterEditorVisual() {
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Message d'accueil
                           </label>
+                          <div className="mb-1">
+                            <span className="text-xs text-gray-500">
+                              Utilisez les tags suivants pour personnaliser : {'{nom}'}, {'{prenom}'}, {'{civilite}'}
+                            </span>
+                          </div>
                           <input
                             type="text"
                             value={section.content.greeting}
@@ -2323,6 +2321,7 @@ export default function NewsletterEditorVisual() {
                               content: { ...section.content, greeting: e.target.value }
                             })}
                             className="w-full p-2 border rounded"
+                            placeholder="Ex: Bonjour {civilite} {nom},"
                           />
                         </div>
                         <div>
