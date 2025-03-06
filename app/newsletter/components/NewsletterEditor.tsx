@@ -74,36 +74,76 @@ export default function NewsletterEditor() {
 
   // Charger un template sauvegardé
   const loadTemplate = async (templateId: string) => {
-    if (templateId === 'default') {
-      // Charger le contenu HTML du fichier par défaut
-      const response = await fetch('/api/newsletter/default-template');
-      if (response.ok) {
-        const data = await response.json();
-        setHtmlContent(data.htmlContent);
-        setSelectedTemplate('default');
-      }
-    } else {
-      // Trouver le template dans les templates sauvegardés
-      const template = savedTemplates.find(t => t.id === templateId);
-      if (template) {
-        setHtmlContent(template.htmlContent);
-        setSelectedTemplate(templateId);
+    try {
+      setLoading(true);
+      
+      if (templateId === 'default') {
+        // Charger le contenu HTML du fichier par défaut via l'API
+        const response = await fetch('/api/newsletter/default-template');
+        if (response.ok) {
+          const data = await response.json();
+          setHtmlContent(data.htmlContent);
+          setSelectedTemplate('default');
+        } else {
+          console.error('Erreur lors du chargement du template par défaut');
+        }
       } else {
-        // Si le template n'est pas trouvé dans l'état, le chercher dans Firebase
-        try {
-          const docRef = doc(db, 'newsletterTemplates', templateId);
-          const docSnap = await getDoc(docRef);
-          
-          if (docSnap.exists()) {
-            const data = docSnap.data() as NewsletterTemplate;
+        // Trouver le template dans les templates sauvegardés
+        const template = savedTemplates.find(t => t.id === templateId);
+        
+        // Vérifier si c'est le template par défaut (par son nom)
+        if (template && template.name === 'PEM SUD - Template par défaut') {
+          // Si c'est le template par défaut, le charger depuis l'API pour s'assurer qu'il est à jour
+          const response = await fetch('/api/newsletter/default-template');
+          if (response.ok) {
+            const data = await response.json();
             setHtmlContent(data.htmlContent);
           } else {
-            console.error('Template non trouvé');
+            console.error('Erreur lors du chargement du template par défaut');
+            // Utiliser la version stockée en cas d'erreur
+            setHtmlContent(template.htmlContent);
           }
-        } catch (error) {
-          console.error('Erreur lors du chargement du template:', error);
+        } else if (template) {
+          // Si c'est un autre template, le charger normalement
+          setHtmlContent(template.htmlContent);
+        } else {
+          // Si le template n'est pas trouvé dans l'état, le chercher dans Firebase
+          try {
+            const docRef = doc(db, 'newsletterTemplates', templateId);
+            const docSnap = await getDoc(docRef);
+            
+            if (docSnap.exists()) {
+              const data = docSnap.data() as NewsletterTemplate;
+              
+              // Vérifier si c'est le template par défaut (par son nom)
+              if (data.name === 'PEM SUD - Template par défaut') {
+                // Si c'est le template par défaut, le charger depuis l'API
+                const response = await fetch('/api/newsletter/default-template');
+                if (response.ok) {
+                  const apiData = await response.json();
+                  setHtmlContent(apiData.htmlContent);
+                } else {
+                  // Utiliser la version stockée en cas d'erreur
+                  setHtmlContent(data.htmlContent);
+                }
+              } else {
+                // Si c'est un autre template, le charger normalement
+                setHtmlContent(data.htmlContent);
+              }
+            } else {
+              console.error('Template non trouvé');
+            }
+          } catch (error) {
+            console.error('Erreur lors du chargement du template:', error);
+          }
         }
       }
+      
+      setSelectedTemplate(templateId);
+    } catch (error) {
+      console.error('Erreur lors du chargement du template:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -114,6 +154,11 @@ export default function NewsletterEditor() {
       
       // Vérifier si le template existe déjà
       const existingTemplate = savedTemplates.find(t => t.name === templateName);
+      
+      // Vérifier si c'est le template par défaut
+      if (templateName === 'PEM SUD - Template par défaut') {
+        throw new Error('Le template par défaut ne peut pas être modifié');
+      }
       
       if (existingTemplate) {
         // Mettre à jour le template existant
@@ -153,6 +198,50 @@ export default function NewsletterEditor() {
       }
     } catch (error) {
       console.error('Erreur lors de la sauvegarde du template:', error);
+      throw error; // Propager l'erreur pour que le formulaire puisse l'afficher
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Mettre à jour un template existant
+  const updateTemplate = async () => {
+    try {
+      setLoading(true);
+      
+      // Vérifier si un template est sélectionné et qu'il n'est pas le template par défaut
+      if (selectedTemplate === 'default') {
+        throw new Error('Le template par défaut ne peut pas être modifié');
+      }
+      
+      // Trouver le template sélectionné
+      const template = savedTemplates.find(t => t.id === selectedTemplate);
+      
+      if (!template) {
+        throw new Error('Template non trouvé');
+      }
+      
+      // Mettre à jour le template
+      const docRef = doc(db, 'newsletterTemplates', selectedTemplate);
+      await updateDoc(docRef, {
+        htmlContent,
+        updatedAt: new Date()
+      });
+      
+      // Mettre à jour l'état local
+      setSavedTemplates(prevTemplates => 
+        prevTemplates.map(t => 
+          t.id === selectedTemplate 
+            ? { ...t, htmlContent, updatedAt: new Date() } 
+            : t
+        )
+      );
+      
+      // Afficher un message de succès
+      alert(`Le template "${template.name}" a été mis à jour avec succès`);
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du template:', error);
+      alert(`Erreur: ${error instanceof Error ? error.message : 'Une erreur est survenue'}`);
     } finally {
       setLoading(false);
     }
@@ -172,18 +261,38 @@ export default function NewsletterEditor() {
       <div className="space-y-4">
         <div className="bg-white p-4 rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-4">Sélection de template</h2>
-          <select 
-            className="w-full p-2 border rounded"
-            value={selectedTemplate}
-            onChange={(e) => loadTemplate(e.target.value)}
-          >
-            <option value="default">Template PEM SUD (par défaut)</option>
-            {savedTemplates.map(template => (
-              <option key={template.id} value={template.id}>
-                {template.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-col space-y-4">
+            <select 
+              className="w-full p-2 border rounded"
+              value={selectedTemplate}
+              onChange={(e) => loadTemplate(e.target.value)}
+            >
+              <option value="default">Template PEM SUD (par défaut)</option>
+              {savedTemplates.map(template => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+            
+            {/* Bouton de mise à jour du template sélectionné */}
+            {selectedTemplate !== 'default' && (
+              <button 
+                className="px-4 py-2 bg-yellow-500 text-white rounded font-medium hover:bg-yellow-600 transition-colors"
+                onClick={updateTemplate}
+                disabled={loading}
+              >
+                {loading ? 'Mise à jour...' : 'Mettre à jour ce template'}
+              </button>
+            )}
+            
+            {/* Message d'avertissement pour le template par défaut */}
+            {selectedTemplate === 'default' && (
+              <div className="p-2 bg-yellow-100 text-yellow-800 rounded text-sm">
+                Le template par défaut ne peut pas être modifié. Veuillez créer un nouveau template pour sauvegarder vos modifications.
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex space-x-4">
