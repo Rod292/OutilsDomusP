@@ -325,7 +325,7 @@ export function EmailAuthForm({ mode }: EmailAuthFormProps) {
         
         // Vérifier que l'email a un domaine autorisé
         if (!hasAllowedEmailDomain(email)) {
-          throw new Error("Vous n'êtes pas autorisé à créer un compte. Contactez l'administrateur.")
+          throw new Error("Seuls les emails @arthurloydbretagne.fr et @arthur-loyd.com sont autorisés à s'inscrire")
         }
         
         // Créer l'utilisateur avec email et mot de passe

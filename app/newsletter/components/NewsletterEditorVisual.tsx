@@ -8,6 +8,9 @@ import SendEmailForm from './SendEmailForm';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { toast } from 'react-hot-toast';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
+// Ajouter l'import pour react-beautiful-dnd
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import EmojiPicker from './EmojiPicker';
 
 // Types pour nos templates de newsletter
 type NewsletterTemplate = {
@@ -20,7 +23,7 @@ type NewsletterTemplate = {
 
 type NewsletterSection = {
   id: string;
-  type: 'header' | 'headline' | 'content' | 'photos' | 'characteristics' | 'location' | 'availability' | 'footer';
+  type: 'header' | 'headline' | 'content' | 'photos' | 'characteristics' | 'location' | 'availability' | 'footer' | 'custom';
   content: {
     logo?: string;
     image?: string;
@@ -47,7 +50,14 @@ type NewsletterSection = {
       platform: string;
       url: string;
     }>;
+    custom?: {
+      icon: string;
+      title: string;
+      content: string;
   };
+  };
+  isCollapsed?: boolean; // Nouvelle propriété pour permettre de réduire/développer les sections
+  customTitle?: string; // Nouveau champ pour le titre personnalisé de la section
 };
 
 export default function NewsletterEditorVisual() {
@@ -66,6 +76,7 @@ export default function NewsletterEditorVisual() {
   const [isLoading, setIsLoading] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [showAddSectionModal, setShowAddSectionModal] = useState(false);
 
   // Charger le template par défaut au chargement
   useEffect(() => {
@@ -514,7 +525,8 @@ export default function NewsletterEditorVisual() {
         type: 'header',
         content: {
           logo: 'https://firebasestorage.googleapis.com/v0/b/etat-des-lieux-arthur-loyd.appspot.com/o/newsletter-images%2Flogo-arthur-loyd.png?alt=media'
-        }
+        },
+        isCollapsed: true // En-tête masqué par défaut
       },
       {
         id: 'headline',
@@ -612,22 +624,12 @@ export default function NewsletterEditorVisual() {
         id: 'footer',
         type: 'footer',
         content: {
-          logo: 'https://firebasestorage.googleapis.com/v0/b/etat-des-lieux-arthur-loyd.appspot.com/o/newsletter-images%2FLogoFooterEmail.png?alt=media',
           socialLinks: [
-            {
-              platform: 'LinkedIn',
-              url: 'https://www.linkedin.com/company/arthur-loyd-bretagne/'
-            },
-            {
-              platform: 'Instagram',
-              url: 'https://www.instagram.com/arthurloydbretagne/'
-            },
-            {
-              platform: 'Site Web',
-              url: 'https://www.arthur-loyd-brest.com/'
-            }
+            { platform: 'LinkedIn', url: 'https://www.linkedin.com/company/arthur-loyd-bretagne/' },
+            { platform: 'Site web', url: 'https://www.arthurloyd-bretagne.com' }
           ]
-        }
+        },
+        isCollapsed: true // Pied de page masqué par défaut
       }
     ];
   };
@@ -646,50 +648,77 @@ export default function NewsletterEditorVisual() {
     });
   };
 
-  // Corriger la fonction handleImageUpload pour assurer le remplacement correct de l'image
-  const handleImageUpload = async (sectionId: string, photoIndex: number, file: File) => {
-    try {
-      console.log('Remplacement de l\'image avec:', file.name);
-      
-      // Créer un nouvel URL temporaire pour l'image sélectionnée
-      const imageUrl = URL.createObjectURL(file);
-      console.log('Nouvelle URL créée:', imageUrl);
-      
-      // Rechercher et mettre à jour la section spécifique
-      const updatedSections = sections.map(section => {
-        if (section.id === sectionId && section.type === 'photos' && section.content.photos) {
-          // Créer une copie profonde des photos
-          const newPhotos = [...section.content.photos];
-          
-          // Mettre à jour la photo spécifique
-          newPhotos[photoIndex] = {
-            ...newPhotos[photoIndex],
-            url: imageUrl,
-            file: file
-          };
-          
-          console.log('Photo mise à jour:', newPhotos[photoIndex]);
-          
-          // Retourner la section mise à jour
-          return {
+  // Fonctions pour gérer les liens sociaux
+  const addSocialLink = () => {
+    const footerSection = sections.find(s => s.type === 'footer');
+    if (!footerSection) return;
+    
+    const newLinks = [...(footerSection.content.socialLinks || []), { platform: "", url: "" }];
+    updateSection(footerSection.id, {
+      ...footerSection,
+      content: { ...footerSection.content, socialLinks: newLinks }
+    });
+  };
+  
+  const updateSocialLink = (index: number, field: 'platform' | 'url', value: string) => {
+    const footerSection = sections.find(s => s.type === 'footer');
+    if (!footerSection) return;
+    
+    const newLinks = [...(footerSection.content.socialLinks || [])];
+    newLinks[index] = { ...newLinks[index], [field]: value };
+    
+    updateSection(footerSection.id, {
+      ...footerSection,
+      content: { ...footerSection.content, socialLinks: newLinks }
+    });
+  };
+  
+  const deleteSocialLink = (index: number) => {
+    const footerSection = sections.find(s => s.type === 'footer');
+    if (!footerSection) return;
+    
+    const newLinks = [...(footerSection.content.socialLinks || [])];
+    newLinks.splice(index, 1);
+    
+    updateSection(footerSection.id, {
+      ...footerSection,
+      content: { ...footerSection.content, socialLinks: newLinks }
+    });
+  };
+
+  // Fonction pour gérer l'upload d'image dans l'en-tête
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, sectionType: string, field: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const section = sections.find(s => s.type === sectionType);
+    if (!section) return;
+    
+    // Créer une URL temporaire pour afficher l'image
+    const tempUrl = URL.createObjectURL(file);
+    
+    // Mettre à jour l'état avec l'URL temporaire
+    updateSection(section.id, {
             ...section,
             content: {
               ...section.content,
-              photos: newPhotos
-            }
-          };
+        [field]: tempUrl
+      }
+    });
+    
+    // Uploader l'image vers Firebase Storage
+    uploadImage(file, `newsletter-${sectionType}/${file.name}`).then(url => {
+      updateSection(section.id, {
+        ...section,
+        content: {
+          ...section.content,
+          [field]: url
         }
-        return section;
       });
-      
-      // Mettre à jour tout le tableau de sections
-      setSections(updatedSections);
-      
-      console.log('Sections mises à jour avec la nouvelle image');
-    } catch (error) {
-      console.error('Erreur lors du remplacement de l\'image:', error);
-      alert('Une erreur est survenue lors du remplacement de l\'image.');
-    }
+    }).catch(error => {
+      console.error(`Erreur lors de l'upload de l'image ${field}:`, error);
+      toast.error(`Erreur lors de l'upload de l'image ${field}`);
+    });
   };
 
   // Nouvelle fonction pour uploader les images par défaut
@@ -1091,7 +1120,7 @@ export default function NewsletterEditorVisual() {
         switch (section.type) {
           case 'content':
             return `
-            <h1>${section.content.title}</h1>
+            <h1>${section.customTitle || section.content.title}</h1>
             
             <p class="greeting">${section.content.greeting}</p>
             
@@ -1101,6 +1130,44 @@ export default function NewsletterEditorVisual() {
           case 'photos':
             if (!section.content.photos || section.content.photos.length === 0) return '';
             
+            // Si une seule photo, l'afficher en grand
+            if (section.content.photos.length === 1) {
+              const photo = section.content.photos[0];
+              return `
+              <!-- Image unique en plein écran -->
+              <div style="margin: 30px 0; text-align: center;">
+                <div style="height: 350px; line-height: 350px; text-align: center; margin-bottom: 20px; max-width: 600px; margin-left: auto; margin-right: auto;">
+                  <img src="${photo.url}" alt="${photo.caption}" style="max-width: 100%; max-height: 350px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: inline-block; vertical-align: middle; object-fit: contain;">
+                </div>
+                <div style="background-color: #2c3e50; color: white; padding: 10px; border-radius: 5px; display: inline-block; margin-bottom: 30px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 600;">${photo.caption || 'Vue d\'ensemble'}</div>
+              </div>
+              `;
+            } 
+            // Si deux photos, les afficher côte à côte
+            else if (section.content.photos.length === 2) {
+              const photos = section.content.photos;
+              return `
+              <!-- Deux photos côte à côte -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 30px 0; table-layout: fixed;" class="secondary-photos">
+                <tr>
+                  <td width="50%" valign="top" style="padding: 0 10px; text-align: center;">
+                    <div style="width: 260px; height: 190px; margin: 0 auto 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                      <img src="${photos[0].url}" alt="${photos[0].caption}" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+                    <div style="background-color: #2c3e50; color: white; padding: 8px; border-radius: 5px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 600; font-size: 14px; display: inline-block; min-width: 200px; max-width: 260px; margin: 0 auto;">${photos[0].caption || 'Légende de la photo'}</div>
+                  </td>
+                  <td width="50%" valign="top" style="padding: 0 10px; text-align: center;">
+                    <div style="width: 260px; height: 190px; margin: 0 auto 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                      <img src="${photos[1].url}" alt="${photos[1].caption}" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+                    <div style="background-color: #2c3e50; color: white; padding: 8px; border-radius: 5px; font-family: 'Montserrat', Arial, sans-serif; font-weight: 600; font-size: 14px; display: inline-block; min-width: 200px; max-width: 260px; margin: 0 auto;">${photos[1].caption || 'Légende de la photo'}</div>
+                  </td>
+                </tr>
+              </table>
+              `;
+            }
+            // Pour 3 photos ou plus, utiliser le format actuel
+            else {
             // Image principale
             const mainPhoto = section.content.photos[0];
             const secondaryPhotos = section.content.photos.slice(1);
@@ -1131,6 +1198,7 @@ export default function NewsletterEditorVisual() {
             </table>
             ` : ''}
             `;
+            }
           
           case 'characteristics':
             if (!section.content.characteristics || section.content.characteristics.length === 0) return '';
@@ -1149,7 +1217,7 @@ export default function NewsletterEditorVisual() {
                       <tr>
                         <td valign="middle" style="padding-right: 10px; color: #e50019; font-size: 24px; text-shadow: 0 1px 1px rgba(0,0,0,0.1);">✨</td>
                         <td valign="middle">
-                          <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">Caractéristiques principales</h2>
+                          <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || 'Caractéristiques principales'}</h2>
                         </td>
                       </tr>
                     </table>
@@ -1245,7 +1313,7 @@ export default function NewsletterEditorVisual() {
                       <tr>
                         <td valign="middle" style="padding-right: 10px; color: #e50019; font-size: 24px; text-shadow: 0 1px 1px rgba(0,0,0,0.1);">📍</td>
                         <td valign="middle">
-                          <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">Localisation & Espaces</h2>
+                          <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || 'Localisation & Espaces'}</h2>
                         </td>
                       </tr>
                     </table>
@@ -1266,11 +1334,9 @@ export default function NewsletterEditorVisual() {
             `;
           
           case 'availability':
-            if (!section.content.availability) return '';
-            
             return `
-            <!-- AVAILABILITY SECTION -->
-            <div style="background-color: #ffffff; padding: 10px; border-radius: 8px; margin-top: 20px;">
+            <!-- DISPONIBILITÉ -->
+            <div style="background-color: #ffffff; padding: 10px; border-radius: 8px; margin-top: 30px;">
               <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 15px 0 10px 0;">
                 <tr>
                   <td width="6" style="background-color: #e50019; padding: 0;" valign="top">&nbsp;</td>
@@ -1280,7 +1346,7 @@ export default function NewsletterEditorVisual() {
                       <tr>
                         <td valign="middle" style="padding-right: 10px; color: #e50019; font-size: 24px; text-shadow: 0 1px 1px rgba(0,0,0,0.1);">📅</td>
                         <td valign="middle">
-                          <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">Disponibilité</h2>
+                          <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || 'Disponibilité'}</h2>
                         </td>
                       </tr>
                     </table>
@@ -1288,25 +1354,38 @@ export default function NewsletterEditorVisual() {
                 </tr>
               </table>
             </div>
-            <div class="info-section" style="background-color: #ffffff; padding: 25px; border-radius: 12px; margin: 20px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border-left: 3px solid #e50019; border: 1px solid #e0e0e0;">
-              <p style="color: #333333;"><strong style="color: #333333; font-size: 17px;">Date de Disponibilité :</strong> <span style="font-size: 16px; color: #333333;">${section.content.availability.date}</span></p>
-              <p style="color: #333333;"><strong style="color: #333333; font-size: 17px;">Détails :</strong> <span style="font-size: 16px; color: #333333;">${section.content.availability.details}</span></p>
-            </div>
             
-            <!-- Bouton compatible avec Outlook -->
-            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 40px 0; background-color: #ffffff;">
-              <tr>
-                <td align="center">
-                  <table border="0" cellspacing="0" cellpadding="0">
-                    <tr>
-                      <td bgcolor="#e50019" style="padding: 18px 36px; border-radius: 50px;" align="center">
-                        <a href="mailto:contact@arthurloydbretagne.fr?subject=Demande d'information PEM SUD" style="font-family: 'Montserrat', Arial, sans-serif; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none; display: inline-block; text-transform: uppercase; letter-spacing: 0.5px;">Demander plus d'informations</a>
+            <div class="info-section" style="background-color: #ffffff; padding: 25px; border-radius: 12px; margin: 20px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border-left: 3px solid #e50019; border: 1px solid #e0e0e0;">
+              <p style="color: #333333;"><strong style="color: #333333;">Date de ${section.customTitle?.toLowerCase() || 'disponibilité'} :</strong> ${section.content.availability?.date || ''}</p>
+              <p style="color: #333333;"><strong style="color: #333333;">Détails :</strong> ${section.content.availability?.details || ''}</p>
+            </div>
+            `;
+            
+          case 'custom':
+            return `
+            <!-- SECTION PERSONNALISÉE -->
+            <div style="background-color: #ffffff; padding: 10px; border-radius: 8px; margin-top: 30px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 15px 0 10px 0;">
+                <tr>
+                  <td width="6" style="background-color: #e50019; padding: 0;" valign="top">&nbsp;</td>
+                  <td width="15" style="padding: 0;"></td>
+                  <td style="padding: 0;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td valign="middle" style="padding-right: 10px; color: #e50019; font-size: 24px; text-shadow: 0 1px 1px rgba(0,0,0,0.1);">${section.content.custom?.icon || '✨'}</td>
+                        <td valign="middle">
+                          <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || section.content.custom?.title || 'Section personnalisée'}</h2>
                       </td>
                     </tr>
                   </table>
                 </td>
               </tr>
             </table>
+            </div>
+            
+            <div class="info-section" style="background-color: #ffffff; padding: 25px; border-radius: 12px; margin: 20px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border-left: 3px solid #e50019; border: 1px solid #e0e0e0;">
+              <p style="color: #333333;">${section.content.custom?.content || ''}</p>
+            </div>
             `;
           
           default:
@@ -1377,6 +1456,7 @@ export default function NewsletterEditorVisual() {
 
   // Fonction pour filtrer les sections éditables
   const getEditableSections = (sections: NewsletterSection[]): NewsletterSection[] => {
+    // Filtrer les sections pour exclure l'en-tête et le pied de page
     return sections.filter(section => section.type !== 'header' && section.type !== 'footer');
   };
 
@@ -1401,6 +1481,468 @@ export default function NewsletterEditorVisual() {
         toast.error("Erreur lors de la suppression du template");
       }
     }
+  };
+
+  // Nouvelle fonction pour ajouter une section
+  const addSection = (type: NewsletterSection['type']) => {
+    const newSection: NewsletterSection = {
+      id: `section-${Date.now()}`,
+      type,
+      content: {}
+    };
+
+    // Initialiser le contenu selon le type de section
+    switch(type) {
+      case 'header':
+        newSection.content = {
+          logo: '/placeholder-image.jpg'
+        };
+        newSection.customTitle = "En-tête";
+        break;
+      case 'headline':
+        newSection.content = {
+          title: 'Opportunité immobilière exceptionnelle',
+          subtitle: 'Découvrez ce bien unique au cœur de la ville'
+        };
+        newSection.customTitle = "Titre principal";
+        break;
+      case 'content':
+        newSection.content = {
+          title: 'À propos de ce bien',
+          greeting: 'Chers clients,',
+          paragraphs: [
+            'Nous sommes ravis de vous présenter cette opportunité immobilière exceptionnelle qui répond parfaitement aux exigences du marché actuel.',
+            'Ce bien se distingue par sa localisation stratégique et ses prestations de qualité, offrant un cadre idéal pour votre projet.',
+            'Notre équipe se tient à votre disposition pour vous accompagner dans votre démarche d\'acquisition.'
+          ]
+        };
+        newSection.customTitle = "Présentation";
+        break;
+      case 'photos':
+        newSection.content = {
+          photos: [
+            { url: '/placeholder-image.jpg', caption: 'Vue extérieure du bâtiment' },
+            { url: '/placeholder-image.jpg', caption: 'Espace de travail moderne' },
+            { url: '/placeholder-image.jpg', caption: 'Salle de réunion équipée' }
+          ]
+        };
+        newSection.customTitle = "Galerie photos";
+        break;
+      case 'characteristics':
+        newSection.content = {
+          characteristics: [
+            { icon: '🏢', title: 'Type', value: 'Immeuble de bureaux' },
+            { icon: '📏', title: 'Surface', value: '450 m²' },
+            { icon: '🚪', title: 'Pièces', value: '12 bureaux' },
+            { icon: '🚗', title: 'Parking', value: '8 places' },
+            { icon: '🌡️', title: 'DPE', value: 'Classe A' }
+          ]
+        };
+        newSection.customTitle = "Caractéristiques principales";
+        break;
+      case 'location':
+        newSection.content = {
+          locationFeatures: [
+            'Situé en plein centre-ville',
+            'Accès direct aux transports en commun (métro, bus)',
+            'À proximité des commerces et restaurants',
+            'À 10 minutes de la gare principale',
+            'Quartier d\'affaires dynamique'
+          ]
+        };
+        newSection.customTitle = "Localisation stratégique";
+        break;
+      case 'availability':
+        newSection.content = {
+          availability: {
+            date: 'Disponible dès maintenant',
+            details: 'Possibilité d\'emménagement immédiat. Contactez-nous pour organiser une visite personnalisée et découvrir tous les atouts de ce bien d\'exception.'
+          }
+        };
+        newSection.customTitle = "Disponibilité";
+        break;
+      case 'footer':
+        newSection.content = {
+          socialLinks: [
+            { platform: 'LinkedIn', url: 'https://www.linkedin.com/company/votre-entreprise' },
+            { platform: 'Twitter', url: 'https://twitter.com/votre_entreprise' },
+            { platform: 'Instagram', url: 'https://www.instagram.com/votre_entreprise' }
+          ]
+        };
+        newSection.customTitle = "Pied de page";
+        break;
+      case 'custom':
+        newSection.content = {
+          custom: {
+            icon: '📅',
+            title: 'Section personnalisée',
+            content: 'Ajoutez votre contenu personnalisé ici. Vous pouvez modifier le titre, l\'icône et le contenu selon vos besoins.'
+          }
+        };
+        newSection.customTitle = "Section personnalisée";
+        break;
+    }
+
+    // Définir l'état de collapse par défaut
+    if (type === 'header' || type === 'footer') {
+      newSection.isCollapsed = true;
+    } else {
+      newSection.isCollapsed = false;
+    }
+
+    // Ajouter la section à l'endroit approprié
+    const newSections = [...sections];
+    
+    if (type === 'header') {
+      // Ajouter l'en-tête au début
+      newSections.unshift(newSection);
+    } else if (type === 'footer') {
+      // Ajouter le pied de page à la fin
+      newSections.push(newSection);
+    } else {
+      // Pour les autres sections, ajouter avant le footer s'il existe
+      const footerIndex = newSections.findIndex(s => s.type === 'footer');
+      
+      if (footerIndex !== -1) {
+        newSections.splice(footerIndex, 0, newSection);
+      } else {
+        newSections.push(newSection);
+      }
+    }
+    
+    setSections(newSections);
+    setShowAddSectionModal(false);
+  };
+
+  // Nouvelle fonction pour supprimer une section
+  const deleteSection = (sectionId: string) => {
+    // Vérifier que ce n'est pas une section obligatoire (header/footer)
+    const sectionToDelete = sections.find(s => s.id === sectionId);
+    
+    // Confirmation avant suppression
+    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette section ?")) {
+      const newSections = sections.filter(section => section.id !== sectionId);
+      setSections(newSections);
+    }
+  };
+
+  // Nouvelle fonction pour ajouter un paragraphe
+  const addParagraph = (sectionId: string) => {
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return;
+
+    const section = sections[sectionIndex];
+    const paragraphs = [...(section.content.paragraphs || []), "Nouveau paragraphe"];
+
+    const updatedSection = {
+      ...section,
+      content: { ...section.content, paragraphs }
+    };
+
+    const newSections = [...sections];
+    newSections[sectionIndex] = updatedSection;
+    setSections(newSections);
+  };
+
+  // Nouvelle fonction pour supprimer un paragraphe
+  const deleteParagraph = (sectionId: string, paragraphIndex: number) => {
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return;
+
+    const section = sections[sectionIndex];
+    if (!section.content.paragraphs) return;
+
+    const paragraphs = [...section.content.paragraphs];
+    paragraphs.splice(paragraphIndex, 1);
+
+    const updatedSection = {
+      ...section,
+      content: { ...section.content, paragraphs }
+    };
+
+    const newSections = [...sections];
+    newSections[sectionIndex] = updatedSection;
+    setSections(newSections);
+  };
+
+  // Nouvelle fonction pour ajouter une photo
+  const addPhoto = (sectionId: string) => {
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return;
+
+    const section = sections[sectionIndex];
+    const photos = [...(section.content.photos || []), { url: '/placeholder-image.jpg', caption: 'Nouvelle photo' }];
+
+    const updatedSection = {
+      ...section,
+      content: { ...section.content, photos }
+    };
+
+    const newSections = [...sections];
+    newSections[sectionIndex] = updatedSection;
+    setSections(newSections);
+  };
+
+  // Nouvelle fonction pour supprimer une photo
+  const deletePhoto = (sectionId: string, photoIndex: number) => {
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return;
+
+    const section = sections[sectionIndex];
+    if (!section.content.photos) return;
+
+    const photos = [...section.content.photos];
+    photos.splice(photoIndex, 1);
+
+    const updatedSection = {
+      ...section,
+      content: { ...section.content, photos }
+    };
+
+    const newSections = [...sections];
+    newSections[sectionIndex] = updatedSection;
+    setSections(newSections);
+  };
+
+  // Nouvelle fonction pour ajouter une caractéristique
+  const addCharacteristic = (sectionId: string) => {
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return;
+
+    const section = sections[sectionIndex];
+    const characteristics = [...(section.content.characteristics || []), { icon: '✨', title: 'Nouvelle caractéristique', value: 'Valeur' }];
+
+    const updatedSection = {
+      ...section,
+      content: { ...section.content, characteristics }
+    };
+
+    const newSections = [...sections];
+    newSections[sectionIndex] = updatedSection;
+    setSections(newSections);
+  };
+
+  // Nouvelle fonction pour supprimer une caractéristique
+  const deleteCharacteristic = (sectionId: string, charIndex: number) => {
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return;
+
+    const section = sections[sectionIndex];
+    if (!section.content.characteristics) return;
+
+    const characteristics = [...section.content.characteristics];
+    characteristics.splice(charIndex, 1);
+
+    const updatedSection = {
+      ...section,
+      content: { ...section.content, characteristics }
+    };
+
+    const newSections = [...sections];
+    newSections[sectionIndex] = updatedSection;
+    setSections(newSections);
+  };
+
+  // Nouvelle fonction pour ajouter une fonctionnalité de localisation
+  const addLocationFeature = (sectionId: string) => {
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return;
+
+    const section = sections[sectionIndex];
+    const locationFeatures = [...(section.content.locationFeatures || []), "Nouvelle fonctionnalité de localisation"];
+
+    const updatedSection = {
+      ...section,
+      content: { ...section.content, locationFeatures }
+    };
+
+    const newSections = [...sections];
+    newSections[sectionIndex] = updatedSection;
+    setSections(newSections);
+  };
+
+  // Nouvelle fonction pour supprimer une fonctionnalité de localisation
+  const deleteLocationFeature = (sectionId: string, featureIndex: number) => {
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return;
+
+    const section = sections[sectionIndex];
+    if (!section.content.locationFeatures) return;
+
+    const locationFeatures = [...section.content.locationFeatures];
+    locationFeatures.splice(featureIndex, 1);
+
+    const updatedSection = {
+      ...section,
+      content: { ...section.content, locationFeatures }
+    };
+
+    const newSections = [...sections];
+    newSections[sectionIndex] = updatedSection;
+    setSections(newSections);
+  };
+
+  // Nouvelle fonction pour réduire/développer une section
+  const toggleSectionCollapse = (sectionId: string) => {
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return;
+
+    const newSections = [...sections];
+    newSections[sectionIndex] = {
+      ...newSections[sectionIndex],
+      isCollapsed: !newSections[sectionIndex].isCollapsed
+    };
+    setSections(newSections);
+  };
+
+  // Nouvelle fonction pour déplacer une section vers le haut
+  const moveSectionUp = (sectionId: string) => {
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex <= 0 || sections[sectionIndex].type === 'header') return; // Ne pas déplacer l'en-tête
+    
+    const newSections = [...sections];
+    const temp = newSections[sectionIndex];
+    newSections[sectionIndex] = newSections[sectionIndex - 1];
+    newSections[sectionIndex - 1] = temp;
+    
+    setSections(newSections);
+  };
+  
+  // Nouvelle fonction pour déplacer une section vers le bas
+  const moveSectionDown = (sectionId: string) => {
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1 || sectionIndex >= sections.length - 1 || sections[sectionIndex].type === 'footer') return; // Ne pas déplacer le pied de page
+    
+    const newSections = [...sections];
+    const temp = newSections[sectionIndex];
+    newSections[sectionIndex] = newSections[sectionIndex + 1];
+    newSections[sectionIndex + 1] = temp;
+    
+    setSections(newSections);
+  };
+
+  // Composant de modal pour ajouter une section
+  const AddSectionModal = () => {
+    // Si le modal ne doit pas être affiché, ne rien rendre
+    if (!showAddSectionModal) return null;
+    
+    const sectionTypes = [
+      { 
+        type: 'headline', 
+        label: 'Titre principal', 
+        icon: '📝', 
+        description: 'Ajoute un titre accrocheur pour votre newsletter'
+      },
+      { 
+        type: 'content', 
+        label: 'Contenu principal', 
+        icon: '📄', 
+        description: 'Ajoute une section de texte avec paragraphes'
+      },
+      { 
+        type: 'photos', 
+        label: 'Photos du projet', 
+        icon: '📸', 
+        description: 'Ajoute une galerie de photos avec légendes'
+      },
+      { 
+        type: 'characteristics', 
+        label: 'Caractéristiques', 
+        icon: '✅', 
+        description: 'Ajoute une liste de caractéristiques avec icônes'
+      },
+      { 
+        type: 'location', 
+        label: 'Localisation', 
+        icon: '📍', 
+        description: 'Ajoute des informations sur l\'emplacement'
+      },
+      { 
+        type: 'availability', 
+        label: 'Disponibilité', 
+        icon: '📅', 
+        description: 'Ajoute des informations sur la disponibilité'
+      },
+      { 
+        type: 'custom', 
+        label: 'Section personnalisée', 
+        icon: '✨', 
+        description: 'Crée une section entièrement personnalisable avec titre, icône et contenu'
+      }
+    ];
+    
+    // Filtrer les types de sections qui existent déjà et qui ne peuvent pas être dupliqués
+    const availableSectionTypes = sectionTypes.filter(sectionType => {
+      // Pour les sections uniques (headline), vérifier si elles existent déjà
+      if (['headline'].includes(sectionType.type)) {
+        return !sections.some(section => section.type === sectionType.type);
+      }
+      // Les autres types de sections peuvent être ajoutés plusieurs fois
+      return true;
+    });
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white p-6 rounded-lg shadow-xl max-w-3xl w-full">
+          <h2 className="text-xl font-bold mb-4">Ajouter une section</h2>
+          <div className="grid grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
+            {availableSectionTypes.map((sectionType) => (
+              <button
+                key={sectionType.type}
+                onClick={() => addSection(sectionType.type as NewsletterSection['type'])}
+                className="p-4 border rounded-lg hover:bg-gray-50 text-left flex items-start transition-all hover:shadow-md"
+              >
+                <div className="text-3xl mr-3">{sectionType.icon}</div>
+                <div>
+                  <div className="font-semibold">{sectionType.label}</div>
+                  <div className="text-sm text-gray-600 mt-1">{sectionType.description}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={() => setShowAddSectionModal(false)}
+              className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Fonction pour réorganiser les sections par drag and drop
+  const handleDragEnd = (result: any) => {
+    // Si on n'a pas déposé dans une zone valide, ne rien faire
+    if (!result.destination) return;
+    
+    // Si la source et la destination sont identiques, ne rien faire
+    if (
+      result.destination.droppableId === result.source.droppableId &&
+      result.destination.index === result.source.index
+    ) {
+      return;
+    }
+    
+    // Ne pas permettre de déplacer l'en-tête ou le pied de page
+    const sourceIndex = result.source.index;
+    if (sections[sourceIndex].type === 'header' || sections[sourceIndex].type === 'footer') {
+      return;
+    }
+    
+    // Créer une copie des sections
+    const newSections = Array.from(sections);
+    
+    // Retirer la section de sa position originale
+    const [removed] = newSections.splice(result.source.index, 1);
+    
+    // Ajouter la section à sa nouvelle position
+    newSections.splice(result.destination.index, 0, removed);
+    
+    // Mettre à jour l'état
+    setSections(newSections);
   };
 
   if (loading) {
@@ -1431,25 +1973,176 @@ export default function NewsletterEditorVisual() {
         <div className="bg-gray-50 p-4 rounded-lg shadow-md">
           {mode === 'edit' && (
             <>
-              <div className="space-y-4">
-                {getEditableSections(sections).map(section => (
-                  <div key={section.id} className="bg-white p-4 rounded-lg shadow">
-                    <h3 className="text-lg font-semibold mb-4 capitalize">
+              <div className="mb-4 flex justify-between items-center">
+                <h2 className="text-xl font-semibold">Sections</h2>
+                <button
+                  onClick={() => setShowAddSectionModal(true)}
+                  className="px-4 py-2 bg-[#DC0032] text-white rounded-md flex items-center"
+                >
+                  <span className="mr-1">+</span> Ajouter une section
+                </button>
+              </div>
+
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="newsletter-sections">
+                  {(provided) => (
+                    <div 
+                      className="space-y-4"
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                    >
+                      {getEditableSections(sections).map((section, index) => (
+                        <Draggable 
+                          key={section.id} 
+                          draggableId={section.id} 
+                          index={index}
+                          isDragDisabled={section.type === 'header' || section.type === 'footer'}
+                        >
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className={`bg-white p-4 rounded-lg shadow ${snapshot.isDragging ? 'opacity-70' : ''}`}
+                            >
+                              <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-lg font-semibold capitalize flex items-center">
+                                  {section.type !== 'header' && section.type !== 'footer' && (
+                                    <span className="mr-2 cursor-grab">≡</span>
+                                  )}
+                                  {section.type === 'header' && 'En-tête'}
                       {section.type === 'headline' && 'Titre principal'}
                       {section.type === 'content' && 'Contenu principal'}
                       {section.type === 'photos' && 'Photos du projet'}
                       {section.type === 'characteristics' && 'Caractéristiques'}
                       {section.type === 'location' && 'Localisation'}
                       {section.type === 'availability' && 'Disponibilité'}
+                                  {section.type === 'footer' && 'Pied de page'}
                     </h3>
+                                <div className="flex space-x-2">
+                                  <button
+                                    onClick={() => toggleSectionCollapse(section.id)}
+                                    className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                                    title={section.isCollapsed ? "Développer" : "Réduire"}
+                                  >
+                                    {section.isCollapsed ? "👁️" : "👁️‍🗨️"}
+                                  </button>
+                                  {/* Ne pas afficher les boutons de déplacement et suppression pour l'en-tête et le pied de page */}
+                                  {section.type !== 'header' && section.type !== 'footer' && (
+                                    <>
+                                      <button
+                                        onClick={() => moveSectionUp(section.id)}
+                                        className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                                        title="Déplacer vers le haut"
+                                      >
+                                        ⬆️
+                                      </button>
+                                      <button
+                                        onClick={() => moveSectionDown(section.id)}
+                                        className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                                        title="Déplacer vers le bas"
+                                      >
+                                        ⬇️
+                                      </button>
+                                      <button
+                                        onClick={() => deleteSection(section.id)}
+                                        className="p-1 text-red-500 hover:bg-red-100 rounded"
+                                        title="Supprimer la section"
+                                      >
+                                        🗑️
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
 
+                              {/* Champ pour personnaliser le titre de la section */}
+                              {!section.isCollapsed && section.type !== 'header' && section.type !== 'footer' && 
+                               section.type !== 'headline' && section.type !== 'content' && section.type !== 'photos' && (
+                                <div className="mb-4">
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Titre affiché de la section
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={section.customTitle || ""}
+                                    onChange={(e) => updateSection(section.id, {
+                                      ...section,
+                                      customTitle: e.target.value
+                                    })}
+                                    placeholder={
+                                      section.type === 'characteristics' ? 'Caractéristiques' :
+                                      section.type === 'location' ? 'Localisation' :
+                                      section.type === 'availability' ? 'Disponibilité' :
+                                      section.type === 'custom' ? 'Section personnalisée' : ''
+                                    }
+                                    className="w-full p-2 border rounded"
+                                  />
+                                </div>
+                              )}
+
+                              {!section.isCollapsed && (
+                                <>
                     {section.type === 'header' && (
-                      <div className="flex items-center gap-4">
+                                    <div className="flex flex-col gap-4">
+                                      <div className="flex items-center gap-4 mb-4">
+                                        <div className="w-32">
                         <img 
                           src={section.content.logo} 
                           alt="Logo" 
-                          className="w-32 h-auto"
-                        />
+                                            className="w-full h-auto"
+                                          />
+                                        </div>
+                                        <div>
+                                          <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => handleImageUpload(e, 'header', 'logo')}
+                                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                          />
+                                          <p className="text-sm text-gray-500 mt-1">Logo de l'entreprise</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {section.type === 'footer' && (
+                                    <div className="flex flex-col gap-4">
+                                      <div className="border-t pt-4 mt-4">
+                                        <h4 className="font-medium text-gray-700 mb-2">Liens sociaux</h4>
+                                        <div className="space-y-2">
+                                          {section.content.socialLinks?.map((link, index) => (
+                                            <div key={index} className="flex space-x-2 items-center">
+                                              <input
+                                                type="text"
+                                                placeholder="Plateforme (ex: LinkedIn)"
+                                                value={link.platform}
+                                                onChange={(e) => updateSocialLink(index, 'platform', e.target.value)}
+                                                className="flex-1 p-2 border rounded"
+                                              />
+                                              <input
+                                                type="text"
+                                                placeholder="URL"
+                                                value={link.url}
+                                                onChange={(e) => updateSocialLink(index, 'url', e.target.value)}
+                                                className="flex-1 p-2 border rounded"
+                                              />
+                                              <button
+                                                onClick={() => deleteSocialLink(index)}
+                                                className="p-1 text-red-500 hover:bg-red-100 rounded"
+                                              >
+                                                🗑️
+                                              </button>
+                                            </div>
+                                          ))}
+                                          <button
+                                            onClick={addSocialLink}
+                                            className="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm"
+                                          >
+                                            + Ajouter un lien social
+                                          </button>
+                                        </div>
+                                      </div>
                       </div>
                     )}
 
@@ -1469,39 +2162,11 @@ export default function NewsletterEditorVisual() {
                             className="w-full p-2 border rounded"
                           />
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Sous-titre
-                          </label>
-                          <input
-                            type="text"
-                            value={section.content.subtitle}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: { ...section.content, subtitle: e.target.value }
-                            })}
-                            className="w-full p-2 border rounded"
-                          />
-                        </div>
                       </div>
                     )}
 
                     {section.type === 'content' && (
                       <div className="flex flex-col gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Titre de la section
-                          </label>
-                          <input
-                            type="text"
-                            value={section.content.title}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: { ...section.content, title: e.target.value }
-                            })}
-                            className="w-full p-2 border rounded"
-                          />
-                        </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Message d'accueil
@@ -1517,11 +2182,19 @@ export default function NewsletterEditorVisual() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Paragraphes
-                          </label>
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="block text-sm font-medium text-gray-700">
+                              Paragraphes
+                            </label>
+                            <button
+                              onClick={() => addParagraph(section.id)}
+                              className="text-blue-600 text-sm hover:underline"
+                            >
+                              + Ajouter un paragraphe
+                            </button>
+                          </div>
                           {section.content.paragraphs?.map((paragraph, index) => (
-                            <div key={index} className="mb-2">
+                                          <div key={index} className="mb-2 relative">
                               <textarea
                                 value={paragraph}
                                 onChange={(e) => {
@@ -1532,8 +2205,15 @@ export default function NewsletterEditorVisual() {
                                     content: { ...section.content, paragraphs: newParagraphs }
                                   });
                                 }}
-                                className="w-full p-2 border rounded min-h-[100px]"
-                              />
+                                              className="w-full p-2 border rounded min-h-[100px] pr-8"
+                                            />
+                                            <button
+                                              onClick={() => deleteParagraph(section.id, index)}
+                                              className="absolute top-2 right-2 text-red-500 hover:bg-red-100 p-1 rounded"
+                                              title="Supprimer ce paragraphe"
+                                            >
+                                              🗑️
+                                            </button>
                             </div>
                           ))}
                         </div>
@@ -1541,9 +2221,18 @@ export default function NewsletterEditorVisual() {
                     )}
 
                     {section.type === 'photos' && (
+                                    <div>
+                                      <div className="flex justify-between items-center mb-2">
+                                        <button
+                                          onClick={() => addPhoto(section.id)}
+                                          className="text-blue-600 text-sm hover:underline"
+                                        >
+                                          + Ajouter une photo
+                                        </button>
+                                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {section.content.photos?.map((photo, index) => (
-                          <div key={index} className="flex flex-col gap-2">
+                                          <div key={index} className="flex flex-col gap-2 relative">
                             <div className="relative group">
                               <img
                                 src={photo.url}
@@ -1560,91 +2249,185 @@ export default function NewsletterEditorVisual() {
                                     onChange={(e) => {
                                       const file = e.target.files?.[0];
                                       if (file) {
-                                        handleImageUpload(section.id, index, file);
+                                                        // Créer une URL temporaire pour afficher l'image
+                                                        const tempUrl = URL.createObjectURL(file);
+                                                        
+                                                        // Mettre à jour l'état avec l'URL temporaire
+                                                        const newPhotos = [...(section.content.photos || [])];
+                                                        newPhotos[index] = { ...photo, url: tempUrl };
+                                                        updateSection(section.id, {
+                                                          ...section,
+                                                          content: { ...section.content, photos: newPhotos }
+                                                        });
+                                                        
+                                                        // Uploader l'image vers Firebase Storage
+                                                        uploadImage(file, `newsletter-photos/${file.name}`).then(url => {
+                                                          const newPhotos = [...(section.content.photos || [])];
+                                                          newPhotos[index] = { ...photo, url };
+                                                          updateSection(section.id, {
+                                                            ...section,
+                                                            content: { ...section.content, photos: newPhotos }
+                                                          });
+                                                        }).catch(error => {
+                                                          console.error('Erreur lors de l\'upload de l\'image:', error);
+                                                          toast.error('Erreur lors de l\'upload de l\'image');
+                                                        });
                                       }
                                     }}
                                   />
                                 </label>
                               </div>
                             </div>
+                                            <div className="relative">
                             <input
                               type="text"
                               value={photo.caption}
                               onChange={(e) => {
                                 const newPhotos = [...(section.content.photos || [])];
                                 newPhotos[index] = { ...photo, caption: e.target.value };
-                                console.log('Mise à jour de la légende:', e.target.value);
                                 updateSection(section.id, {
                                   ...section,
                                   content: { ...section.content, photos: newPhotos }
                                 });
-                                console.log('Nouvelles photos après mise à jour:', newPhotos);
                               }}
                               className="w-full p-2 border rounded"
                               placeholder="Légende de la photo"
                             />
+                                              <button
+                                                onClick={() => deletePhoto(section.id, index)}
+                                                className="absolute top-2 right-2 text-red-500 hover:bg-red-100 p-1 rounded"
+                                                title="Supprimer cette photo"
+                                              >
+                                                🗑️
+                                              </button>
+                                            </div>
                           </div>
                         ))}
+                                      </div>
                       </div>
                     )}
 
                     {section.type === 'characteristics' && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {section.content.characteristics?.map((char, index) => (
-                          <div key={index} className="flex flex-col gap-2">
-                            <div className="flex items-center gap-2">
+                                    <div className="flex flex-col gap-4">
+                                      <div className="space-y-4">
+                                        {section.content.characteristics?.map((characteristic, index) => (
+                                          <div key={index} className="border p-3 rounded-lg">
+                                            <div className="flex justify-between items-center mb-2">
+                                              <h4 className="font-medium">Caractéristique {index + 1}</h4>
+                                              <button
+                                                onClick={() => deleteCharacteristic(section.id, index)}
+                                                className="text-red-600 hover:text-red-800"
+                                              >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                                </svg>
+                                              </button>
+                                            </div>
+                                            <div className="grid grid-cols-1 gap-3">
+                                              <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                  Icône
+                                                </label>
+                                                <div className="flex items-center gap-3">
+                                                  <div className="text-3xl">
+                                                    {characteristic.icon}
+                                                  </div>
+                                                  <EmojiPicker 
+                                                    currentEmoji={characteristic.icon} 
+                                                    onEmojiSelect={(emoji: string) => {
+                                                      const newCharacteristics = [...(section.content.characteristics || [])];
+                                                      newCharacteristics[index] = {
+                                                        ...newCharacteristics[index],
+                                                        icon: emoji
+                                                      };
+                                                      updateSection(section.id, {
+                                                        ...section,
+                                                        content: {
+                                                          ...section.content,
+                                                          characteristics: newCharacteristics
+                                                        }
+                                                      });
+                                                    }}
+                                                  />
+                                                </div>
+                                              </div>
+                                              <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                  Titre
+                                                </label>
                               <input
                                 type="text"
-                                value={char.icon}
+                                                  value={characteristic.title}
                                 onChange={(e) => {
-                                  const newChars = [...(section.content.characteristics || [])];
-                                  newChars[index] = { ...char, icon: e.target.value };
+                                                    const newCharacteristics = [...(section.content.characteristics || [])];
+                                                    newCharacteristics[index] = {
+                                                      ...newCharacteristics[index],
+                                                      title: e.target.value
+                                                    };
                                   updateSection(section.id, {
                                     ...section,
-                                    content: { ...section.content, characteristics: newChars }
+                                                      content: {
+                                                        ...section.content,
+                                                        characteristics: newCharacteristics
+                                                      }
                                   });
                                 }}
-                                className="w-12 p-2 border rounded text-center text-xl"
-                                placeholder="🏢"
-                              />
-                              <input
-                                type="text"
-                                value={char.title}
-                                onChange={(e) => {
-                                  const newChars = [...(section.content.characteristics || [])];
-                                  newChars[index] = { ...char, title: e.target.value };
-                                  updateSection(section.id, {
-                                    ...section,
-                                    content: { ...section.content, characteristics: newChars }
-                                  });
-                                }}
-                                className="flex-1 p-2 border rounded"
-                                placeholder="Titre"
+                                                  className="w-full p-2 border rounded"
                               />
                             </div>
+                                              <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                  Valeur
+                                                </label>
                             <input
                               type="text"
-                              value={char.value}
+                                                  value={characteristic.value}
                               onChange={(e) => {
-                                const newChars = [...(section.content.characteristics || [])];
-                                newChars[index] = { ...char, value: e.target.value };
+                                                    const newCharacteristics = [...(section.content.characteristics || [])];
+                                                    newCharacteristics[index] = {
+                                                      ...newCharacteristics[index],
+                                                      value: e.target.value
+                                                    };
                                 updateSection(section.id, {
                                   ...section,
-                                  content: { ...section.content, characteristics: newChars }
+                                                      content: {
+                                                        ...section.content,
+                                                        characteristics: newCharacteristics
+                                                      }
                                 });
                               }}
                               className="w-full p-2 border rounded"
-                              placeholder="Valeur"
                             />
+                                              </div>
+                                            </div>
                           </div>
                         ))}
+                                      </div>
+                                      <button
+                                        onClick={() => addCharacteristic(section.id)}
+                                        className="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm"
+                                      >
+                                        + Ajouter une caractéristique
+                                      </button>
                       </div>
                     )}
 
                     {section.type === 'location' && (
+                                    <div>
+                                      <div className="flex justify-between items-center mb-2">
+                                        <label className="block text-sm font-medium text-gray-700">
+                                          Localisation - Points forts
+                                        </label>
+                                        <button
+                                          onClick={() => addLocationFeature(section.id)}
+                                          className="text-blue-600 text-sm hover:underline"
+                                        >
+                                          + Ajouter un point fort
+                                        </button>
+                                      </div>
                       <div className="flex flex-col gap-4">
                         {section.content.locationFeatures?.map((feature, index) => (
-                          <div key={index}>
+                                          <div key={index} className="relative">
                             <input
                               type="text"
                               value={feature}
@@ -1656,10 +2439,18 @@ export default function NewsletterEditorVisual() {
                                   content: { ...section.content, locationFeatures: newFeatures }
                                 });
                               }}
-                              className="w-full p-2 border rounded"
-                            />
+                                              className="w-full p-2 border rounded pr-8"
+                                            />
+                                            <button
+                                              onClick={() => deleteLocationFeature(section.id, index)}
+                                              className="absolute top-2 right-2 text-red-500 hover:bg-red-100 p-1 rounded"
+                                              title="Supprimer ce point fort"
+                                            >
+                                              🗑️
+                                            </button>
                           </div>
                         ))}
+                                      </div>
                       </div>
                     )}
 
@@ -1671,13 +2462,13 @@ export default function NewsletterEditorVisual() {
                           </label>
                           <input
                             type="text"
-                            value={section.content.availability?.date}
+                                          value={section.content.availability?.date || ''}
                             onChange={(e) => updateSection(section.id, {
                               ...section,
                               content: {
                                 ...section.content,
                                 availability: {
-                                  ...section.content.availability,
+                                                ...(section.content.availability || {}), 
                                   date: e.target.value
                                 }
                               }
@@ -1689,27 +2480,105 @@ export default function NewsletterEditorVisual() {
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Détails supplémentaires
                           </label>
-                          <input
-                            type="text"
-                            value={section.content.availability?.details}
+                                        <textarea
+                                          value={section.content.availability?.details || ''}
                             onChange={(e) => updateSection(section.id, {
                               ...section,
                               content: {
                                 ...section.content,
                                 availability: {
-                                  ...section.content.availability,
+                                                ...(section.content.availability || {}), 
                                   details: e.target.value
                                 }
                               }
                             })}
+                                          rows={3}
                             className="w-full p-2 border rounded"
                           />
                         </div>
                       </div>
                     )}
-                  </div>
-                ))}
+
+                                  {section.type === 'custom' && (
+                                    <div className="flex flex-col gap-4">
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Icône
+                                        </label>
+                                        <div className="flex items-center gap-3">
+                                          <div className="text-3xl">
+                                            {section.content.custom?.icon || '✨'}
+                                          </div>
+                                          <EmojiPicker 
+                                            currentEmoji={section.content.custom?.icon || '✨'} 
+                                            onEmojiSelect={(emoji: string) => updateSection(section.id, {
+                                              ...section,
+                                              content: { 
+                                                ...section.content, 
+                                                custom: { 
+                                                  ...(section.content.custom || {}), 
+                                                  icon: emoji 
+                                                } 
+                                              }
+                                            })}
+                                          />
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Titre
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={section.content.custom?.title || ''}
+                                          onChange={(e) => updateSection(section.id, {
+                                            ...section,
+                                            content: { 
+                                              ...section.content, 
+                                              custom: { 
+                                                ...(section.content.custom || {}), 
+                                                title: e.target.value 
+                                              } 
+                                            }
+                                          })}
+                                          className="w-full p-2 border rounded"
+                                          placeholder="Titre de la section"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Contenu
+                                        </label>
+                                        <textarea
+                                          value={section.content.custom?.content || ''}
+                                          onChange={(e) => updateSection(section.id, {
+                                            ...section,
+                                            content: { 
+                                              ...section.content, 
+                                              custom: { 
+                                                ...(section.content.custom || {}), 
+                                                content: e.target.value 
+                                              } 
+                                            }
+                                          })}
+                                          rows={5}
+                                          className="w-full p-2 border rounded"
+                                          placeholder="Contenu de la section"
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
               </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
 
               <div className="mt-6">
                 <div className="flex space-x-4">
@@ -1770,7 +2639,7 @@ export default function NewsletterEditorVisual() {
         </div>
 
         {/* Prévisualisation persistante à droite */}
-        <div className="bg-white p-4 rounded-lg shadow-md">
+        <div className="bg-white p-4 rounded-lg shadow-md sticky top-4 max-h-[calc(100vh-2rem)] overflow-auto">
           <h3 className="text-lg font-semibold mb-4">Aperçu</h3>
           <div className="border rounded-lg overflow-hidden">
             <iframe
@@ -1781,6 +2650,9 @@ export default function NewsletterEditorVisual() {
           </div>
         </div>
       </div>
+
+      {/* Modal pour ajouter une section */}
+      <AddSectionModal />
     </div>
   );
 } 

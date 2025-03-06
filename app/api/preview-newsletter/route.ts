@@ -223,10 +223,10 @@ export async function POST(req: Request) {
     html = replaceFirebaseUrlsWithProxy(html);
 
     return new NextResponse(html, {
-      headers: {
+    headers: {
         'Content-Type': 'text/html',
-      },
-    });
+    },
+  });
   } catch (error) {
     console.error('Erreur lors de la prévisualisation:', error);
     return NextResponse.json(
@@ -492,8 +492,8 @@ function generatePemSudTemplate(params: PemSudTemplateParams): string {
             <tr>
               <td bgcolor="#DC0032" style="padding: 12px 30px; border-radius: 4px;" align="center">
                 <a href="${ctaUrl}" style="font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; color: #ffffff; text-decoration: none; display: inline-block;">
-                  ${ctaText}
-                </a>
+            ${ctaText}
+          </a>
               </td>
             </tr>
           </table>

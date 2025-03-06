@@ -99,20 +99,9 @@ const ALLOWED_EMAIL_DOMAINS = [
   'arthur-loyd.fr'
 ];
 
-// Liste des emails spécifiques autorisés (développeurs)
-const ALLOWED_SPECIFIC_EMAILS = [
-  'photos.pers@gmail.com',
-  'rodrigue.pers29@gmail.com'
-];
-
 // Fonction pour vérifier si un email a un domaine autorisé
 export function hasAllowedEmailDomain(email: string): boolean {
   if (!email || !email.includes('@')) return false;
-  
-  // Vérifier si l'email est dans la liste des exceptions
-  if (ALLOWED_SPECIFIC_EMAILS.includes(email.toLowerCase())) {
-    return true;
-  }
   
   const domain = email.split('@')[1].toLowerCase();
   return ALLOWED_EMAIL_DOMAINS.includes(domain);
@@ -121,7 +110,7 @@ export function hasAllowedEmailDomain(email: string): boolean {
 // Fonction pour créer un utilisateur avec vérification du domaine
 export async function createUserWithEmailAndPassword(auth: any, email: string, password: string) {
   if (!hasAllowedEmailDomain(email)) {
-    throw new Error('Vous n\'êtes pas autorisé à créer un compte. Contactez l\'administrateur.');
+    throw new Error('Seuls les emails @arthurloydbretagne.fr et @arthur-loyd.com sont autorisés à s\'inscrire.');
   }
   
   return await firebaseCreateUser(auth, email, password);
@@ -164,19 +153,8 @@ export async function signInWithGoogle() {
     // Vérifier si l'email a un domaine autorisé
     if (!hasAllowedEmailDomain(result.user.email || '')) {
       // Déconnecter l'utilisateur immédiatement
-      console.log('Email non autorisé, déconnexion et suppression du compte:', result.user.email);
-      
-      try {
-        // Supprimer l'utilisateur de Firebase
-        await result.user.delete();
-        console.log('Utilisateur supprimé de Firebase');
-      } catch (deleteError) {
-        console.error('Erreur lors de la suppression de l\'utilisateur:', deleteError);
-        // Déconnexion en cas d'échec de suppression
-        await auth.signOut();
-      }
-      
-      throw new Error('Vous n\'êtes pas autorisé à vous connecter. Contactez l\'administrateur.');
+      await auth.signOut();
+      throw new Error('Seuls les emails @arthurloydbretagne.fr et @arthur-loyd.com sont autorisés à se connecter.');
     }
     
     console.log('Connexion réussie avec Google', { userId: result.user.uid });
