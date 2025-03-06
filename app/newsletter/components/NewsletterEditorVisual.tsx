@@ -1728,6 +1728,7 @@ export default function NewsletterEditorVisual() {
           id: newId,
           type: 'content',
           content: {
+            title: 'Nouvelle offre immobilière',
             greeting: 'Bonjour {civilite} {nom},',
             paragraphs: ['Nous sommes ravis de vous présenter notre nouvelle offre immobilière.']
           }
@@ -2466,6 +2467,21 @@ export default function NewsletterEditorVisual() {
 
                     {section.type === 'content' && (
                       <div className="flex flex-col gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Titre de la section
+                          </label>
+                          <input
+                            type="text"
+                            value={section.content.title || ''}
+                            onChange={(e) => updateSection(section.id, {
+                              ...section,
+                              content: { ...section.content, title: e.target.value }
+                            })}
+                            className="w-full p-2 border rounded"
+                            placeholder="Titre de la section"
+                          />
+                        </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Message d'accueil
