@@ -2643,10 +2643,6 @@ export default function NewsletterEditorVisual() {
                                 }}
                                 className="w-full p-2 border rounded min-h-[100px] pr-8"
                               />
-                              <div className="mt-2 text-xs text-gray-500">
-                                Aperçu:
-                                <div className="p-2 border rounded mt-1 bg-gray-50" dangerouslySetInnerHTML={{ __html: paragraph }}></div>
-                              </div>
                               <button
                                 onClick={() => deleteParagraph(section.id, index)}
                                 className="absolute top-2 right-2 text-red-500 hover:bg-red-100 p-1 rounded"
@@ -2719,8 +2715,7 @@ export default function NewsletterEditorVisual() {
                               </div>
                             </div>
                                             <div className="relative">
-                            <input
-                              type="text"
+                            <textarea
                               value={photo.caption}
                               onChange={(e) => {
                                 const newPhotos = [...(section.content.photos || [])];
@@ -2732,6 +2727,7 @@ export default function NewsletterEditorVisual() {
                               }}
                               className="w-full p-2 border rounded"
                               placeholder="Légende de la photo"
+                              rows={3}
                             />
                                               <button
                                                 onClick={() => deletePhoto(section.id, index)}
@@ -3153,22 +3149,7 @@ export default function NewsletterEditorVisual() {
 
                     {section.type === 'surface' && (
                       <div className="flex flex-col gap-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Titre de la section
-                            </label>
-                            <input
-                              type="text"
-                              value={section.content.surfaceTitle || ''}
-                              onChange={(e) => updateSection(section.id, {
-                                ...section,
-                                content: { ...section.content, surfaceTitle: e.target.value }
-                              })}
-                              className="w-full p-2 border rounded"
-                              placeholder="Surface"
-                            />
-                          </div>
+                        <div className="grid grid-cols-1 gap-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               Icône
