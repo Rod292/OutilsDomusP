@@ -1260,30 +1260,90 @@ export default function NewsletterEditorVisual() {
               </table>
             </div>
             
-            <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; margin: 20px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border: 1px solid #e0e0e0;">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                ${section.content.characteristics?.map((char, i) => `
-                  <tr>
-                    <td style="padding: 12px 0; ${i > 0 ? 'border-top: 1px solid #eaeaea;' : ''}">
-                      <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                        <tr>
-                          <td width="40" valign="top" style="padding-right: 15px;">
-                            ${char.imageUrl ? 
-                              `<img src="${char.imageUrl}" alt="${char.title}" style="width: 40px; height: 40px; object-fit: contain; display: block;" />` : 
-                              `<div style="font-size: 28px; color: #e50019; text-align: center; width: 40px;">${char.icon}</div>`
-                            }
-                          </td>
-                          <td>
-                            <p style="margin: 0; font-weight: 600; color: #2c3e50; font-size: 16px;">${char.title}</p>
-                            <p style="margin: 4px 0 0 0; color: #333333; font-size: 15px;">${char.value}</p>
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-                `).join('')}
-              </table>
-            </div>
+            <!-- GRID DE CARACTÉRISTIQUES -->
+            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0;">
+              <tr>
+                <td>
+                  <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                    <tr>
+                      ${chars.length >= 1 ? `
+                      <td width="49%" valign="top">
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e0e0e0; height: 220px; min-height: 220px;">
+                          <tr>
+                            <td align="center" style="padding: 25px 15px;">
+                              ${chars[0].imageUrl ? 
+                                `<div style="margin-bottom: 15px;"><img src="${chars[0].imageUrl}" alt="${chars[0].title}" style="width: 60px; height: 60px; object-fit: contain; display: inline-block; background-color: rgba(229,0,25,0.08); border-radius: 50%; padding: 5px;" /></div>` : 
+                                `<div style="font-size: 32px; margin-bottom: 15px; color: #e50019; display: inline-block; background-color: rgba(229,0,25,0.08); width: 60px; height: 60px; line-height: 60px; border-radius: 50%;">${chars[0].icon}</div>`
+                              }
+                              <h3 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; margin-bottom: 12px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background-color: #ffffff;">${chars[0].title}</h3>
+                              <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; background-color: #ffffff;">${chars[0].value}</p>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                      ` : ''}
+                      
+                      <td width="2%">&nbsp;</td>
+                      ${chars.length >= 2 ? `
+                      <td width="49%" valign="top">
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e0e0e0; height: 220px; min-height: 220px;">
+                          <tr>
+                            <td align="center" style="padding: 25px 15px;">
+                              ${chars[1].imageUrl ? 
+                                `<div style="margin-bottom: 15px;"><img src="${chars[1].imageUrl}" alt="${chars[1].title}" style="width: 60px; height: 60px; object-fit: contain; display: inline-block; background-color: rgba(229,0,25,0.08); border-radius: 50%; padding: 5px;" /></div>` : 
+                                `<div style="font-size: 32px; margin-bottom: 15px; color: #e50019; display: inline-block; background-color: rgba(229,0,25,0.08); width: 60px; height: 60px; line-height: 60px; border-radius: 50%;">${chars[1].icon}</div>`
+                              }
+                              <h3 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; margin-bottom: 12px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background-color: #ffffff;">${chars[1].title}</h3>
+                              <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; background-color: #ffffff;">${chars[1].value}</p>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                      ` : ''}
+                    </tr>
+                    ${chars.length > 2 ? `
+                    <tr><td colspan="3" height="20"></td></tr>
+                    <tr>
+                      ${chars.length >= 3 ? `
+                      <td width="49%" valign="top">
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e0e0e0; height: 220px; min-height: 220px;">
+                          <tr>
+                            <td align="center" style="padding: 25px 15px;">
+                              ${chars[2].imageUrl ? 
+                                `<div style="margin-bottom: 15px;"><img src="${chars[2].imageUrl}" alt="${chars[2].title}" style="width: 60px; height: 60px; object-fit: contain; display: inline-block; background-color: rgba(229,0,25,0.08); border-radius: 50%; padding: 5px;" /></div>` : 
+                                `<div style="font-size: 32px; margin-bottom: 15px; color: #e50019; display: inline-block; background-color: rgba(229,0,25,0.08); width: 60px; height: 60px; line-height: 60px; border-radius: 50%;">${chars[2].icon}</div>`
+                              }
+                              <h3 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; margin-bottom: 12px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background-color: #ffffff;">${chars[2].title}</h3>
+                              <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; background-color: #ffffff;">${chars[2].value}</p>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                      ` : ''}
+                      
+                      <td width="2%">&nbsp;</td>
+                      ${chars.length >= 4 ? `
+                      <td width="49%" valign="top">
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e0e0e0; height: 220px; min-height: 220px;">
+                          <tr>
+                            <td align="center" style="padding: 25px 15px;">
+                              ${chars[3].imageUrl ? 
+                                `<div style="margin-bottom: 15px;"><img src="${chars[3].imageUrl}" alt="${chars[3].title}" style="width: 60px; height: 60px; object-fit: contain; display: inline-block; background-color: rgba(229,0,25,0.08); border-radius: 50%; padding: 5px;" /></div>` : 
+                                `<div style="font-size: 32px; margin-bottom: 15px; color: #e50019; display: inline-block; background-color: rgba(229,0,25,0.08); width: 60px; height: 60px; line-height: 60px; border-radius: 50%;">${chars[3].icon}</div>`
+                              }
+                              <h3 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; margin-bottom: 12px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background-color: #ffffff;">${chars[3].title}</h3>
+                              <p style="margin: 0; font-size: 15px; color: #333333; line-height: 1.6; background-color: #ffffff;">${chars[3].value}</p>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                      ` : ''}
+                    </tr>
+                    ` : ''}
+                  </table>
+                </td>
+              </tr>
+            </table>
             `;
           
           case 'location':
