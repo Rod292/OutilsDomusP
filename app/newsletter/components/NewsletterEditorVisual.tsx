@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { db, storage } from '@/lib/firebase';
-import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { uploadImage } from '@/lib/firebase';
 import SendEmailForm from './SendEmailForm';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -1574,12 +1574,38 @@ export default function NewsletterEditorVisual() {
     
     if (window.confirm("Êtes-vous sûr de vouloir supprimer ce template ?")) {
       try {
-        await deleteDoc(doc(db, 'newsletterTemplates', templateId));
+        console.log("Tentative de suppression du template avec ID:", templateId);
+        
+        // Vérifier l'état de l'authentification
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+        
+        if (!currentUser || !user) {
+          console.error("Erreur : Utilisateur non authentifié");
+          toast.error("Vous devez être connecté pour supprimer un template");
+          return;
+        }
+        
+        // Vérifier si le template existe
+        const templateRef = doc(db, 'newsletterTemplates', templateId);
+        const templateSnap = await getDoc(templateRef);
+        
+        if (!templateSnap.exists()) {
+          console.error("Erreur : Template non trouvé");
+          toast.error("Le template que vous essayez de supprimer n'existe pas");
+          return;
+        }
+        
+        // Supprimer le template
+        await deleteDoc(templateRef);
+        console.log("Template supprimé avec succès dans Firestore");
+        
+        // Mettre à jour l'état local
         setSavedTemplates(prevTemplates => prevTemplates.filter(t => t.id !== templateId));
         setSelectedTemplate('default');
         toast.success("Template supprimé avec succès");
       } catch (error) {
-        console.error('Erreur lors de la suppression du template:', error);
+        console.error('Erreur détaillée lors de la suppression du template:', error);
         toast.error("Une erreur est survenue lors de la suppression du template");
       }
     }
@@ -1698,29 +1724,40 @@ export default function NewsletterEditorVisual() {
       console.log("Mise à jour du template avec ID:", selectedTemplate);
       console.log("Sections à sauvegarder:", sectionsToSave);
 
-      // Mettre à jour le template dans Firestore
-      const templateRef = doc(db, 'newsletterTemplates', selectedTemplate);
-      await updateDoc(templateRef, {
-        sections: sectionsToSave,
-        updatedAt: serverTimestamp()
-      });
-
-      console.log("Template mis à jour avec succès dans Firestore");
-
-      // Mettre à jour la liste des templates sauvegardés en local
-      const updatedTemplates = savedTemplates.map(t => {
-        if (t.id === selectedTemplate) {
-          return {
-            ...t,
-            sections: sectionsToSave,
-            updatedAt: new Date()
-          };
-        }
-        return t;
-      });
-      
-      setSavedTemplates(updatedTemplates);
-      toast.success(`Le template "${templateToUpdate.name}" a été mis à jour avec succès`);
+      try {
+        // Mettre à jour le template dans Firestore
+        const templateRef = doc(db, 'newsletterTemplates', selectedTemplate);
+        
+        // Utiliser new Date() au lieu de serverTimestamp() pour éviter les problèmes de compatibilité
+        const updateData = {
+          sections: sectionsToSave,
+          updatedAt: new Date()
+        };
+        
+        console.log("Données de mise à jour:", JSON.stringify(updateData));
+        
+        await updateDoc(templateRef, updateData);
+        
+        console.log("Template mis à jour avec succès dans Firestore");
+        
+        // Mettre à jour la liste des templates sauvegardés en local
+        const updatedTemplates = savedTemplates.map(t => {
+          if (t.id === selectedTemplate) {
+            return {
+              ...t,
+              sections: sectionsToSave,
+              updatedAt: new Date()
+            };
+          }
+          return t;
+        });
+        
+        setSavedTemplates(updatedTemplates);
+        toast.success(`Le template "${templateToUpdate.name}" a été mis à jour avec succès`);
+      } catch (error) {
+        console.error('Erreur détaillée lors de la mise à jour du template:', error);
+        toast.error("Une erreur est survenue lors de la mise à jour du template");
+      }
     } catch (error) {
       console.error('Erreur lors de la mise à jour du template:', error);
       toast.error("Une erreur est survenue lors de la mise à jour du template");
