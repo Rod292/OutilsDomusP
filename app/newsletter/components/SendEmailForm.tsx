@@ -34,6 +34,12 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  
+  // État pour l'email test
+  const [testEmail, setTestEmail] = useState('');
+  const [testName, setTestName] = useState('');
+  const [testCompany, setTestCompany] = useState('');
+  const [showTestEmailForm, setShowTestEmailForm] = useState(false);
 
   useEffect(() => {
     const loadCampaigns = async () => {
@@ -145,6 +151,32 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
   const handleSelectCampaign = (campaignId: string) => {
     setSelectedCampaignId(campaignId);
   };
+  
+  // Fonction pour envoyer un email test
+  const handleSendTestEmail = () => {
+    if (!testEmail) {
+      setError('Veuillez saisir une adresse email pour le test');
+      return;
+    }
+    
+    if (!subject) {
+      setError('Veuillez saisir un sujet pour l\'email');
+      return;
+    }
+    
+    // Créer un destinataire test
+    const testRecipient: Recipient = {
+      email: testEmail,
+      name: testName,
+      company: testCompany
+    };
+    
+    // Définir les destinataires pour l'envoi
+    setRecipients([testRecipient]);
+    
+    // Afficher un message
+    setSuccess('Email test prêt à être envoyé. Cliquez sur "Envoyer via Gmail" pour continuer.');
+  };
 
   return (
     <Paper sx={{ p: 3, mt: 3 }}>
@@ -185,6 +217,64 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
         <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
           Note: Pour le mode Gmail, le nom d'expéditeur peut être remplacé par celui associé à votre compte Gmail pour des raisons de sécurité.
         </Typography>
+        
+        {/* Section pour l'email test */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle1" gutterBottom>
+            Envoyer un email test
+          </Typography>
+          <Button 
+            variant="outlined" 
+            color="primary" 
+            onClick={() => setShowTestEmailForm(!showTestEmailForm)}
+            sx={{ mb: 2 }}
+          >
+            {showTestEmailForm ? 'Masquer le formulaire de test' : 'Afficher le formulaire de test'}
+          </Button>
+          
+          {showTestEmailForm && (
+            <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 1, mb: 2 }}>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Envoyez un email test sans avoir à importer un fichier CSV.
+              </Typography>
+              <TextField
+                label="Email du destinataire"
+                variant="outlined"
+                fullWidth
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                sx={{ mb: 2 }}
+                required
+              />
+              <TextField
+                label="Nom du destinataire"
+                variant="outlined"
+                fullWidth
+                value={testName}
+                onChange={(e) => setTestName(e.target.value)}
+                sx={{ mb: 2 }}
+                helperText="Utilisé pour la personnalisation {nom}"
+              />
+              <TextField
+                label="Entreprise du destinataire"
+                variant="outlined"
+                fullWidth
+                value={testCompany}
+                onChange={(e) => setTestCompany(e.target.value)}
+                sx={{ mb: 2 }}
+                helperText="Utilisé pour la personnalisation {company}"
+              />
+              <Button 
+                variant="contained" 
+                color="primary" 
+                onClick={handleSendTestEmail}
+                disabled={!testEmail || !subject}
+              >
+                Préparer l'email test
+              </Button>
+            </Box>
+          )}
+        </Box>
         
         <Box sx={{ border: '1px dashed #ccc', p: 2, textAlign: 'center', mb: 2 }}>
           <Button

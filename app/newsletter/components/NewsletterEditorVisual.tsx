@@ -23,7 +23,7 @@ type NewsletterTemplate = {
 
 type NewsletterSection = {
   id: string;
-  type: 'header' | 'headline' | 'content' | 'photos' | 'characteristics' | 'location' | 'availability' | 'footer' | 'custom';
+  type: 'header' | 'headline' | 'content' | 'photos' | 'characteristics' | 'location' | 'availability' | 'footer' | 'custom' | 'surface';
   content: {
     logo?: string;
     image?: string;
@@ -45,9 +45,15 @@ type NewsletterSection = {
     locationFeatures?: string[];
     address?: string; // Ajout du champ adresse
     surface?: string; // Ajout du champ surface
+    surfaceValue?: string; // Valeur de la surface
+    surfaceUnit?: string; // Unité de la surface (m², ha, etc.)
+    surfaceTitle?: string; // Titre personnalisé pour la section surface
+    surfaceIcon?: string; // Icône pour la section surface
     availability?: {
       date: string;
       details: string;
+      dateLabel?: string;
+      detailsLabel?: string;
     };
     socialLinks?: Array<{
       platform: string;
@@ -58,6 +64,9 @@ type NewsletterSection = {
       title?: string;
       content: string;
     };
+    surfaceBackgroundColor?: string; // Nouvelle propriété pour la couleur de fond
+    surfaceTextColor?: string; // Nouvelle propriété pour la couleur du texte
+    surfaceDescription?: string; // Nouvelle propriété pour la description
   };
   isCollapsed?: boolean; // Nouvelle propriété pour permettre de réduire/développer les sections
   customTitle?: string; // Nouveau champ pour le titre personnalisé de la section
@@ -1358,7 +1367,7 @@ export default function NewsletterEditorVisual() {
                 if (!section.content.locationFeatures || section.content.locationFeatures.length === 0) return '';
                 
                 return `
-                <!-- LOCATION & SPACES COMBINED SECTION -->
+                <!-- LOCATION SECTION -->
                 <div style="background-color: #ffffff; padding: 10px; border-radius: 8px; margin-top: 20px;">
                   <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 15px 0 10px 0;">
                     <tr>
@@ -1369,7 +1378,7 @@ export default function NewsletterEditorVisual() {
                           <tr>
                             <td valign="middle" style="padding-right: 10px; color: #e50019; font-size: 24px; text-shadow: 0 1px 1px rgba(0,0,0,0.1);">📍</td>
                             <td valign="middle">
-                              <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || 'Localisation & Espaces'}</h2>
+                              <h2 style="color: #2c3e50; font-family: 'Montserrat', Arial, sans-serif; font-size: 22px; font-weight: 700; margin: 0; padding-bottom: 12px; letter-spacing: 0.5px;">${section.customTitle || 'Localisation'}</h2>
                             </td>
                           </tr>
                         </table>
@@ -1379,8 +1388,7 @@ export default function NewsletterEditorVisual() {
                 </div>
 
                 <div class="info-section" style="background-color: #ffffff; padding: 25px; border-radius: 12px; margin: 20px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border-left: 3px solid #e50019; border: 1px solid #e0e0e0;">
-                  <p style="color: #333333;"><strong style="color: #333333;">Adresse :</strong> ${section.content.address || 'Boulevard Carnot, 22000 Saint-Brieuc'}</p>
-                  <p style="color: #333333;"><strong style="color: #333333;">Surface :</strong> <span style="background-color: #ffeeee; color: #e50019; padding: 4px 10px; font-weight: 600; border-radius: 4px; display: inline-block; border: 1px solid rgba(229,0,25,0.2);">${section.content.surface || '4 540 m² SUBL'}</span></p>
+                  ${section.content.address ? `<p style="color: #333333;"><strong style="color: #333333;">Adresse :</strong> ${section.content.address}</p>` : ''}
                   <ul style="padding-left: 25px; margin: 20px 0; list-style: none;">
                     ${section.content.locationFeatures.map(feature => `
                       <li style="margin-bottom: 12px; position: relative; color: #333333;"><span style="color: #e50019; position: absolute; left: -25px;">✓</span> ${feature}</li>
@@ -1412,8 +1420,8 @@ export default function NewsletterEditorVisual() {
                 </div>
                 
                 <div class="info-section" style="background-color: #ffffff; padding: 25px; border-radius: 12px; margin: 20px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border-left: 3px solid #e50019; border: 1px solid #e0e0e0;">
-                  <p style="color: #333333;"><strong style="color: #333333;">Date de ${section.customTitle?.toLowerCase() || 'disponibilité'} :</strong> ${section.content.availability?.date || ''}</p>
-                  <p style="color: #333333;"><strong style="color: #333333;">Détails :</strong> ${section.content.availability?.details || ''}</p>
+                  <p style="color: #333333;"><strong style="color: #333333;">${section.content.availability?.dateLabel || 'Date de disponibilité'} :</strong> ${section.content.availability?.date || ''}</p>
+                  ${section.content.availability?.details ? `<p style="color: #333333;"><strong style="color: #333333;">${section.content.availability?.detailsLabel || 'Détails'} :</strong> ${section.content.availability?.details || ''}</p>` : ''}
                 </div>
                 `;
                 
@@ -1441,6 +1449,28 @@ export default function NewsletterEditorVisual() {
                 
                 <div class="info-section" style="background-color: #ffffff; padding: 25px; border-radius: 12px; margin: 20px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border-left: 3px solid #e50019; border: 1px solid #e0e0e0;">
                   <p style="color: #333333;">${section.content.custom?.content || ''}</p>
+                </div>
+                `;
+              
+              case 'surface':
+                if (!section.content.surfaceValue) return '';
+                
+                const surfaceTitle = section.customTitle || section.content.surfaceTitle || 'Surface';
+                const surfaceValue = section.content.surfaceValue || '';
+                const surfaceUnit = section.content.surfaceUnit || 'm²';
+                const surfaceIcon = section.content.surfaceIcon || '📏';
+                const bgColor = section.content.surfaceBackgroundColor || '#f3f4f6';
+                const textColor = section.content.surfaceTextColor || '#111827';
+                
+                return `
+                <!-- SECTION SURFACE -->
+                <div style="margin: 30px 0; text-align: center;">
+                  <div style="background-color: ${bgColor}; color: ${textColor}; padding: 30px; border-radius: 10px; max-width: 600px; margin: 0 auto;">
+                    <div style="font-size: 40px; margin-bottom: 15px;">${surfaceIcon}</div>
+                    <h3 style="font-family: 'Montserrat', Arial, sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 10px;">${surfaceTitle}</h3>
+                    <div style="font-family: 'Montserrat', Arial, sans-serif; font-size: 36px; font-weight: 700;">${surfaceValue} ${surfaceUnit}</div>
+                    ${section.content.surfaceDescription ? `<p style="margin-top: 15px; font-family: 'Montserrat', Arial, sans-serif;">${section.content.surfaceDescription}</p>` : ''}
+                  </div>
                 </div>
                 `;
               
@@ -1664,130 +1694,156 @@ export default function NewsletterEditorVisual() {
 
   // Nouvelle fonction pour ajouter une section
   const addSection = (type: NewsletterSection['type']) => {
-    const newSection: NewsletterSection = {
-      id: `section-${Date.now()}`,
-      type,
-      content: {}
-    };
-
-    // Initialiser le contenu selon le type de section
-    switch(type) {
+    saveScrollPosition();
+    
+    // Créer un nouvel ID unique
+    const newId = `section-${Date.now()}`;
+    
+    // Créer la nouvelle section en fonction du type
+    let newSection: NewsletterSection;
+    
+    switch (type) {
       case 'header':
-        newSection.content = {
-          logo: '/placeholder-image.jpg'
-        };
-        newSection.customTitle = "En-tête";
-        break;
-      case 'headline':
-        newSection.content = {
-          title: 'Opportunité immobilière exceptionnelle',
-          subtitle: 'Découvrez ce bien unique au cœur de la ville'
-        };
-        newSection.customTitle = "Titre principal";
-        break;
-      case 'content':
-        newSection.content = {
-          title: 'À propos de ce bien',
-          greeting: 'Chers clients,',
-          paragraphs: [
-            'Nous sommes ravis de vous présenter cette opportunité immobilière exceptionnelle qui répond parfaitement aux exigences du marché actuel.',
-            'Ce bien se distingue par sa localisation stratégique et ses prestations de qualité, offrant un cadre idéal pour votre projet.',
-            'Notre équipe se tient à votre disposition pour vous accompagner dans votre démarche d\'acquisition.'
-          ]
-        };
-        newSection.customTitle = "Présentation";
-        break;
-      case 'photos':
-        newSection.content = {
-          photos: [
-            { url: '/placeholder-image.jpg', caption: 'Vue extérieure du bâtiment' },
-            { url: '/placeholder-image.jpg', caption: 'Espace de travail moderne' },
-            { url: '/placeholder-image.jpg', caption: 'Salle de réunion équipée' }
-          ]
-        };
-        newSection.customTitle = "Galerie photos";
-        break;
-      case 'characteristics':
-        newSection.content = {
-          characteristics: [
-            { icon: '🏢', title: 'Type', value: 'Immeuble de bureaux' }
-          ]
-        };
-        newSection.customTitle = "Caractéristiques principales";
-        break;
-      case 'location':
-        newSection.content = {
-          locationFeatures: [
-            'Situé en plein centre-ville',
-            'Accès direct aux transports en commun (métro, bus)',
-            'À proximité des commerces et restaurants',
-            'À 10 minutes de la gare principale',
-            'Quartier d\'affaires dynamique'
-          ],
-          address: 'Adresse du bien',
-          surface: '450 m²'
-        };
-        newSection.customTitle = "Localisation stratégique";
-        break;
-      case 'availability':
-        newSection.content = {
-          availability: {
-            date: 'Disponible dès maintenant',
-            details: 'Possibilité d\'emménagement immédiat. Contactez-nous pour organiser une visite personnalisée et découvrir tous les atouts de ce bien d\'exception.'
+        newSection = {
+          id: newId,
+          type: 'header',
+          content: {
+            logo: ''
           }
         };
-        newSection.customTitle = "Disponibilité";
         break;
-      case 'footer':
-        newSection.content = {
-          socialLinks: [
-            { platform: 'LinkedIn', url: 'https://www.linkedin.com/company/votre-entreprise' },
-            { platform: 'Twitter', url: 'https://twitter.com/votre_entreprise' },
-            { platform: 'Instagram', url: 'https://www.instagram.com/votre_entreprise' }
-          ]
-        };
-        newSection.customTitle = "Pied de page";
-        break;
-      case 'custom':
-        newSection.content = {
-          custom: {
-            icon: '📅',
-            content: 'Ajoutez votre contenu personnalisé ici. Vous pouvez modifier l\'icône et le contenu selon vos besoins.'
-          }
-        };
-        newSection.customTitle = "Section personnalisée";
-        break;
-    }
-
-    // Définir l'état de collapse par défaut
-    if (type === 'header' || type === 'footer') {
-      newSection.isCollapsed = true;
-    } else {
-      newSection.isCollapsed = false;
-    }
-
-    // Ajouter la section à l'endroit approprié
-    const newSections = [...sections];
-    
-    if (type === 'header') {
-      // Ajouter l'en-tête au début
-      newSections.unshift(newSection);
-    } else if (type === 'footer') {
-      // Ajouter le pied de page à la fin
-      newSections.push(newSection);
-    } else {
-      // Pour les autres sections, ajouter avant le footer s'il existe
-      const footerIndex = newSections.findIndex(s => s.type === 'footer');
       
-      if (footerIndex !== -1) {
-        newSections.splice(footerIndex, 0, newSection);
-      } else {
-        newSections.push(newSection);
-      }
+      case 'headline':
+        newSection = {
+          id: newId,
+          type: 'headline',
+          content: {
+            title: 'DÉCOUVREZ NOTRE NOUVELLE OFFRE IMMOBILIÈRE EXCEPTIONNELLE'
+          }
+        };
+        break;
+      
+      case 'content':
+        newSection = {
+          id: newId,
+          type: 'content',
+          content: {
+            greeting: 'Bonjour {civilite} {nom},',
+            paragraphs: ['Nous sommes ravis de vous présenter notre nouvelle offre immobilière.']
+          }
+        };
+        break;
+      
+      case 'photos':
+        newSection = {
+          id: newId,
+          type: 'photos',
+          content: {
+            photos: []
+          }
+        };
+        break;
+      
+      case 'characteristics':
+        newSection = {
+          id: newId,
+          type: 'characteristics',
+          content: {
+            characteristics: [
+              { icon: '🏢', title: 'Type', value: 'Bureau' },
+              { icon: '📏', title: 'Surface', value: '150 m²' }
+            ]
+          }
+        };
+        break;
+      
+      case 'location':
+        newSection = {
+          id: newId,
+          type: 'location',
+          content: {
+            address: '',
+            locationFeatures: ['Proche des transports', 'Centre-ville']
+          }
+        };
+        break;
+      
+      case 'availability':
+        newSection = {
+          id: newId,
+          type: 'availability',
+          content: {
+            availability: {
+              date: 'Immédiate',
+              details: 'Contactez-nous pour plus d\'informations',
+              dateLabel: 'Date de disponibilité',
+              detailsLabel: 'Détails supplémentaires'
+            }
+          }
+        };
+        break;
+      
+      case 'footer':
+        newSection = {
+          id: newId,
+          type: 'footer',
+          content: {
+            socialLinks: [
+              { platform: 'LinkedIn', url: 'https://www.linkedin.com/company/arthur-loyd/' },
+              { platform: 'Facebook', url: 'https://www.facebook.com/ArthurLoyd/' }
+            ]
+          }
+        };
+        break;
+      
+      case 'custom':
+        newSection = {
+          id: newId,
+          type: 'custom',
+          content: {
+            custom: {
+              icon: '✨',
+              title: 'Section personnalisée',
+              content: 'Contenu de la section personnalisée'
+            }
+          }
+        };
+        break;
+        
+      case 'surface':
+        newSection = {
+          id: newId,
+          type: 'surface',
+          content: {
+            surfaceValue: '150',
+            surfaceUnit: 'm²',
+            surfaceTitle: 'Surface',
+            surfaceIcon: '📏'
+          }
+        };
+        break;
+      
+      default:
+        newSection = {
+          id: newId,
+          type: 'content',
+          content: {
+            greeting: 'Bonjour,',
+            paragraphs: ['Contenu de la section']
+          }
+        };
     }
     
-    setSections(newSections);
+    // Ajouter la nouvelle section à la liste des sections
+    setSections([...sections, newSection]);
+    
+    // Fermer le modal
     setShowAddSectionModal(false);
+    
+    // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
+    requestAnimationFrame(() => {
+      setTimeout(restoreScrollPosition, 10);
+    });
   };
 
   // Nouvelle fonction pour supprimer une section
@@ -2065,61 +2121,28 @@ export default function NewsletterEditorVisual() {
 
   // Composant de modal pour ajouter une section
   const AddSectionModal = () => {
-    // Si le modal ne doit pas être affiché, ne rien rendre
-    if (!showAddSectionModal) return null;
-    
+    // Types de sections disponibles
     const sectionTypes = [
-      { 
-        type: 'headline', 
-        label: 'Titre principal', 
-        icon: '📝', 
-        description: 'Ajoute un titre accrocheur pour votre newsletter'
-      },
-      { 
-        type: 'content', 
-        label: 'Contenu principal', 
-        icon: '📄', 
-        description: 'Ajoute une section de texte avec paragraphes'
-      },
-      { 
-        type: 'photos', 
-        label: 'Photos du projet', 
-        icon: '📸', 
-        description: 'Ajoute une galerie de photos avec légendes'
-      },
-      { 
-        type: 'characteristics', 
-        label: 'Caractéristiques', 
-        icon: '✅', 
-        description: 'Ajoute une liste de caractéristiques avec icônes'
-      },
-      { 
-        type: 'location', 
-        label: 'Localisation', 
-        icon: '📍', 
-        description: 'Ajoute des informations sur l\'emplacement'
-      },
-      { 
-        type: 'availability', 
-        label: 'Disponibilité', 
-        icon: '📅', 
-        description: 'Ajoute des informations sur la disponibilité'
-      },
-      { 
-        type: 'custom', 
-        label: 'Section personnalisée', 
-        icon: '✨', 
-        description: 'Crée une section entièrement personnalisable avec titre, icône et contenu'
-      }
+      { type: 'header', label: 'En-tête', icon: '🔝', description: 'Ajouter un en-tête avec logo' },
+      { type: 'headline', label: 'Titre principal', icon: '📢', description: 'Ajouter un titre accrocheur en haut de la newsletter' },
+      { type: 'content', label: 'Contenu', icon: '📝', description: 'Ajouter du texte et des paragraphes' },
+      { type: 'photos', label: 'Photos', icon: '📷', description: 'Ajouter une galerie de photos' },
+      { type: 'characteristics', label: 'Caractéristiques', icon: '✅', description: 'Ajouter une liste de caractéristiques' },
+      { type: 'location', label: 'Localisation', icon: '📍', description: 'Ajouter des informations de localisation' },
+      { type: 'surface', label: 'Surface', icon: '📏', description: 'Ajouter une section dédiée à la surface' },
+      { type: 'availability', label: 'Disponibilité', icon: '📅', description: 'Ajouter des informations de disponibilité' },
+      { type: 'footer', label: 'Pied de page', icon: '🔄', description: 'Ajouter un pied de page avec liens sociaux' },
+      { type: 'custom', label: 'Section personnalisée', icon: '✨', description: 'Ajouter une section personnalisée' }
     ];
     
     // Filtrer les types de sections qui existent déjà et qui ne peuvent pas être dupliqués
     const availableSectionTypes = sectionTypes.filter(sectionType => {
-      // Pour les sections uniques (headline), vérifier si elles existent déjà
-      if (['headline'].includes(sectionType.type)) {
+      // Pour les sections uniques (header, headline, footer), vérifier si elles existent déjà
+      if (['header', 'headline', 'footer'].includes(sectionType.type)) {
         return !sections.some(section => section.type === sectionType.type);
       }
-      // Les autres types de sections peuvent être ajoutés plusieurs fois
+      
+      // Pour les autres types de sections, toujours disponibles
       return true;
     });
 
@@ -2935,21 +2958,6 @@ export default function NewsletterEditorVisual() {
                                             placeholder="Adresse du bien"
                                           />
                                         </div>
-                                        <div>
-                                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Surface
-                                          </label>
-                                          <input
-                                            type="text"
-                                            value={section.content.surface || ''}
-                                            onChange={(e) => updateSection(section.id, {
-                                              ...section,
-                                              content: { ...section.content, surface: e.target.value }
-                                            })}
-                                            className="w-full p-2 border rounded"
-                                            placeholder="Surface du bien"
-                                          />
-                                        </div>
                                       </div>
                                       <div className="flex justify-between items-center mb-2">
                                         <label className="block text-sm font-medium text-gray-700">
@@ -2995,17 +3003,53 @@ export default function NewsletterEditorVisual() {
                       <div className="flex flex-col gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Date de disponibilité
+                            Titre de la section
                           </label>
                           <input
                             type="text"
-                                          value={section.content.availability?.date || ''}
+                            value={section.customTitle || 'Disponibilité'}
+                            onChange={(e) => updateSection(section.id, {
+                              ...section,
+                              customTitle: e.target.value
+                            })}
+                            className="w-full p-2 border rounded"
+                            placeholder="Disponibilité"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Libellé de la date
+                          </label>
+                          <input
+                            type="text"
+                            value={section.content.availability?.dateLabel || 'Date de disponibilité'}
                             onChange={(e) => updateSection(section.id, {
                               ...section,
                               content: {
                                 ...section.content,
                                 availability: {
-                                                ...(section.content.availability || {}), 
+                                  ...(section.content.availability || {}), 
+                                  dateLabel: e.target.value
+                                }
+                              }
+                            })}
+                            className="w-full p-2 border rounded"
+                            placeholder="Date de disponibilité"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Date
+                          </label>
+                          <input
+                            type="text"
+                            value={section.content.availability?.date || ''}
+                            onChange={(e) => updateSection(section.id, {
+                              ...section,
+                              content: {
+                                ...section.content,
+                                availability: {
+                                  ...(section.content.availability || {}), 
                                   date: e.target.value
                                 }
                               }
@@ -3015,76 +3059,282 @@ export default function NewsletterEditorVisual() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Détails supplémentaires
+                            Libellé des détails
                           </label>
-                                        <textarea
-                                          value={section.content.availability?.details || ''}
+                          <input
+                            type="text"
+                            value={section.content.availability?.detailsLabel || 'Détails supplémentaires'}
                             onChange={(e) => updateSection(section.id, {
                               ...section,
                               content: {
                                 ...section.content,
                                 availability: {
-                                                ...(section.content.availability || {}), 
+                                  ...(section.content.availability || {}), 
+                                  detailsLabel: e.target.value
+                                }
+                              }
+                            })}
+                            className="w-full p-2 border rounded"
+                            placeholder="Détails supplémentaires"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Détails
+                          </label>
+                          <textarea
+                            value={section.content.availability?.details || ''}
+                            onChange={(e) => updateSection(section.id, {
+                              ...section,
+                              content: {
+                                ...section.content,
+                                availability: {
+                                  ...(section.content.availability || {}), 
                                   details: e.target.value
                                 }
                               }
                             })}
-                                          rows={3}
+                            rows={3}
                             className="w-full p-2 border rounded"
                           />
                         </div>
                       </div>
                     )}
 
-                                  {section.type === 'custom' && (
-                                    <div className="flex flex-col gap-4">
-                                      <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                          Icône
-                                        </label>
-                                        <div className="flex items-center gap-3">
-                                          <div className="text-3xl">
-                                            {section.content.custom?.icon || '✨'}
-                                          </div>
-                                          <EmojiPicker 
-                                            currentEmoji={section.content.custom?.icon || '✨'} 
-                                            onEmojiSelect={(emoji: string) => updateSection(section.id, {
-                                              ...section,
-                                              content: { 
-                                                ...section.content, 
-                                                custom: { 
-                                                  ...(section.content.custom || {}), 
-                                                  icon: emoji 
-                                                } 
-                                              }
-                                            })}
-                                          />
-                                        </div>
-                                      </div>
+                    {section.type === 'custom' && (
+                      <div className="flex flex-col gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Icône
+                          </label>
+                          <div className="flex items-center gap-3">
+                            <div className="text-3xl">
+                              {section.content.custom?.icon || '✨'}
+                            </div>
+                            <EmojiPicker 
+                              currentEmoji={section.content.custom?.icon || '✨'} 
+                              onEmojiSelect={(emoji: string) => updateSection(section.id, {
+                                ...section,
+                                content: { 
+                                  ...section.content, 
+                                  custom: { 
+                                    ...(section.content.custom || {}), 
+                                    icon: emoji 
+                                  } 
+                                }
+                              })}
+                            />
+                          </div>
+                        </div>
 
-                                      <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                          Contenu
-                                        </label>
-                                        <textarea
-                                          value={section.content.custom?.content || ''}
-                                          onChange={(e) => updateSection(section.id, {
-                                            ...section,
-                                            content: { 
-                                              ...section.content, 
-                                              custom: { 
-                                                ...(section.content.custom || {}), 
-                                                content: e.target.value 
-                                              } 
-                                            }
-                                          })}
-                                          rows={4}
-                                          className="w-full p-2 border rounded"
-                                          placeholder="Contenu de la section"
-                                        />
-                                      </div>
-                                    </div>
-                                  )}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Contenu
+                          </label>
+                          <textarea
+                            value={section.content.custom?.content || ''}
+                            onChange={(e) => updateSection(section.id, {
+                              ...section,
+                              content: { 
+                                ...section.content, 
+                                custom: { 
+                                  ...(section.content.custom || {}), 
+                                  content: e.target.value 
+                                } 
+                              }
+                            })}
+                            rows={4}
+                            className="w-full p-2 border rounded"
+                            placeholder="Contenu de la section"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {section.type === 'surface' && (
+                      <div className="flex flex-col gap-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Titre de la section
+                            </label>
+                            <input
+                              type="text"
+                              value={section.content.surfaceTitle || ''}
+                              onChange={(e) => updateSection(section.id, {
+                                ...section,
+                                content: { ...section.content, surfaceTitle: e.target.value }
+                              })}
+                              className="w-full p-2 border rounded"
+                              placeholder="Surface"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Icône
+                            </label>
+                            <div className="flex items-center gap-3">
+                              <div className="text-3xl">
+                                {section.content.surfaceIcon || '📏'}
+                              </div>
+                              <EmojiPicker 
+                                currentEmoji={section.content.surfaceIcon || '📏'} 
+                                onEmojiSelect={(emoji: string) => {
+                                  updateSection(section.id, {
+                                    ...section,
+                                    content: { ...section.content, surfaceIcon: emoji }
+                                  });
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 mt-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Valeur de la surface
+                            </label>
+                            <input
+                              type="text"
+                              value={section.content.surfaceValue || ''}
+                              onChange={(e) => updateSection(section.id, {
+                                ...section,
+                                content: { ...section.content, surfaceValue: e.target.value }
+                              })}
+                              className="w-full p-2 border rounded"
+                              placeholder="150"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Unité
+                            </label>
+                            <input
+                              type="text"
+                              value={section.content.surfaceUnit || ''}
+                              onChange={(e) => updateSection(section.id, {
+                                ...section,
+                                content: { ...section.content, surfaceUnit: e.target.value }
+                              })}
+                              className="w-full p-2 border rounded"
+                              placeholder="m²"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 mt-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Couleur de fond
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={section.content.surfaceBackgroundColor || '#f3f4f6'}
+                                onChange={(e) => updateSection(section.id, {
+                                  ...section,
+                                  content: { ...section.content, surfaceBackgroundColor: e.target.value }
+                                })}
+                                className="w-10 h-10 p-1 border rounded"
+                              />
+                              <input
+                                type="text"
+                                value={section.content.surfaceBackgroundColor || '#f3f4f6'}
+                                onChange={(e) => updateSection(section.id, {
+                                  ...section,
+                                  content: { ...section.content, surfaceBackgroundColor: e.target.value }
+                                })}
+                                className="flex-1 p-2 border rounded"
+                                placeholder="#f3f4f6"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Couleur du texte
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={section.content.surfaceTextColor || '#111827'}
+                                onChange={(e) => updateSection(section.id, {
+                                  ...section,
+                                  content: { ...section.content, surfaceTextColor: e.target.value }
+                                })}
+                                className="w-10 h-10 p-1 border rounded"
+                              />
+                              <input
+                                type="text"
+                                value={section.content.surfaceTextColor || '#111827'}
+                                onChange={(e) => updateSection(section.id, {
+                                  ...section,
+                                  content: { ...section.content, surfaceTextColor: e.target.value }
+                                })}
+                                className="flex-1 p-2 border rounded"
+                                placeholder="#111827"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-4">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Description (optionnelle)
+                          </label>
+                          <textarea
+                            value={section.content.surfaceDescription || ''}
+                            onChange={(e) => updateSection(section.id, {
+                              ...section,
+                              content: { ...section.content, surfaceDescription: e.target.value }
+                            })}
+                            className="w-full p-2 border rounded"
+                            placeholder="Description supplémentaire"
+                            rows={3}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {section.type === 'footer' && (
+                      <div className="flex flex-col gap-4">
+                        <div className="border-t pt-4 mt-4">
+                          <h4 className="font-medium text-gray-700 mb-2">Liens sociaux</h4>
+                          <div className="space-y-2">
+                            {section.content.socialLinks?.map((link, index) => (
+                              <div key={index} className="flex space-x-2 items-center">
+                                <input
+                                  type="text"
+                                  placeholder="Plateforme (ex: LinkedIn)"
+                                  value={link.platform}
+                                  onChange={(e) => updateSocialLink(index, 'platform', e.target.value)}
+                                  className="flex-1 p-2 border rounded"
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="URL"
+                                  value={link.url}
+                                  onChange={(e) => updateSocialLink(index, 'url', e.target.value)}
+                                  className="flex-1 p-2 border rounded"
+                                />
+                                <button
+                                  onClick={() => deleteSocialLink(index)}
+                                  className="p-1 text-red-500 hover:bg-red-100 rounded"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              onClick={addSocialLink}
+                              className="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm"
+                            >
+                              + Ajouter un lien social
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                                 </>
                               )}
                             </div>
@@ -3185,7 +3435,7 @@ export default function NewsletterEditorVisual() {
       </div>
 
       {/* Modal pour ajouter une section */}
-      <AddSectionModal />
+      {showAddSectionModal && <AddSectionModal />}
     </div>
   );
 } 
