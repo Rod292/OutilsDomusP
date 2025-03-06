@@ -83,6 +83,20 @@ export default function NewsletterEditorVisual() {
   // État pour stocker la position de défilement
   const [scrollPosition, setScrollPosition] = useState<number>(0);
 
+  // Fonction pour sauvegarder la position de défilement
+  const saveScrollPosition = () => {
+    if (previewRef.current) {
+      setScrollPosition(previewRef.current.scrollTop);
+    }
+  };
+
+  // Fonction pour restaurer la position de défilement
+  const restoreScrollPosition = () => {
+    if (previewRef.current) {
+      previewRef.current.scrollTop = scrollPosition;
+    }
+  };
+
   // Charger le template par défaut au chargement
   useEffect(() => {
     loadDefaultTemplate();
@@ -641,16 +655,19 @@ export default function NewsletterEditorVisual() {
 
   // Fonction pour mettre à jour une section
   const updateSection = (sectionId: string, newContent: any) => {
-    console.log('Mise à jour de la section:', sectionId, newContent);
-    setSections(prevSections => {
-      const updatedSections = prevSections.map(section =>
-        section.id === sectionId
-          ? newContent
-          : section
-      );
-      console.log('Sections après mise à jour:', updatedSections);
-      return updatedSections;
-    });
+    saveScrollPosition();
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return;
+
+    const newSections = [...sections];
+    newSections[sectionIndex] = {
+      ...newSections[sectionIndex],
+      content: { ...newSections[sectionIndex].content, ...newContent }
+    };
+    setSections(newSections);
+    
+    // Restaurer la position de défilement après le rendu
+    setTimeout(restoreScrollPosition, 0);
   };
 
   // Fonctions pour gérer les liens sociaux
@@ -1633,6 +1650,7 @@ export default function NewsletterEditorVisual() {
 
   // Nouvelle fonction pour ajouter un paragraphe
   const addParagraph = (sectionId: string) => {
+    saveScrollPosition();
     const sectionIndex = sections.findIndex(s => s.id === sectionId);
     if (sectionIndex === -1) return;
 
@@ -1647,10 +1665,14 @@ export default function NewsletterEditorVisual() {
     const newSections = [...sections];
     newSections[sectionIndex] = updatedSection;
     setSections(newSections);
+    
+    // Restaurer la position de défilement après le rendu
+    setTimeout(restoreScrollPosition, 0);
   };
 
   // Nouvelle fonction pour supprimer un paragraphe
   const deleteParagraph = (sectionId: string, paragraphIndex: number) => {
+    saveScrollPosition();
     const sectionIndex = sections.findIndex(s => s.id === sectionId);
     if (sectionIndex === -1) return;
 
@@ -1668,10 +1690,14 @@ export default function NewsletterEditorVisual() {
     const newSections = [...sections];
     newSections[sectionIndex] = updatedSection;
     setSections(newSections);
+    
+    // Restaurer la position de défilement après le rendu
+    setTimeout(restoreScrollPosition, 0);
   };
 
   // Nouvelle fonction pour ajouter une photo
   const addPhoto = (sectionId: string) => {
+    saveScrollPosition();
     const sectionIndex = sections.findIndex(s => s.id === sectionId);
     if (sectionIndex === -1) return;
 
@@ -1686,10 +1712,14 @@ export default function NewsletterEditorVisual() {
     const newSections = [...sections];
     newSections[sectionIndex] = updatedSection;
     setSections(newSections);
+    
+    // Restaurer la position de défilement après le rendu
+    setTimeout(restoreScrollPosition, 0);
   };
 
   // Nouvelle fonction pour supprimer une photo
   const deletePhoto = (sectionId: string, photoIndex: number) => {
+    saveScrollPosition();
     const sectionIndex = sections.findIndex(s => s.id === sectionId);
     if (sectionIndex === -1) return;
 
@@ -1707,10 +1737,14 @@ export default function NewsletterEditorVisual() {
     const newSections = [...sections];
     newSections[sectionIndex] = updatedSection;
     setSections(newSections);
+    
+    // Restaurer la position de défilement après le rendu
+    setTimeout(restoreScrollPosition, 0);
   };
 
   // Nouvelle fonction pour ajouter une caractéristique
   const addCharacteristic = (sectionId: string) => {
+    saveScrollPosition();
     const sectionIndex = sections.findIndex(s => s.id === sectionId);
     if (sectionIndex === -1) return;
 
@@ -1725,10 +1759,14 @@ export default function NewsletterEditorVisual() {
     const newSections = [...sections];
     newSections[sectionIndex] = updatedSection;
     setSections(newSections);
+    
+    // Restaurer la position de défilement après le rendu
+    setTimeout(restoreScrollPosition, 0);
   };
 
   // Nouvelle fonction pour supprimer une caractéristique
   const deleteCharacteristic = (sectionId: string, charIndex: number) => {
+    saveScrollPosition();
     const sectionIndex = sections.findIndex(s => s.id === sectionId);
     if (sectionIndex === -1) return;
 
@@ -1746,10 +1784,14 @@ export default function NewsletterEditorVisual() {
     const newSections = [...sections];
     newSections[sectionIndex] = updatedSection;
     setSections(newSections);
+    
+    // Restaurer la position de défilement après le rendu
+    setTimeout(restoreScrollPosition, 0);
   };
 
   // Nouvelle fonction pour ajouter une fonctionnalité de localisation
   const addLocationFeature = (sectionId: string) => {
+    saveScrollPosition();
     const sectionIndex = sections.findIndex(s => s.id === sectionId);
     if (sectionIndex === -1) return;
 
@@ -1764,10 +1806,14 @@ export default function NewsletterEditorVisual() {
     const newSections = [...sections];
     newSections[sectionIndex] = updatedSection;
     setSections(newSections);
+    
+    // Restaurer la position de défilement après le rendu
+    setTimeout(restoreScrollPosition, 0);
   };
 
   // Nouvelle fonction pour supprimer une fonctionnalité de localisation
   const deleteLocationFeature = (sectionId: string, featureIndex: number) => {
+    saveScrollPosition();
     const sectionIndex = sections.findIndex(s => s.id === sectionId);
     if (sectionIndex === -1) return;
 
@@ -1785,10 +1831,14 @@ export default function NewsletterEditorVisual() {
     const newSections = [...sections];
     newSections[sectionIndex] = updatedSection;
     setSections(newSections);
+    
+    // Restaurer la position de défilement après le rendu
+    setTimeout(restoreScrollPosition, 0);
   };
 
   // Nouvelle fonction pour réduire/développer une section
   const toggleSectionCollapse = (sectionId: string) => {
+    saveScrollPosition();
     const sectionIndex = sections.findIndex(s => s.id === sectionId);
     if (sectionIndex === -1) return;
 
@@ -1798,32 +1848,41 @@ export default function NewsletterEditorVisual() {
       isCollapsed: !newSections[sectionIndex].isCollapsed
     };
     setSections(newSections);
+    
+    // Restaurer la position de défilement après le rendu
+    setTimeout(restoreScrollPosition, 0);
   };
 
   // Nouvelle fonction pour déplacer une section vers le haut
   const moveSectionUp = (sectionId: string) => {
+    saveScrollPosition();
     const sectionIndex = sections.findIndex(s => s.id === sectionId);
-    if (sectionIndex <= 0 || sections[sectionIndex].type === 'header') return; // Ne pas déplacer l'en-tête
-    
+    if (sectionIndex <= 0) return; // Ne pas déplacer si c'est la première section
+
     const newSections = [...sections];
     const temp = newSections[sectionIndex];
     newSections[sectionIndex] = newSections[sectionIndex - 1];
     newSections[sectionIndex - 1] = temp;
-    
     setSections(newSections);
+    
+    // Restaurer la position de défilement après le rendu
+    setTimeout(restoreScrollPosition, 0);
   };
   
   // Nouvelle fonction pour déplacer une section vers le bas
   const moveSectionDown = (sectionId: string) => {
+    saveScrollPosition();
     const sectionIndex = sections.findIndex(s => s.id === sectionId);
-    if (sectionIndex === -1 || sectionIndex >= sections.length - 1 || sections[sectionIndex].type === 'footer') return; // Ne pas déplacer le pied de page
-    
+    if (sectionIndex === -1 || sectionIndex >= sections.length - 1) return; // Ne pas déplacer si c'est la dernière section
+
     const newSections = [...sections];
     const temp = newSections[sectionIndex];
     newSections[sectionIndex] = newSections[sectionIndex + 1];
     newSections[sectionIndex + 1] = temp;
-    
     setSections(newSections);
+    
+    // Restaurer la position de défilement après le rendu
+    setTimeout(restoreScrollPosition, 0);
   };
 
   // Composant de modal pour ajouter une section
@@ -1920,744 +1979,28 @@ export default function NewsletterEditorVisual() {
 
   // Fonction pour réorganiser les sections par drag and drop
   const handleDragEnd = (result: any) => {
-    // Si on n'a pas déposé dans une zone valide, ne rien faire
+    saveScrollPosition();
     if (!result.destination) return;
     
-    // Si la source et la destination sont identiques, ne rien faire
-    if (
-      result.destination.droppableId === result.source.droppableId &&
-      result.destination.index === result.source.index
-    ) {
-      return;
-    }
+    const items = Array.from(sections);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
     
-    // Ne pas permettre de déplacer l'en-tête ou le pied de page
-    const sourceIndex = result.source.index;
-    if (sections[sourceIndex].type === 'header' || sections[sourceIndex].type === 'footer') {
-      return;
-    }
+    setSections(items);
     
-    // Créer une copie des sections
-    const newSections = Array.from(sections);
-    
-    // Retirer la section de sa position originale
-    const [removed] = newSections.splice(result.source.index, 1);
-    
-    // Ajouter la section à sa nouvelle position
-    newSections.splice(result.destination.index, 0, removed);
-    
-    // Mettre à jour l'état
-    setSections(newSections);
+    // Restaurer la position de défilement après le rendu
+    setTimeout(restoreScrollPosition, 0);
   };
 
-  if (loading) {
-    return <div className="text-center py-10">Chargement...</div>;
-  }
-
   return (
-    <div className="flex flex-col space-y-8 p-4">
-      <div className="flex items-center space-x-4 mb-4">
-        <h1 className="text-2xl font-bold">Éditeur de Newsletter</h1>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setMode('edit')}
-            className={`px-4 py-2 rounded-md ${mode === 'edit' ? 'bg-[#DC0032] text-white' : 'bg-gray-200'}`}
-          >
-            Éditer
-          </button>
-          <button
-            onClick={() => setMode('send')}
-            className={`px-4 py-2 rounded-md ${mode === 'send' ? 'bg-[#DC0032] text-white' : 'bg-gray-200'}`}
-          >
-            Envoyer
-          </button>
+    <div className="newsletter-editor-container">
+      {/* ... existing code ... */}
+      {mode === 'preview' && (
+        <div className="preview-container" ref={previewRef}>
+          <div dangerouslySetInnerHTML={{ __html: generateHtml(sections) }} />
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-gray-50 p-4 rounded-lg shadow-md">
-          {mode === 'edit' && (
-            <>
-              <div className="mb-4 flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Sections</h2>
-                <button
-                  onClick={() => setShowAddSectionModal(true)}
-                  className="px-4 py-2 bg-[#DC0032] text-white rounded-md flex items-center"
-                >
-                  <span className="mr-1">+</span> Ajouter une section
-                </button>
-              </div>
-
-              <DragDropContext onDragEnd={handleDragEnd}>
-                <Droppable droppableId="newsletter-sections">
-                  {(provided) => (
-                    <div 
-                      className="space-y-4"
-                      {...provided.droppableProps}
-                      ref={provided.innerRef}
-                    >
-                      {getEditableSections(sections).map((section, index) => (
-                        <Draggable 
-                          key={section.id} 
-                          draggableId={section.id} 
-                          index={index}
-                          isDragDisabled={section.type === 'header' || section.type === 'footer'}
-                        >
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              className={`bg-white p-4 rounded-lg shadow ${snapshot.isDragging ? 'opacity-70' : ''}`}
-                            >
-                              <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-lg font-semibold capitalize flex items-center">
-                                  {section.type !== 'header' && section.type !== 'footer' && (
-                                    <span className="mr-2 cursor-grab">≡</span>
-                                  )}
-                                  {section.type === 'header' && 'En-tête'}
-                      {section.type === 'headline' && 'Titre principal'}
-                      {section.type === 'content' && 'Contenu principal'}
-                      {section.type === 'photos' && 'Photos du projet'}
-                      {section.type === 'characteristics' && 'Caractéristiques'}
-                      {section.type === 'location' && 'Localisation'}
-                      {section.type === 'availability' && 'Disponibilité'}
-                                  {section.type === 'footer' && 'Pied de page'}
-                    </h3>
-                                <div className="flex space-x-2">
-                                  <button
-                                    onClick={() => toggleSectionCollapse(section.id)}
-                                    className="p-1 text-gray-500 hover:bg-gray-100 rounded"
-                                    title={section.isCollapsed ? "Développer" : "Réduire"}
-                                  >
-                                    {section.isCollapsed ? "👁️" : "👁️‍🗨️"}
-                                  </button>
-                                  {/* Ne pas afficher les boutons de déplacement et suppression pour l'en-tête et le pied de page */}
-                                  {section.type !== 'header' && section.type !== 'footer' && (
-                                    <>
-                                      <button
-                                        onClick={() => moveSectionUp(section.id)}
-                                        className="p-1 text-gray-500 hover:bg-gray-100 rounded"
-                                        title="Déplacer vers le haut"
-                                      >
-                                        ⬆️
-                                      </button>
-                                      <button
-                                        onClick={() => moveSectionDown(section.id)}
-                                        className="p-1 text-gray-500 hover:bg-gray-100 rounded"
-                                        title="Déplacer vers le bas"
-                                      >
-                                        ⬇️
-                                      </button>
-                                      <button
-                                        onClick={() => deleteSection(section.id)}
-                                        className="p-1 text-red-500 hover:bg-red-100 rounded"
-                                        title="Supprimer la section"
-                                      >
-                                        🗑️
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Champ pour personnaliser le titre de la section */}
-                              {!section.isCollapsed && section.type !== 'header' && section.type !== 'footer' && 
-                               section.type !== 'headline' && section.type !== 'content' && section.type !== 'photos' && (
-                                <div className="mb-4">
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Titre affiché de la section
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={section.customTitle || ""}
-                                    onChange={(e) => updateSection(section.id, {
-                                      ...section,
-                                      customTitle: e.target.value
-                                    })}
-                                    placeholder={
-                                      section.type === 'characteristics' ? 'Caractéristiques' :
-                                      section.type === 'location' ? 'Localisation' :
-                                      section.type === 'availability' ? 'Disponibilité' :
-                                      section.type === 'custom' ? 'Section personnalisée' : ''
-                                    }
-                                    className="w-full p-2 border rounded"
-                                  />
-                                </div>
-                              )}
-
-                              {!section.isCollapsed && (
-                                <>
-                    {section.type === 'header' && (
-                                    <div className="flex flex-col gap-4">
-                                      <div className="flex items-center gap-4 mb-4">
-                                        <div className="w-32">
-                        <img 
-                          src={section.content.logo} 
-                          alt="Logo" 
-                                            className="w-full h-auto"
-                                          />
-                                        </div>
-                                        <div>
-                                          <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={(e) => handleImageUpload(e, 'header', 'logo')}
-                                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                          />
-                                          <p className="text-sm text-gray-500 mt-1">Logo de l'entreprise</p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {section.type === 'footer' && (
-                                    <div className="flex flex-col gap-4">
-                                      <div className="border-t pt-4 mt-4">
-                                        <h4 className="font-medium text-gray-700 mb-2">Liens sociaux</h4>
-                                        <div className="space-y-2">
-                                          {section.content.socialLinks?.map((link, index) => (
-                                            <div key={index} className="flex space-x-2 items-center">
-                                              <input
-                                                type="text"
-                                                placeholder="Plateforme (ex: LinkedIn)"
-                                                value={link.platform}
-                                                onChange={(e) => updateSocialLink(index, 'platform', e.target.value)}
-                                                className="flex-1 p-2 border rounded"
-                                              />
-                                              <input
-                                                type="text"
-                                                placeholder="URL"
-                                                value={link.url}
-                                                onChange={(e) => updateSocialLink(index, 'url', e.target.value)}
-                                                className="flex-1 p-2 border rounded"
-                                              />
-                                              <button
-                                                onClick={() => deleteSocialLink(index)}
-                                                className="p-1 text-red-500 hover:bg-red-100 rounded"
-                                              >
-                                                🗑️
-                                              </button>
-                                            </div>
-                                          ))}
-                                          <button
-                                            onClick={addSocialLink}
-                                            className="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm"
-                                          >
-                                            + Ajouter un lien social
-                                          </button>
-                                        </div>
-                                      </div>
-                      </div>
-                    )}
-
-                    {section.type === 'headline' && (
-                      <div className="flex flex-col gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Titre principal
-                          </label>
-                          <input
-                            type="text"
-                            value={section.content.title}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: { ...section.content, title: e.target.value }
-                            })}
-                            className="w-full p-2 border rounded"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {section.type === 'content' && (
-                      <div className="flex flex-col gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Message d'accueil
-                          </label>
-                          <input
-                            type="text"
-                            value={section.content.greeting}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: { ...section.content, greeting: e.target.value }
-                            })}
-                            className="w-full p-2 border rounded"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex justify-between items-center mb-1">
-                            <label className="block text-sm font-medium text-gray-700">
-                              Paragraphes
-                            </label>
-                            <button
-                              onClick={() => addParagraph(section.id)}
-                              className="text-blue-600 text-sm hover:underline"
-                            >
-                              + Ajouter un paragraphe
-                            </button>
-                          </div>
-                          {section.content.paragraphs?.map((paragraph, index) => (
-                                          <div key={index} className="mb-2 relative">
-                              <textarea
-                                value={paragraph}
-                                onChange={(e) => {
-                                  const newParagraphs = [...(section.content.paragraphs || [])];
-                                  newParagraphs[index] = e.target.value;
-                                  updateSection(section.id, {
-                                    ...section,
-                                    content: { ...section.content, paragraphs: newParagraphs }
-                                  });
-                                }}
-                                              className="w-full p-2 border rounded min-h-[100px] pr-8"
-                                            />
-                                            <button
-                                              onClick={() => deleteParagraph(section.id, index)}
-                                              className="absolute top-2 right-2 text-red-500 hover:bg-red-100 p-1 rounded"
-                                              title="Supprimer ce paragraphe"
-                                            >
-                                              🗑️
-                                            </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {section.type === 'photos' && (
-                                    <div>
-                                      <div className="flex justify-between items-center mb-2">
-                                        <button
-                                          onClick={() => addPhoto(section.id)}
-                                          className="text-blue-600 text-sm hover:underline"
-                                        >
-                                          + Ajouter une photo
-                                        </button>
-                                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {section.content.photos?.map((photo, index) => (
-                                          <div key={index} className="flex flex-col gap-2 relative">
-                            <div className="relative group">
-                              <img
-                                src={photo.url}
-                                alt={photo.caption}
-                                className="w-full h-48 object-cover rounded"
-                              />
-                              <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <label className="cursor-pointer px-3 py-2 bg-white text-gray-800 rounded-md font-medium hover:bg-gray-100">
-                                  Remplacer l'image
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0];
-                                      if (file) {
-                                                        // Créer une URL temporaire pour afficher l'image
-                                                        const tempUrl = URL.createObjectURL(file);
-                                                        
-                                                        // Mettre à jour l'état avec l'URL temporaire
-                                                        const newPhotos = [...(section.content.photos || [])];
-                                                        newPhotos[index] = { ...photo, url: tempUrl };
-                                                        updateSection(section.id, {
-                                                          ...section,
-                                                          content: { ...section.content, photos: newPhotos }
-                                                        });
-                                                        
-                                                        // Uploader l'image vers Firebase Storage
-                                                        uploadImage(file, `newsletter-photos/${file.name}`).then(url => {
-                                                          const newPhotos = [...(section.content.photos || [])];
-                                                          newPhotos[index] = { ...photo, url };
-                                                          updateSection(section.id, {
-                                                            ...section,
-                                                            content: { ...section.content, photos: newPhotos }
-                                                          });
-                                                        }).catch(error => {
-                                                          console.error('Erreur lors de l\'upload de l\'image:', error);
-                                                          toast.error('Erreur lors de l\'upload de l\'image');
-                                                        });
-                                      }
-                                    }}
-                                  />
-                                </label>
-                              </div>
-                            </div>
-                                            <div className="relative">
-                            <input
-                              type="text"
-                              value={photo.caption}
-                              onChange={(e) => {
-                                const newPhotos = [...(section.content.photos || [])];
-                                newPhotos[index] = { ...photo, caption: e.target.value };
-                                updateSection(section.id, {
-                                  ...section,
-                                  content: { ...section.content, photos: newPhotos }
-                                });
-                              }}
-                              className="w-full p-2 border rounded"
-                              placeholder="Légende de la photo"
-                            />
-                                              <button
-                                                onClick={() => deletePhoto(section.id, index)}
-                                                className="absolute top-2 right-2 text-red-500 hover:bg-red-100 p-1 rounded"
-                                                title="Supprimer cette photo"
-                                              >
-                                                🗑️
-                                              </button>
-                                            </div>
-                          </div>
-                        ))}
-                                      </div>
-                      </div>
-                    )}
-
-                    {section.type === 'characteristics' && (
-                                    <div className="flex flex-col gap-4">
-                                      <div className="space-y-4">
-                                        {section.content.characteristics?.map((characteristic, index) => (
-                                          <div key={index} className="border p-3 rounded-lg">
-                                            <div className="flex justify-between items-center mb-2">
-                                              <h4 className="font-medium">Caractéristique {index + 1}</h4>
-                                              <button
-                                                onClick={() => deleteCharacteristic(section.id, index)}
-                                                className="text-red-600 hover:text-red-800"
-                                              >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                                                </svg>
-                                              </button>
-                                            </div>
-                                            <div className="grid grid-cols-1 gap-3">
-                                              <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                  Icône
-                                                </label>
-                                                <div className="flex items-center gap-3">
-                                                  <div className="text-3xl">
-                                                    {characteristic.icon}
-                                                  </div>
-                                                  <EmojiPicker 
-                                                    currentEmoji={characteristic.icon} 
-                                                    onEmojiSelect={(emoji: string) => {
-                                                      const newCharacteristics = [...(section.content.characteristics || [])];
-                                                      newCharacteristics[index] = {
-                                                        ...newCharacteristics[index],
-                                                        icon: emoji
-                                                      };
-                                                      updateSection(section.id, {
-                                                        ...section,
-                                                        content: {
-                                                          ...section.content,
-                                                          characteristics: newCharacteristics
-                                                        }
-                                                      });
-                                                    }}
-                                                  />
-                                                </div>
-                                              </div>
-                                              <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                  Titre
-                                                </label>
-                              <input
-                                type="text"
-                                                  value={characteristic.title}
-                                onChange={(e) => {
-                                                    const newCharacteristics = [...(section.content.characteristics || [])];
-                                                    newCharacteristics[index] = {
-                                                      ...newCharacteristics[index],
-                                                      title: e.target.value
-                                                    };
-                                  updateSection(section.id, {
-                                    ...section,
-                                                      content: {
-                                                        ...section.content,
-                                                        characteristics: newCharacteristics
-                                                      }
-                                  });
-                                }}
-                                                  className="w-full p-2 border rounded"
-                              />
-                            </div>
-                                              <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                  Valeur
-                                                </label>
-                            <input
-                              type="text"
-                                                  value={characteristic.value}
-                              onChange={(e) => {
-                                                    const newCharacteristics = [...(section.content.characteristics || [])];
-                                                    newCharacteristics[index] = {
-                                                      ...newCharacteristics[index],
-                                                      value: e.target.value
-                                                    };
-                                updateSection(section.id, {
-                                  ...section,
-                                                      content: {
-                                                        ...section.content,
-                                                        characteristics: newCharacteristics
-                                                      }
-                                });
-                              }}
-                              className="w-full p-2 border rounded"
-                            />
-                                              </div>
-                                            </div>
-                          </div>
-                        ))}
-                                      </div>
-                                      <button
-                                        onClick={() => addCharacteristic(section.id)}
-                                        className="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm"
-                                      >
-                                        + Ajouter une caractéristique
-                                      </button>
-                      </div>
-                    )}
-
-                    {section.type === 'location' && (
-                                    <div>
-                                      <div className="flex justify-between items-center mb-2">
-                                        <label className="block text-sm font-medium text-gray-700">
-                                          Localisation - Points forts
-                                        </label>
-                                        <button
-                                          onClick={() => addLocationFeature(section.id)}
-                                          className="text-blue-600 text-sm hover:underline"
-                                        >
-                                          + Ajouter un point fort
-                                        </button>
-                                      </div>
-                      <div className="flex flex-col gap-4">
-                        {section.content.locationFeatures?.map((feature, index) => (
-                                          <div key={index} className="relative">
-                            <input
-                              type="text"
-                              value={feature}
-                              onChange={(e) => {
-                                const newFeatures = [...(section.content.locationFeatures || [])];
-                                newFeatures[index] = e.target.value;
-                                updateSection(section.id, {
-                                  ...section,
-                                  content: { ...section.content, locationFeatures: newFeatures }
-                                });
-                              }}
-                                              className="w-full p-2 border rounded pr-8"
-                                            />
-                                            <button
-                                              onClick={() => deleteLocationFeature(section.id, index)}
-                                              className="absolute top-2 right-2 text-red-500 hover:bg-red-100 p-1 rounded"
-                                              title="Supprimer ce point fort"
-                                            >
-                                              🗑️
-                                            </button>
-                          </div>
-                        ))}
-                                      </div>
-                      </div>
-                    )}
-
-                    {section.type === 'availability' && (
-                      <div className="flex flex-col gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Date de disponibilité
-                          </label>
-                          <input
-                            type="text"
-                                          value={section.content.availability?.date || ''}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: {
-                                ...section.content,
-                                availability: {
-                                                ...(section.content.availability || {}), 
-                                  date: e.target.value
-                                }
-                              }
-                            })}
-                            className="w-full p-2 border rounded"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Détails supplémentaires
-                          </label>
-                                        <textarea
-                                          value={section.content.availability?.details || ''}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: {
-                                ...section.content,
-                                availability: {
-                                                ...(section.content.availability || {}), 
-                                  details: e.target.value
-                                }
-                              }
-                            })}
-                                          rows={3}
-                            className="w-full p-2 border rounded"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                                  {section.type === 'custom' && (
-                                    <div className="flex flex-col gap-4">
-                                      <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                          Icône
-                                        </label>
-                                        <div className="flex items-center gap-3">
-                                          <div className="text-3xl">
-                                            {section.content.custom?.icon || '✨'}
-                                          </div>
-                                          <EmojiPicker 
-                                            currentEmoji={section.content.custom?.icon || '✨'} 
-                                            onEmojiSelect={(emoji: string) => updateSection(section.id, {
-                                              ...section,
-                                              content: { 
-                                                ...section.content, 
-                                                custom: { 
-                                                  ...(section.content.custom || {}), 
-                                                  icon: emoji 
-                                                } 
-                                              }
-                                            })}
-                                          />
-                                        </div>
-                                      </div>
-                                      <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                          Titre
-                                        </label>
-                                        <input
-                                          type="text"
-                                          value={section.content.custom?.title || ''}
-                                          onChange={(e) => updateSection(section.id, {
-                                            ...section,
-                                            content: { 
-                                              ...section.content, 
-                                              custom: { 
-                                                ...(section.content.custom || {}), 
-                                                title: e.target.value 
-                                              } 
-                                            }
-                                          })}
-                                          className="w-full p-2 border rounded"
-                                          placeholder="Titre de la section"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                          Contenu
-                                        </label>
-                                        <textarea
-                                          value={section.content.custom?.content || ''}
-                                          onChange={(e) => updateSection(section.id, {
-                                            ...section,
-                                            content: { 
-                                              ...section.content, 
-                                              custom: { 
-                                                ...(section.content.custom || {}), 
-                                                content: e.target.value 
-                                              } 
-                                            }
-                                          })}
-                                          rows={5}
-                                          className="w-full p-2 border rounded"
-                                          placeholder="Contenu de la section"
-                                        />
-                                      </div>
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-              </div>
-                  )}
-                </Droppable>
-              </DragDropContext>
-
-              <div className="mt-6">
-                <div className="flex space-x-4">
-                  <select
-                    value={selectedTemplate}
-                    onChange={(e) => setSelectedTemplate(e.target.value)}
-                    className="px-4 py-2 border rounded-md w-full"
-                  >
-                    <option value="">-- Sélectionner un template --</option>
-                    {savedTemplates.map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => loadTemplate(selectedTemplate)}
-                    disabled={!selectedTemplate}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md disabled:bg-gray-400"
-                  >
-                    Charger
-                  </button>
-                  <button
-                    onClick={() => handleDeleteTemplate(selectedTemplate)}
-                    disabled={!selectedTemplate || selectedTemplate === 'default'}
-                    className="px-4 py-2 bg-red-600 text-white rounded-md disabled:bg-gray-400"
-                  >
-                    Supprimer
-                  </button>
-                </div>
-
-                <div className="mt-4">
-                  <input
-                    type="text"
-                    value={templateName}
-                    onChange={(e) => setTemplateName(e.target.value)}
-                    placeholder="Nom du template"
-                    className="px-4 py-2 border rounded-md w-full mb-4"
-                  />
-                  <button
-                    onClick={handleSaveTemplate}
-                    disabled={!templateName}
-                    className="w-full px-4 py-2 bg-green-600 text-white rounded-md disabled:bg-gray-400"
-                  >
-                    Sauvegarder comme nouveau template
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-          
-          {mode === 'send' && (
-            <div className="bg-white p-4 rounded-lg">
-              <h3 className="text-lg font-semibold mb-4">Envoyer la newsletter</h3>
-              <SendEmailForm htmlContent={generateHtml(sections)} />
-            </div>
-          )}
-        </div>
-
-        {/* Prévisualisation persistante à droite */}
-        <div className="bg-white p-4 rounded-lg shadow-md sticky top-4 max-h-[calc(100vh-2rem)] overflow-auto">
-          <h3 className="text-lg font-semibold mb-4">Aperçu</h3>
-          <div className="border rounded-lg overflow-hidden">
-            <iframe
-              srcDoc={generateHtml(sections)}
-              className="w-full h-[1200px]"
-              title="Newsletter Preview"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Modal pour ajouter une section */}
-      <AddSectionModal />
+      )}
+      {/* ... existing code ... */}
     </div>
   );
 } 
