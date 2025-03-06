@@ -1,13 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Button, Box, Typography, TextField, Paper, Alert,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  FormControl, InputLabel, Select, MenuItem
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import Papa from 'papaparse';
 import GmailSenderClient from './GmailSenderClient';
+import { Campaign, getAllCampaigns, updateCampaignStats } from '../services/campaigns';
+import CampaignManager from './CampaignManager';
 
 type Recipient = {
   email: string;
@@ -28,6 +31,25 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
   const [success, setSuccess] = useState('');
   const [sendResult, setSendResult] = useState({ success: 0, failed: 0 });
   const [csvPreview, setCsvPreview] = useState<Recipient[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadCampaigns = async () => {
+      try {
+        const data = await getAllCampaigns();
+        setCampaigns(data);
+        setLoading(false);
+      } catch (error) {
+        console.error('Erreur lors du chargement des campagnes:', error);
+        setError('Impossible de charger les campagnes. Veuillez réessayer.');
+        setLoading(false);
+      }
+    };
+
+    loadCampaigns();
+  }, []);
 
   const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     setError('');
@@ -98,9 +120,21 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
     });
   };
 
-  const handleGmailComplete = (results: { success: number; failed: number }) => {
+  const handleGmailComplete = async (results: { success: number; failed: number }) => {
     if (results.success > 0) {
       setSuccess(`${results.success} emails envoyés avec succès via Gmail.`);
+      
+      // Mettre à jour les statistiques de la campagne
+      if (selectedCampaignId) {
+        try {
+          await updateCampaignStats(selectedCampaignId, {
+            sent: results.success + results.failed,
+            delivered: results.success
+          });
+        } catch (error) {
+          console.error('Erreur lors de la mise à jour des statistiques de la campagne:', error);
+        }
+      }
     }
     if (results.failed > 0) {
       setError(`${results.failed} emails n'ont pas pu être envoyés.`);
@@ -108,11 +142,26 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
     setSendResult(results);
   };
 
+  const handleSelectCampaign = (campaignId: string) => {
+    setSelectedCampaignId(campaignId);
+  };
+
   return (
     <Paper sx={{ p: 3, mt: 3 }}>
       <Typography variant="h6" gutterBottom>
         Envoyer la newsletter
       </Typography>
+      
+      {/* Gestionnaire de campagnes */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle1" gutterBottom>
+          Sélectionner ou créer une campagne
+        </Typography>
+        <CampaignManager 
+          onSelectCampaign={handleSelectCampaign} 
+          selectedCampaignId={selectedCampaignId}
+        />
+      </Box>
       
       <Box sx={{ mb: 2 }}>
         <TextField
@@ -203,7 +252,14 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
         subject={subject}
         senderName={senderName}
         onComplete={handleGmailComplete}
+        disabled={!selectedCampaignId}
       />
+      
+      {!selectedCampaignId && (
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          Veuillez sélectionner ou créer une campagne avant d'envoyer la newsletter.
+        </Alert>
+      )}
     </Paper>
   );
 } 

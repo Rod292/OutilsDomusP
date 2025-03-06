@@ -23,9 +23,10 @@ type GmailSenderProps = {
   subject: string;
   senderName?: string;
   onComplete: (results: { success: number; failed: number }) => void;
+  disabled?: boolean;
 };
 
-export default function GmailSenderClient({ newsletterHtml, recipients, subject, senderName, onComplete }: GmailSenderProps) {
+export default function GmailSenderClient({ newsletterHtml, recipients, subject, senderName, onComplete, disabled = false }: GmailSenderProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -300,10 +301,10 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
       <Box sx={{ mt: 3, mb: 3 }}>
         {!isAuthenticated ? (
           <>
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               onClick={handleAuthenticate}
-              disabled={authenticating}
+              disabled={authenticating || disabled}
               startIcon={<EmailIcon />}
             >
               {authenticating ? 'Authentification en cours...' : 'Se connecter à Gmail'}
@@ -322,12 +323,12 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
               </Typography>
               
               <Tooltip title="Se déconnecter de Gmail">
-                <Button 
-                  variant="outlined" 
-                  color="secondary" 
+                <Button
+                  variant="outlined"
+                  color="secondary"
                   size="small"
                   onClick={handleLogout}
-                  disabled={isLoggingOut || isSending}
+                  disabled={isLoggingOut || isSending || disabled}
                   startIcon={<LogoutIcon />}
                 >
                   {isLoggingOut ? 'Déconnexion...' : 'Déconnexion'}
@@ -354,11 +355,12 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
                     Résultat: {results.success} emails envoyés avec succès, {results.failed} échoués.
                   </Alert>
                 ) : (
-                  <Button 
-                    variant="contained" 
-                    color="primary" 
+                  <Button
+                    variant="contained"
+                    color="primary"
                     onClick={sendEmails}
-                    disabled={recipients.length === 0}
+                    disabled={recipients.length === 0 || disabled}
+                    startIcon={<EmailIcon />}
                   >
                     Envoyer {recipients.length} emails maintenant
                   </Button>
