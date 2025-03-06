@@ -24,9 +24,10 @@ type GmailSenderProps = {
   senderName?: string;
   onComplete: (results: { success: number; failed: number }) => void;
   disabled?: boolean;
+  campaignId?: string;
 };
 
-export default function GmailSenderClient({ newsletterHtml, recipients, subject, senderName, onComplete, disabled = false }: GmailSenderProps) {
+export default function GmailSenderClient({ newsletterHtml, recipients, subject, senderName, onComplete, disabled = false, campaignId }: GmailSenderProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -220,6 +221,7 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
         html: newsletterHtml,
         consultant: consultant,
         baseUrl: window.location.origin,
+        campaignId: campaignId
       };
       
       console.log('Données envoyées à l\'API:', {
@@ -227,7 +229,8 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
         sujet: requestData.subject,
         consultant: consultant ? consultant.nom : 'Non défini',
         baseUrl: requestData.baseUrl,
-        htmlTaille: requestData.html ? requestData.html.length : 0
+        htmlTaille: requestData.html ? requestData.html.length : 0,
+        campaignId: requestData.campaignId || 'Non défini'
       });
       
       const response = await fetch('/api/send-gmail', {

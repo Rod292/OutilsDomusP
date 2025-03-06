@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase';
-import { collection, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, Timestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { Campaign } from './campaigns';
 
 // Types pour les données d'analyse
@@ -7,6 +7,21 @@ export type EmailBounce = {
   email: string;
   reason: string;
   timestamp: string;
+};
+
+export type EmailOpen = {
+  email: string;
+  timestamp: string;
+  userAgent?: string;
+  ip?: string;
+};
+
+export type EmailClick = {
+  email: string;
+  timestamp: string;
+  url: string;
+  userAgent?: string;
+  ip?: string;
 };
 
 export type TimeDataPoint = {
@@ -33,6 +48,8 @@ export type CampaignWithAnalytics = {
   clicked: number;
   replied: number;
   bounces: EmailBounce[];
+  opens?: EmailOpen[];
+  clicks?: EmailClick[];
   timeData?: TimeDataPoint[];
   consultantData?: ConsultantDataPoint[];
   createdAt?: string;
@@ -49,8 +66,10 @@ export const getCampaignAnalytics = async (): Promise<CampaignWithAnalytics[]> =
       return [];
     }
 
-    const campaigns: CampaignWithAnalytics[] = campaignsSnapshot.docs.map(doc => {
-      const data = doc.data() as Campaign;
+    const campaigns: CampaignWithAnalytics[] = [];
+
+    for (const docSnapshot of campaignsSnapshot.docs) {
+      const data = docSnapshot.data() as Campaign;
       const stats = data.stats || { emailsSent: 0, emailsDelivered: 0, emailsFailed: 0 };
       
       // Convertir les timestamps en chaînes de caractères
@@ -66,30 +85,26 @@ export const getCampaignAnalytics = async (): Promise<CampaignWithAnalytics[]> =
         ? stats.lastSent.toDate().toISOString() 
         : undefined;
 
-      // Pour l'instant, nous n'avons pas de données détaillées sur les ouvertures et les clics
-      // Nous allons donc utiliser des données simulées basées sur les statistiques réelles
-      const delivered = stats.emailsDelivered || 0;
-      const opened = Math.round(delivered * 0.75); // Estimation: 75% des emails délivrés sont ouverts
-      const clicked = Math.round(opened * 0.45);   // Estimation: 45% des emails ouverts sont cliqués
-      const replied = Math.round(clicked * 0.15);  // Estimation: 15% des emails cliqués reçoivent une réponse
+      // Récupérer les données de tracking si elles existent
+      const trackingRef = doc(db, 'campaign_tracking', docSnapshot.id);
+      const trackingDoc = await getDoc(trackingRef);
+      const trackingData = trackingDoc.exists() ? trackingDoc.data() : null;
 
-      // Générer des données temporelles simulées basées sur les statistiques réelles
-      const timeData = generateTimeData(opened, clicked);
-      
-      // Générer des données de consultant simulées
-      const consultantData = generateConsultantData(opened, clicked);
+      // Utiliser les données réelles de tracking si disponibles, sinon mettre à zéro
+      const opens = trackingData?.opens || [];
+      const clicks = trackingData?.clicks || [];
 
-      return {
-        id: doc.id,
+      campaigns.push({
+        id: docSnapshot.id,
         name: data.name,
         description: data.description,
         status: data.status,
         sentDate: lastSent,
         sent: stats.emailsSent || 0,
         delivered: stats.emailsDelivered || 0,
-        opened: opened,
-        clicked: clicked,
-        replied: replied,
+        opened: opens.length,
+        clicked: clicks.length,
+        replied: 0, // Pour l'instant, nous ne suivons pas les réponses
         bounces: stats.emailsFailed ? [
           { 
             email: 'exemple@domaine.com', 
@@ -97,12 +112,14 @@ export const getCampaignAnalytics = async (): Promise<CampaignWithAnalytics[]> =
             timestamp: lastSent || new Date().toISOString() 
           }
         ] : [],
-        timeData,
-        consultantData,
+        opens,
+        clicks,
+        timeData: trackingData?.timeData || [],
+        consultantData: trackingData?.consultantData || [],
         createdAt,
         updatedAt
-      };
-    });
+      });
+    }
 
     return campaigns;
   } catch (error) {
@@ -111,28 +128,140 @@ export const getCampaignAnalytics = async (): Promise<CampaignWithAnalytics[]> =
   }
 };
 
-// Fonction pour générer des données temporelles simulées
-const generateTimeData = (opens: number, clicks: number): TimeDataPoint[] => {
-  const hours = ['10:00', '11:00', '12:00', '13:00', '14:00'];
-  const distribution = [0.15, 0.30, 0.35, 0.15, 0.05]; // Distribution des ouvertures/clics par heure
-  
-  return hours.map((hour, index) => ({
-    hour,
-    opens: Math.round(opens * distribution[index]),
-    clicks: Math.round(clicks * distribution[index])
-  }));
+// Fonction pour enregistrer une ouverture d'email
+export const trackEmailOpen = async (
+  campaignId: string, 
+  email: string, 
+  userAgent?: string,
+  ip?: string
+): Promise<void> => {
+  try {
+    const trackingRef = doc(db, 'campaign_tracking', campaignId);
+    const trackingDoc = await getDoc(trackingRef);
+    
+    const now = new Date();
+    const openData: EmailOpen = {
+      email,
+      timestamp: now.toISOString(),
+      userAgent,
+      ip
+    };
+
+    if (trackingDoc.exists()) {
+      // Mettre à jour le document existant
+      const data = trackingDoc.data();
+      const opens = data.opens || [];
+      
+      // Ajouter la nouvelle ouverture
+      opens.push(openData);
+      
+      // Mettre à jour les données temporelles
+      const hour = `${now.getHours()}:00`;
+      const timeData = data.timeData || [];
+      const timePoint = timeData.find((p: TimeDataPoint) => p.hour === hour);
+      
+      if (timePoint) {
+        timePoint.opens += 1;
+      } else {
+        timeData.push({
+          hour,
+          opens: 1,
+          clicks: 0
+        });
+      }
+      
+      await updateDoc(trackingRef, {
+        opens,
+        timeData,
+        lastUpdated: Timestamp.now()
+      });
+    } else {
+      // Créer un nouveau document de tracking
+      const timeData = [{
+        hour: `${now.getHours()}:00`,
+        opens: 1,
+        clicks: 0
+      }];
+      
+      await updateDoc(trackingRef, {
+        opens: [openData],
+        clicks: [],
+        timeData,
+        lastUpdated: Timestamp.now()
+      });
+    }
+  } catch (error) {
+    console.error(`Erreur lors du tracking d'ouverture d'email pour la campagne ${campaignId}:`, error);
+  }
 };
 
-// Fonction pour générer des données de consultant simulées
-const generateConsultantData = (opens: number, clicks: number): ConsultantDataPoint[] => {
-  const consultants = ['Jean Dupont', 'Marie Martin', 'Pierre Durand'];
-  const distribution = [0.35, 0.45, 0.20]; // Distribution des ouvertures/clics par consultant
-  
-  return consultants.map((name, index) => ({
-    name,
-    opens: Math.round(opens * distribution[index]),
-    clicks: Math.round(clicks * distribution[index])
-  }));
+// Fonction pour enregistrer un clic sur un lien dans un email
+export const trackEmailClick = async (
+  campaignId: string, 
+  email: string, 
+  url: string,
+  userAgent?: string,
+  ip?: string
+): Promise<void> => {
+  try {
+    const trackingRef = doc(db, 'campaign_tracking', campaignId);
+    const trackingDoc = await getDoc(trackingRef);
+    
+    const now = new Date();
+    const clickData: EmailClick = {
+      email,
+      timestamp: now.toISOString(),
+      url,
+      userAgent,
+      ip
+    };
+
+    if (trackingDoc.exists()) {
+      // Mettre à jour le document existant
+      const data = trackingDoc.data();
+      const clicks = data.clicks || [];
+      
+      // Ajouter le nouveau clic
+      clicks.push(clickData);
+      
+      // Mettre à jour les données temporelles
+      const hour = `${now.getHours()}:00`;
+      const timeData = data.timeData || [];
+      const timePoint = timeData.find((p: TimeDataPoint) => p.hour === hour);
+      
+      if (timePoint) {
+        timePoint.clicks += 1;
+      } else {
+        timeData.push({
+          hour,
+          opens: 0,
+          clicks: 1
+        });
+      }
+      
+      await updateDoc(trackingRef, {
+        clicks,
+        timeData,
+        lastUpdated: Timestamp.now()
+      });
+    } else {
+      // Créer un nouveau document de tracking
+      const timeData = [{
+        hour: `${now.getHours()}:00`,
+        opens: 0,
+        clicks: 1
+      }];
+      
+      await updateDoc(trackingRef, {
+        opens: [],
+        clicks: [clickData],
+        timeData,
+        lastUpdated: Timestamp.now()
+      });
+    }
+  } catch (error) {
+    console.error(`Erreur lors du tracking de clic pour la campagne ${campaignId}:`, error);
+  }
 };
 
 // Fonction pour télécharger les données au format CSV
@@ -177,6 +306,26 @@ export const exportCampaignDataToCsv = (campaign: CampaignWithAnalytics): string
   } else {
     campaign.bounces.forEach(bounce => {
       csv += `${bounce.email},${bounce.reason},${new Date(bounce.timestamp).toLocaleString()}\n`;
+    });
+  }
+
+  // Ajouter les informations sur les ouvertures d'emails si disponibles
+  if (campaign.opens && campaign.opens.length > 0) {
+    csv += '\nOuvertures d\'emails\n';
+    csv += 'Email,Date,User Agent\n';
+    
+    campaign.opens.forEach(open => {
+      csv += `${open.email},${new Date(open.timestamp).toLocaleString()},${open.userAgent || 'Non disponible'}\n`;
+    });
+  }
+
+  // Ajouter les informations sur les clics si disponibles
+  if (campaign.clicks && campaign.clicks.length > 0) {
+    csv += '\nClics sur les liens\n';
+    csv += 'Email,Date,URL,User Agent\n';
+    
+    campaign.clicks.forEach(click => {
+      csv += `${click.email},${new Date(click.timestamp).toLocaleString()},${click.url},${click.userAgent || 'Non disponible'}\n`;
     });
   }
   

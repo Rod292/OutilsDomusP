@@ -128,8 +128,8 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
       if (selectedCampaignId) {
         try {
           await updateCampaignStats(selectedCampaignId, {
-            sent: results.success + results.failed,
-            delivered: results.success
+            success: results.success,
+            failed: results.failed
           });
         } catch (error) {
           console.error('Erreur lors de la mise à jour des statistiques de la campagne:', error);
@@ -253,6 +253,7 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
         senderName={senderName}
         onComplete={handleGmailComplete}
         disabled={!selectedCampaignId}
+        campaignId={selectedCampaignId}
       />
       
       {!selectedCampaignId && (
