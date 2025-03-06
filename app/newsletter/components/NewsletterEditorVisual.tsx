@@ -1517,24 +1517,148 @@ export default function NewsletterEditorVisual() {
   };
 
   const handleDeleteTemplate = async (templateId: string) => {
-    // Empêcher la suppression du template par défaut et du template spécifique
     if (!templateId || templateId === 'default' || templateId === '5X9t9uYaJWLH9FoCmxdx') {
-      toast.error("Impossible de supprimer ce template");
+      toast.error("Vous ne pouvez pas supprimer le template par défaut");
       return;
     }
-
+    
     if (window.confirm("Êtes-vous sûr de vouloir supprimer ce template ?")) {
       try {
-        await deleteDoc(doc(db, 'newsletter_templates', templateId));
-        toast.success("Template supprimé avec succès");
-        // Recharger la liste des templates
-        loadSavedTemplates();
-        // Réinitialiser la sélection
+        await deleteDoc(doc(db, 'newsletterTemplates', templateId));
+        setSavedTemplates(prevTemplates => prevTemplates.filter(t => t.id !== templateId));
         setSelectedTemplate('default');
+        toast.success("Template supprimé avec succès");
       } catch (error) {
         console.error('Erreur lors de la suppression du template:', error);
-        toast.error("Erreur lors de la suppression du template");
+        toast.error("Une erreur est survenue lors de la suppression du template");
       }
+    }
+  };
+
+  // Fonction pour mettre à jour un template existant
+  const handleUpdateTemplate = async () => {
+    try {
+      if (!selectedTemplate || selectedTemplate === 'default' || selectedTemplate === '5X9t9uYaJWLH9FoCmxdx') {
+        toast.error("Vous ne pouvez pas mettre à jour le template par défaut");
+        return;
+      }
+
+      setIsLoading(true);
+      console.log("Début de la mise à jour du template");
+
+      // Vérifier l'état de l'authentification
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      
+      if (!currentUser || !user) {
+        console.error("Erreur : Utilisateur non authentifié");
+        toast.error("Vous devez être connecté pour mettre à jour un template");
+        setIsLoading(false);
+        return;
+      }
+
+      // Vérifier si l'email est dans la liste autorisée
+      const allowedEmails = [
+        'acoat@arthurloydbretagne.fr',
+        'rodrigue.pers29@gmail.com',
+        'photos.pers@gmail.com',
+        'eleroux@arthurloydbretagne.fr',
+        'agencebrest@arthurloydbretagne.fr',
+        'jdalet@arthurloydbretagne.fr',
+        'npers@arthur-loyd.com',
+        'npers@arthurloydbretagne.fr',
+        'pmjaumain@arthurloydbretagne.fr',
+        'pmottais@arthurloydbretagne.fr',
+        'jjambon@arthurloydbretagne.fr',
+        'ejouan@arthurloydbretagne.fr',
+        'shadjlarbi@arthur-loyd.com'
+      ];
+
+      if (!user.email || !allowedEmails.includes(user.email)) {
+        console.error("Erreur : Email non autorisé", user.email);
+        toast.error("Votre email n'est pas autorisé à mettre à jour des templates");
+        setIsLoading(false);
+        return;
+      }
+
+      // Trouver le template à mettre à jour
+      const templateToUpdate = savedTemplates.find(t => t.id === selectedTemplate);
+      if (!templateToUpdate) {
+        toast.error("Template non trouvé");
+        setIsLoading(false);
+        return;
+      }
+
+      // Créer une copie profonde des sections pour les modifier
+      const sectionsToSave = JSON.parse(JSON.stringify(sections));
+      console.log("Structure des sections avant traitement:", sectionsToSave);
+
+      // Créer un cache pour éviter de réuploader les mêmes images
+      const imageCache: Record<string, string> = {};
+      
+      // Traiter les images dans les sections
+      for (const section of sectionsToSave) {
+        // Traiter les photos
+        if (section.type === 'photos' && section.content.photos) {
+          for (const photo of section.content.photos) {
+            if (photo.url && photo.url.startsWith('blob:')) {
+              // Si l'image est déjà dans le cache, utiliser l'URL existante
+              if (imageCache[photo.url]) {
+                photo.url = imageCache[photo.url];
+                continue;
+              }
+              
+              // Sinon, uploader l'image
+              try {
+                if (photo.file) {
+                  const uploadPath = `newsletter-templates/${templateToUpdate.name}/${photo.file.name}`;
+                  const url = await uploadImage(photo.file, uploadPath);
+                  imageCache[photo.url] = url;
+                  photo.url = url;
+                }
+              } catch (error) {
+                console.error('Erreur lors de l\'upload de l\'image:', error);
+              }
+            }
+          }
+        }
+        
+        // Traiter les caractéristiques avec images
+        if (section.type === 'characteristics' && section.content.characteristics) {
+          for (const char of section.content.characteristics) {
+            if (char.imageUrl && char.imageUrl.startsWith('blob:')) {
+              // Si l'image est déjà dans le cache, utiliser l'URL existante
+              if (imageCache[char.imageUrl]) {
+                char.imageUrl = imageCache[char.imageUrl];
+                continue;
+              }
+            }
+          }
+        }
+      }
+
+      // Mettre à jour le template dans Firestore
+      const templateRef = doc(db, 'newsletterTemplates', selectedTemplate);
+      await updateDoc(templateRef, {
+        sections: sectionsToSave,
+        updatedAt: new Date()
+      });
+
+      // Mettre à jour la liste des templates sauvegardés
+      setSavedTemplates(prevTemplates => 
+        prevTemplates.map(t => 
+          t.id === selectedTemplate 
+            ? { ...t, sections: sectionsToSave, updatedAt: new Date() } 
+            : t
+        )
+      );
+
+      toast.success(`Le template "${templateToUpdate.name}" a été mis à jour avec succès`);
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du template:', error);
+      toast.error("Une erreur est survenue lors de la mise à jour du template");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -3011,13 +3135,24 @@ export default function NewsletterEditorVisual() {
                     placeholder="Nom du template"
                     className="px-4 py-2 border rounded-md w-full mb-4"
                   />
-                  <button
-                    onClick={handleSaveTemplate}
-                    disabled={!templateName}
-                    className="w-full px-4 py-2 bg-green-600 text-white rounded-md disabled:bg-gray-400"
-                  >
-                    Sauvegarder comme nouveau template
-                  </button>
+                  <div className="flex flex-col space-y-2">
+                    <button
+                      onClick={handleSaveTemplate}
+                      disabled={!templateName}
+                      className="w-full px-4 py-2 bg-green-600 text-white rounded-md disabled:bg-gray-400"
+                    >
+                      Sauvegarder comme nouveau template
+                    </button>
+                    
+                    {selectedTemplate && selectedTemplate !== 'default' && selectedTemplate !== '5X9t9uYaJWLH9FoCmxdx' && (
+                      <button
+                        onClick={handleUpdateTemplate}
+                        className="w-full px-4 py-2 bg-yellow-600 text-white rounded-md"
+                      >
+                        Mettre à jour le template sélectionné
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </>
