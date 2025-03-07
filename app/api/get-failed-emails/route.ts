@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/app/lib/firebase-admin';
+import { Firestore } from 'firebase-admin/firestore';
 
 // Forcer le mode dynamique pour cette route API
 export const dynamic = 'force-dynamic';
@@ -19,25 +20,39 @@ export async function POST(request: Request) {
     try {
       console.log('Récupération des emails non délivrés via Firestore Admin...');
       
-      // Récupérer les emails non délivrés depuis la sous-collection 'emails' de la campagne
-      const emailsRef = adminDb.collection('campaigns').doc(campaignId).collection('emails');
-      const failedQuery = emailsRef.where('status', '==', 'failed');
+      // Vérifier d'abord si la campagne existe
+      const campaignRef = adminDb.collection('campaigns').doc(campaignId);
+      const campaignDoc = await campaignRef.get();
       
-      const failedSnapshot = await failedQuery.get();
+      if (!campaignDoc.exists) {
+        console.log(`La campagne ${campaignId} n'existe pas dans Firestore. Vérifiez l'ID.`);
+        return NextResponse.json({ 
+          error: `La campagne ${campaignId} n'existe pas.`,
+          failedEmails: [] 
+        }, { status: 404 });
+      }
       
-      const failedEmails = [];
+      // Récupérer les emails non délivrés depuis la sous-collection 'emails/non_delivre/items'
+      const failedRef = campaignRef.collection('emails').doc('non_delivre').collection('items');
+      
+      // Récupérer tous les emails non délivrés
+      const failedSnapshot = await failedRef.get();
+      
+      const failedEmails: Array<{email: string, timestamp: string, status: string, reason?: string}> = [];
+      
+      console.log(`${failedSnapshot.size} emails non délivrés trouvés`);
       
       failedSnapshot.forEach(doc => {
         const data = doc.data();
         failedEmails.push({
           email: data.email,
-          timestamp: data.timestamp ? data.timestamp.toDate().toISOString() : new Date().toISOString(),
-          status: data.status,
-          reason: data.reason || 'Erreur inconnue'
+          timestamp: data.timestamp ? 
+            (data.timestamp.toDate ? data.timestamp.toDate().toISOString() : new Date(data.timestamp).toISOString()) 
+            : new Date().toISOString(),
+          status: 'failed',
+          reason: data.reason
         });
       });
-      
-      console.log(`${failedEmails.length} emails non délivrés trouvés`);
       
       // Ajouter des en-têtes CORS
       return new NextResponse(

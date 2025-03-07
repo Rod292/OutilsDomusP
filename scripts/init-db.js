@@ -43,7 +43,7 @@ const db = admin.firestore();
 
 async function createCollections() {
   try {
-    console.log('🔥 Création des sous-collections emails pour toutes les campagnes existantes...');
+    console.log('🔥 Création des sous-collections pour toutes les campagnes existantes...');
     
     // Récupérer toutes les campagnes existantes
     const campaignsSnapshot = await db.collection('campaigns').get();
@@ -51,7 +51,7 @@ async function createCollections() {
     if (campaignsSnapshot.empty) {
       console.log('⚠️ Aucune campagne trouvée dans la collection campaigns');
     } else {
-      console.log(`📁 ${campaignsSnapshot.size} campagnes trouvées. Création de sous-collections emails pour chacune...`);
+      console.log(`📁 ${campaignsSnapshot.size} campagnes trouvées. Création des sous-collections pour chacune...`);
       
       // Parcourir toutes les campagnes existantes
       for (const campaignDoc of campaignsSnapshot.docs) {
@@ -60,28 +60,64 @@ async function createCollections() {
         
         console.log(`📂 Traitement de la campagne "${campaignId}" - ${campaignData.name || 'Sans nom'}`);
         
-        // Vérifier si la sous-collection emails existe déjà
-        const emailsSnapshot = await campaignDoc.ref.collection('emails').limit(1).get();
+        // Créer la structure des sous-collections
+        const statuses = ['delivered', 'en_attente', 'non_delivre'];
         
-        if (emailsSnapshot.empty) {
-          console.log(`📧 Création de la sous-collection emails pour la campagne "${campaignId}"...`);
+        for (const status of statuses) {
+          // Vérifier si la sous-collection emails/{status} existe déjà
+          const emailsStatusCollection = campaignDoc.ref.collection('emails').doc(status).collection('items');
+          const emailsStatusSnapshot = await emailsStatusCollection.limit(1).get();
           
-          // Créer des emails de test pour cette campagne
-          const testEmail = `test-${campaignId.toLowerCase()}@example.com`;
-          const emailId = Buffer.from(testEmail).toString('base64').replace(/[+/=]/g, '');
-          
-          await campaignDoc.ref.collection('emails').doc(emailId).set({
-            email: testEmail,
-            name: `Test pour ${campaignId}`,
-            company: 'Test Company',
-            status: 'delivered',
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          if (emailsStatusSnapshot.empty) {
+            console.log(`📧 Création de la sous-collection emails/${status} pour la campagne "${campaignId}"...`);
+            
+            // Créer un email de test pour cette sous-collection
+            const testEmail = `test-${status}-${campaignId.toLowerCase()}@example.com`;
+            const emailId = Buffer.from(testEmail).toString('base64').replace(/[+/=]/g, '');
+            
+            // Préparer les données en fonction du statut
+            const emailData = {
+              email: testEmail,
+              name: `Test ${status} pour ${campaignId}`,
+              company: 'Test Company',
+              status: status === 'delivered' ? 'delivered' : (status === 'en_attente' ? 'pending' : 'failed'),
+              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            };
+            
+            // Ajouter les champs spécifiques selon le statut
+            if (status === 'non_delivre') {
+              emailData.reason = 'Test de non livraison';
+            }
+            
+            if (status === 'en_attente') {
+              emailData.pendingReason = 'Test en attente';
+            }
+            
+            await emailsStatusCollection.doc(emailId).set(emailData);
+            
+            console.log(`✅ Email de test "${status}" créé pour la campagne "${campaignId}": ${testEmail}`);
+          } else {
+            console.log(`ℹ️ La sous-collection emails/${status} existe déjà pour la campagne "${campaignId}"`);
+          }
+        }
+        
+        // Créer également un document de configuration pour les emails
+        const emailsConfigRef = campaignDoc.ref.collection('emails').doc('config');
+        const emailsConfigSnapshot = await emailsConfigRef.get();
+        
+        if (!emailsConfigSnapshot.exists) {
+          await emailsConfigRef.set({
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+            totalEmails: {
+              delivered: 1,
+              pending: 1,
+              failed: 1
+            }
           });
-          
-          console.log(`✅ Email de test créé pour la campagne "${campaignId}": ${testEmail}`);
+          console.log(`✅ Document de configuration des emails créé pour la campagne "${campaignId}"`);
         } else {
-          console.log(`ℹ️ La sous-collection emails existe déjà pour la campagne "${campaignId}"`);
+          console.log(`ℹ️ Le document de configuration des emails existe déjà pour la campagne "${campaignId}"`);
         }
       }
     }
@@ -98,21 +134,34 @@ async function createCollections() {
       console.log('   - Nom:', data.name || 'Non défini');
       console.log('   - Emails envoyés:', data.stats?.emailsSent || 0);
       
-      // Récupérer les emails de la campagne
-      const emailsCollection = await campaignDoc.ref.collection('emails').get();
-      console.log(`   - Sous-collection emails: ${emailsCollection.size} document(s)`);
+      // Vérifier le document de configuration des emails
+      const configDoc = await campaignDoc.ref.collection('emails').doc('config').get();
+      if (configDoc.exists) {
+        console.log('   - Configuration emails:', configDoc.data());
+      }
       
-      // Afficher les 3 premiers emails
-      const emailsToShow = emailsCollection.size > 3 ? 3 : emailsCollection.size;
-      if (emailsCollection.size > 0) {
-        console.log('     Emails:');
-        emailsCollection.docs.slice(0, emailsToShow).forEach(emailDoc => {
-          const emailData = emailDoc.data();
-          console.log(`     - ${emailData.email} (${emailData.status})`);
-        });
-        
-        if (emailsCollection.size > 3) {
-          console.log(`     ... et ${emailsCollection.size - 3} autre(s)`);
+      // Vérifier les sous-collections de statut
+      const statuses = ['delivered', 'en_attente', 'non_delivre'];
+      
+      for (const status of statuses) {
+        try {
+          const statusCollection = await campaignDoc.ref.collection('emails').doc(status).collection('items').get();
+          console.log(`   - emails/${status}: ${statusCollection.size} document(s)`);
+          
+          // Afficher les 2 premiers emails de chaque statut
+          if (statusCollection.size > 0) {
+            console.log(`     ${status.charAt(0).toUpperCase() + status.slice(1)}:`);
+            statusCollection.docs.slice(0, 2).forEach(emailDoc => {
+              const emailData = emailDoc.data();
+              console.log(`     - ${emailData.email} (${emailData.status || status})`);
+            });
+            
+            if (statusCollection.size > 2) {
+              console.log(`     ... et ${statusCollection.size - 2} autre(s)`);
+            }
+          }
+        } catch (error) {
+          console.error(`Erreur lors de la récupération de emails/${status} pour ${campaignId}:`, error);
         }
       }
     }

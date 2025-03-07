@@ -34,21 +34,12 @@ export async function POST(request: Request) {
         console.log(`Campagne ${campaignId} trouvée:`, campaignDoc.data());
       }
       
-      // Récupérer les emails délivrés depuis la sous-collection 'emails' de la campagne
-      const emailsRef = adminDb.collection('campaigns').doc(campaignId).collection('emails');
-      console.log('Chemin de la collection:', `campaigns/${campaignId}/emails`);
+      // Récupérer les emails délivrés depuis la sous-collection 'emails/delivered/items'
+      const deliveredRef = campaignRef.collection('emails').doc('delivered').collection('items');
+      console.log('Chemin de la collection:', `campaigns/${campaignId}/emails/delivered/items`);
       
-      // Lister toutes les emails d'abord pour vérifier le contenu
-      const allEmailsSnapshot = await emailsRef.get();
-      console.log(`Nombre total d'emails dans la sous-collection: ${allEmailsSnapshot.size}`);
-      
-      allEmailsSnapshot.forEach(doc => {
-        console.log(`Email trouvé - ID: ${doc.id}, Données:`, doc.data());
-      });
-
-      // Récupérer uniquement les emails délivrés
-      const deliveriesQuery = emailsRef.where('status', '==', 'delivered');
-      const deliveriesSnapshot = await deliveriesQuery.get();
+      // Récupérer tous les emails délivrés
+      const deliveriesSnapshot = await deliveredRef.get();
       
       const deliveredEmails: Array<{email: string, timestamp: string, status: string}> = [];
       
@@ -58,8 +49,10 @@ export async function POST(request: Request) {
         const data = doc.data();
         deliveredEmails.push({
           email: data.email,
-          timestamp: data.timestamp ? data.timestamp.toDate().toISOString() : new Date().toISOString(),
-          status: data.status
+          timestamp: data.timestamp ? 
+            (data.timestamp.toDate ? data.timestamp.toDate().toISOString() : new Date(data.timestamp).toISOString()) 
+            : new Date().toISOString(),
+          status: 'delivered'
         });
         console.log(`Email délivré ajouté: ${data.email}`);
       });

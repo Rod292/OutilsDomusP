@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/app/lib/firebase-admin';
+import { Firestore } from 'firebase-admin/firestore';
 
 // Forcer le mode dynamique pour cette route API
 export const dynamic = 'force-dynamic';
@@ -19,25 +20,39 @@ export async function POST(request: Request) {
     try {
       console.log('Récupération des emails en attente via Firestore Admin...');
       
-      // Récupérer les emails en attente depuis la sous-collection 'emails' de la campagne
-      const emailsRef = adminDb.collection('campaigns').doc(campaignId).collection('emails');
-      const pendingQuery = emailsRef.where('status', '==', 'pending');
+      // Vérifier d'abord si la campagne existe
+      const campaignRef = adminDb.collection('campaigns').doc(campaignId);
+      const campaignDoc = await campaignRef.get();
       
-      const pendingSnapshot = await pendingQuery.get();
+      if (!campaignDoc.exists) {
+        console.log(`La campagne ${campaignId} n'existe pas dans Firestore. Vérifiez l'ID.`);
+        return NextResponse.json({ 
+          error: `La campagne ${campaignId} n'existe pas.`,
+          pendingEmails: [] 
+        }, { status: 404 });
+      }
       
-      const pendingEmails = [];
+      // Récupérer les emails en attente depuis la sous-collection 'emails/en_attente/items'
+      const pendingRef = campaignRef.collection('emails').doc('en_attente').collection('items');
+      
+      // Récupérer tous les emails en attente
+      const pendingSnapshot = await pendingRef.get();
+      
+      const pendingEmails: Array<{email: string, timestamp: string, status: string, pendingReason?: string}> = [];
+      
+      console.log(`${pendingSnapshot.size} emails en attente trouvés`);
       
       pendingSnapshot.forEach(doc => {
         const data = doc.data();
         pendingEmails.push({
           email: data.email,
-          timestamp: data.timestamp ? data.timestamp.toDate().toISOString() : new Date().toISOString(),
-          status: data.status,
-          pendingReason: data.pendingReason || 'En attente de confirmation'
+          timestamp: data.timestamp ? 
+            (data.timestamp.toDate ? data.timestamp.toDate().toISOString() : new Date(data.timestamp).toISOString()) 
+            : new Date().toISOString(),
+          status: 'pending',
+          pendingReason: data.pendingReason
         });
       });
-      
-      console.log(`${pendingEmails.length} emails en attente trouvés`);
       
       // Ajouter des en-têtes CORS
       return new NextResponse(

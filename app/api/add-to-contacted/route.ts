@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/app/lib/firebase-admin';
-import { Firestore } from 'firebase-admin/firestore';
+import { Firestore, FieldValue } from 'firebase-admin/firestore';
 
 // Forcer le mode dynamique pour cette route API
 export const dynamic = 'force-dynamic';
@@ -35,30 +35,59 @@ export async function POST(request: Request) {
         console.log(`Campagne ${campaignId} trouvée:`, campaignData.name || '(sans nom)');
       }
       
-      // Ajouter l'email à la collection 'emails' de la campagne
+      // Générer l'ID unique pour l'email
       const emailId = Buffer.from(email).toString('base64').replace(/[+/=]/g, '');
-      const emailRef = adminDb.collection('campaigns').doc(campaignId).collection('emails').doc(emailId);
       
-      // Vérifier si l'email existe déjà dans la collection
-      const emailDoc = await emailRef.get();
+      // Récupérer la référence à la sous-collection "delivered"
+      const deliveredRef = campaignRef.collection('emails').doc('delivered').collection('items').doc(emailId);
       
-      if (!emailDoc.exists) {
-        // Ajouter l'email à la collection avec le statut 'delivered'
-        await emailRef.set({
-          email: email,
-          status: 'delivered',
-          timestamp: new Date(),
-          updatedAt: new Date()
-        });
-        console.log(`Email ${email} ajouté à la collection des emails délivrés pour la campagne ${campaignId}`);
-      } else {
-        // Mettre à jour le statut de l'email à 'delivered'
-        await emailRef.update({
-          status: 'delivered',
-          updatedAt: new Date()
-        });
-        console.log(`Statut de l'email ${email} mis à jour à "delivered" pour la campagne ${campaignId}`);
-      }
+      // Vérifier si l'email existe déjà dans la sous-collection
+      const emailDoc = await deliveredRef.get();
+      
+      // Données de l'email à ajouter
+      const emailData = {
+        email: email,
+        status: 'delivered',
+        timestamp: new Date(),
+        updatedAt: new Date()
+      };
+      
+      // Transaction pour mettre à jour à la fois l'email et les compteurs
+      await adminDb.runTransaction(async (transaction) => {
+        if (!emailDoc.exists) {
+          // Ajouter l'email à la sous-collection "delivered"
+          transaction.set(deliveredRef, emailData);
+          console.log(`Email ${email} ajouté à la sous-collection delivered pour la campagne ${campaignId}`);
+          
+          // Mettre à jour le compteur dans le document de configuration
+          const configRef = campaignRef.collection('emails').doc('config');
+          const configDoc = await transaction.get(configRef);
+          
+          if (configDoc.exists) {
+            // Mettre à jour le compteur existant
+            transaction.update(configRef, {
+              'totalEmails.delivered': FieldValue.increment(1),
+              'lastUpdated': new Date()
+            });
+          } else {
+            // Créer un nouveau document de configuration
+            transaction.set(configRef, {
+              totalEmails: {
+                delivered: 1,
+                pending: 0,
+                failed: 0
+              },
+              lastUpdated: new Date()
+            });
+          }
+        } else {
+          // L'email existe déjà, mettre à jour la date
+          transaction.update(deliveredRef, {
+            updatedAt: new Date()
+          });
+          console.log(`Email ${email} existe déjà dans la sous-collection delivered pour la campagne ${campaignId}`);
+        }
+      });
       
       // Ajouter des en-têtes CORS
       return new NextResponse(
