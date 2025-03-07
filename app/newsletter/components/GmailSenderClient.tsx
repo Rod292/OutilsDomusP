@@ -243,8 +243,39 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
 
       console.log('Réponse reçue du serveur:', response.status);
       
-      const data = await response.json();
-      console.log('Données de réponse:', data);
+      // Vérifier si la réponse est du JSON valide
+      let data;
+      const contentType = response.headers.get('content-type');
+      const isJson = contentType && contentType.includes('application/json');
+      
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error('Erreur de parsing JSON:', jsonError);
+        
+        // Si l'erreur contient "An error occurred", c'est probablement un problème d'authentification Gmail
+        const responseText = await response.text();
+        console.log('Texte de réponse:', responseText);
+        
+        if (responseText.includes('An error occurred') || responseText.includes('token')) {
+          setError('Session Gmail expirée. Veuillez vous déconnecter et vous reconnecter à Gmail en utilisant le bouton DÉCONNEXION puis en vous authentifiant à nouveau.');
+          setResults({ success: 0, failed: recipients.length });
+          onComplete({ success: 0, failed: recipients.length });
+          setIsSending(false);
+          setProgress(100);
+          setStatus('Erreur d\'authentification');
+          return;
+        }
+        
+        // Autre erreur de parsing
+        setError(`Erreur lors de l'envoi des emails: Le serveur a renvoyé une réponse non-JSON. Veuillez réessayer ou contacter l'administrateur.`);
+        setResults({ success: 0, failed: recipients.length });
+        onComplete({ success: 0, failed: recipients.length });
+        setIsSending(false);
+        setProgress(100);
+        setStatus('Échec');
+        return;
+      }
       
       if (response.ok && data.success) {
         setStatus(`Envoi terminé: ${data.sent} réussis, ${data.failed} échoués`);
@@ -308,6 +339,51 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
       setIsLoggingOut(false);
     }
   };
+
+  if (isLoggingOut) {
+    return (
+      <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2, my: 2, textAlign: 'center' }}>
+        <CircularProgress size={24} sx={{ mr: 1 }} />
+        <Typography>Déconnexion en cours...</Typography>
+      </Box>
+    );
+  }
+
+  // Affichage spécial quand la session a expiré
+  if (error && error.includes('Session Gmail expirée')) {
+    return (
+      <Box sx={{ p: 3, bgcolor: '#fff3cd', borderRadius: 2, my: 2, border: '1px solid #ffeeba' }}>
+        <Typography variant="h6" sx={{ color: '#856404', display: 'flex', alignItems: 'center', mb: 2 }}>
+          <EmailIcon sx={{ mr: 1 }} /> Session Gmail expirée
+        </Typography>
+        <Typography sx={{ mb: 2 }}>
+          Votre session Gmail a expiré. Veuillez vous déconnecter puis vous reconnecter pour continuer.
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="warning" 
+          startIcon={<LogoutIcon />} 
+          onClick={handleLogout}
+          sx={{ mr: 2 }}
+        >
+          1. Déconnexion
+        </Button>
+        {!isAuthenticated && (
+          <Button 
+            variant="contained" 
+            color="success" 
+            startIcon={<EmailIcon />} 
+            onClick={handleAuthenticate}
+            sx={{ mt: { xs: 2, sm: 0 } }}
+            disabled={authenticating}
+          >
+            2. Reconnecter à Gmail
+            {authenticating && <CircularProgress size={24} sx={{ ml: 1 }} />}
+          </Button>
+        )}
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ my: 3 }}>
