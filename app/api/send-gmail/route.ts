@@ -487,7 +487,10 @@ export async function POST(request: NextRequest) {
                 // Ajouter l'email à la sous-collection 'emails' avec le statut 'failed'
                 try {
                   const campaignRef = admin.firestore().collection('campaigns').doc(requestData.campaignId);
-                  const emailRef = campaignRef.collection('emails').doc(recipient.email.replace(/[.#$\/\[\]]/g, '_'));
+                  const emailId = Buffer.from(recipient.email).toString('base64').replace(/[+/=]/g, '');
+                  const emailRef = campaignRef.collection('emails').doc(emailId);
+                  
+                  console.log(`Ajout de l'email ${recipient.email} avec l'ID: ${emailId} à la collection`);
                   
                   await emailRef.set({
                     email: recipient.email,
@@ -577,27 +580,52 @@ ${processedHtml}`;
           // Ajouter l'email à la liste des destinataires contactés
           if (requestData.campaignId) {
             try {
+              console.log(`Début de l'ajout à Firestore pour l'email: ${recipient.email}, campagneId: ${requestData.campaignId}`);
+              
               // Utiliser une sous-collection 'emails' dans la collection 'campaigns'
               const campaignRef = admin.firestore().collection('campaigns').doc(requestData.campaignId);
               
               // Vérifier si la campagne existe
               const campaignDoc = await campaignRef.get();
               if (!campaignDoc.exists) {
-                console.error(`La campagne ${requestData.campaignId} n'existe pas`);
-                throw new Error(`La campagne ${requestData.campaignId} n'existe pas`);
+                console.log(`La campagne ${requestData.campaignId} n'existe pas, création de la campagne...`);
+                // Créer la campagne si elle n'existe pas
+                await campaignRef.set({
+                  name: 'Campagne principale',
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                  stats: {
+                    emailsSent: 0,
+                    lastSent: null
+                  }
+                });
+                console.log(`Campagne ${requestData.campaignId} créée avec succès`);
               }
               
+              // Préparer l'ID de l'email dans la même format que add-to-contacted
+              const emailId = Buffer.from(recipient.email).toString('base64').replace(/[+/=]/g, '');
+              console.log(`ID généré pour l'email: ${emailId}`);
+              
               // Ajouter l'email à la sous-collection 'emails' de la campagne
-              const emailRef = campaignRef.collection('emails').doc(recipient.email.replace(/[.#$\/\[\]]/g, '_'));
-              await emailRef.set({
+              const emailRef = campaignRef.collection('emails').doc(emailId);
+              
+              // Vérifier si l'email existe déjà
+              const emailDoc = await emailRef.get();
+              console.log(`L'email existe déjà dans la collection? ${emailDoc.exists}`);
+              
+              // Préparer les données de l'email
+              const emailData = {
                 email: recipient.email,
                 name: recipient.name || '',
                 company: recipient.company || '',
-                status: 'pending', // Marquer comme "en attente" plutôt que "délivré"
+                status: 'delivered', // Marquer comme "délivré" quand l'envoi Gmail a réussi
                 timestamp: new Date(),
-                pendingReason: 'En attente de confirmation de livraison'
-              });
-              console.log(`Email ${recipient.email} ajouté à la sous-collection emails de la campagne ${requestData.campaignId}`);
+                updatedAt: new Date()
+              };
+              
+              // Ajouter ou mettre à jour l'email
+              await emailRef.set(emailData, { merge: true });
+              console.log(`Email ${recipient.email} ajouté à la sous-collection emails de la campagne ${requestData.campaignId}, données:`, emailData);
               
               // Mettre à jour les statistiques de la campagne
               await campaignRef.update({
@@ -606,6 +634,33 @@ ${processedHtml}`;
                 'updatedAt': new Date()
               });
               console.log(`Statistiques de la campagne ${requestData.campaignId} mises à jour`);
+              
+              // Notifier le système de tracking via API add-to-contacted
+              try {
+                const contactedResponse = await fetch(`${baseUrl}/api/add-to-contacted`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ 
+                    email: recipient.email,
+                    campaignId: requestData.campaignId
+                  }),
+                  cache: 'no-store',
+                  next: { revalidate: 0 }
+                });
+                
+                console.log('Réponse add-to-contacted:', {
+                  status: contactedResponse.status,
+                  statusText: contactedResponse.statusText
+                });
+                
+                if (!contactedResponse.ok) {
+                  console.warn(`Erreur lors de l'ajout à la liste des contactés: ${contactedResponse.status}`);
+                }
+              } catch (contactedError) {
+                console.error('Erreur lors de l\'appel à add-to-contacted:', contactedError);
+              }
             } catch (error) {
               console.error('Erreur lors de l\'ajout de l\'email à la campagne:', error);
             }
