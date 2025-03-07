@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/app/lib/firebase-admin';
+import { Firestore } from 'firebase-admin/firestore';
 
 // Forcer le mode dynamique pour cette route API
 export const dynamic = 'force-dynamic';
@@ -19,13 +20,45 @@ export async function POST(request: Request) {
     try {
       console.log('Récupération des emails délivrés via Firestore Admin...');
       
+      // Vérifier d'abord si la campagne existe
+      const campaignRef = adminDb.collection('campaigns').doc(campaignId);
+      const campaignDoc = await campaignRef.get();
+      
+      if (!campaignDoc.exists) {
+        console.log(`La campagne ${campaignId} n'existe pas, création de la campagne...`);
+        await campaignRef.set({
+          name: 'Campagne principale',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          stats: {
+            emailsSent: 0,
+            lastSent: null
+          }
+        });
+        console.log(`Campagne ${campaignId} créée avec succès`);
+      } else {
+        console.log(`Campagne ${campaignId} trouvée:`, campaignDoc.data());
+      }
+      
       // Récupérer les emails délivrés depuis la sous-collection 'emails' de la campagne
       const emailsRef = adminDb.collection('campaigns').doc(campaignId).collection('emails');
-      const deliveriesQuery = emailsRef.where('status', '==', 'delivered');
+      console.log('Chemin de la collection:', `campaigns/${campaignId}/emails`);
       
+      // Lister toutes les emails d'abord pour vérifier le contenu
+      const allEmailsSnapshot = await emailsRef.get();
+      console.log(`Nombre total d'emails dans la sous-collection: ${allEmailsSnapshot.size}`);
+      
+      allEmailsSnapshot.forEach(doc => {
+        console.log(`Email trouvé - ID: ${doc.id}, Données:`, doc.data());
+      });
+
+      // Récupérer uniquement les emails délivrés
+      const deliveriesQuery = emailsRef.where('status', '==', 'delivered');
       const deliveriesSnapshot = await deliveriesQuery.get();
       
-      const deliveredEmails = [];
+      const deliveredEmails: Array<{email: string, timestamp: string, status: string}> = [];
+      
+      console.log(`${deliveriesSnapshot.size} emails avec statut 'delivered' trouvés`);
       
       deliveriesSnapshot.forEach(doc => {
         const data = doc.data();
@@ -34,9 +67,10 @@ export async function POST(request: Request) {
           timestamp: data.timestamp ? data.timestamp.toDate().toISOString() : new Date().toISOString(),
           status: data.status
         });
+        console.log(`Email délivré ajouté: ${data.email}`);
       });
       
-      console.log(`${deliveredEmails.length} emails délivrés trouvés`);
+      console.log(`${deliveredEmails.length} emails délivrés renvoyés au client`);
       
       // Ajouter des en-têtes CORS
       return new NextResponse(
