@@ -36,6 +36,13 @@ export type ConsultantDataPoint = {
   clicks: number;
 };
 
+export type EmailDelivery = {
+  email: string;
+  timestamp: string;
+  status: 'delivered' | 'failed';
+  reason?: string;
+};
+
 export type CampaignWithAnalytics = {
   id: string;
   name: string;
@@ -54,6 +61,7 @@ export type CampaignWithAnalytics = {
   consultantData?: ConsultantDataPoint[];
   createdAt?: string;
   updatedAt?: string;
+  deliveries?: EmailDelivery[];
 };
 
 // Fonction pour récupérer les données d'analyse des campagnes depuis Firestore
@@ -264,70 +272,98 @@ export const trackEmailClick = async (
   }
 };
 
-// Fonction pour télécharger les données au format CSV
-export const exportCampaignDataToCsv = (campaign: CampaignWithAnalytics): string => {
-  // Créer l'en-tête CSV
-  let csv = 'Métrique,Valeur\n';
+// Fonction pour exporter les données d'une campagne au format CSV
+export const exportCampaignDataToCsv = (campaign: CampaignWithAnalytics, type: 'delivered' | 'failed' | 'all' = 'all'): string => {
+  if (!campaign) return '';
   
-  // Ajouter les données de base
-  csv += `Nom,${campaign.name}\n`;
-  csv += `Description,${campaign.description || 'Non spécifiée'}\n`;
-  csv += `Statut,${campaign.status}\n`;
+  let csv = 'Email,Date,Statut,Raison\n';
   
-  if (campaign.sentDate) {
-    csv += `Date d'envoi,${new Date(campaign.sentDate).toLocaleString()}\n`;
+  // Ajouter les emails délivrés si demandé
+  if (type === 'all' || type === 'delivered') {
+    if (campaign.deliveries && campaign.deliveries.filter((d: EmailDelivery) => d.status === 'delivered').length > 0) {
+      campaign.deliveries
+        .filter((d: EmailDelivery) => d.status === 'delivered')
+        .forEach((delivery: EmailDelivery) => {
+          csv += `${delivery.email},${new Date(delivery.timestamp).toLocaleString()},"Délivré",\n`;
+        });
+    }
   }
   
-  csv += `Emails envoyés,${campaign.sent}\n`;
-  csv += `Emails délivrés,${campaign.delivered}\n`;
-  csv += `Emails ouverts,${campaign.opened}\n`;
-  csv += `Liens cliqués,${campaign.clicked}\n`;
-  csv += `Réponses reçues,${campaign.replied}\n`;
-  
-  if (campaign.sent > 0) {
-    csv += `Taux de délivrabilité,${((campaign.delivered / campaign.sent) * 100).toFixed(1)}%\n`;
-  }
-  
-  if (campaign.delivered > 0) {
-    csv += `Taux d'ouverture,${((campaign.opened / campaign.delivered) * 100).toFixed(1)}%\n`;
-    csv += `Taux de clic,${((campaign.clicked / campaign.delivered) * 100).toFixed(1)}%\n`;
-    csv += `Taux de réponse,${((campaign.replied / campaign.delivered) * 100).toFixed(1)}%\n`;
-  }
-  
-  // Ajouter une ligne vide pour séparer les sections
-  csv += '\n';
-  
-  // Ajouter les informations sur les emails non délivrés
-  csv += 'Emails non délivrés\n';
-  csv += 'Email,Raison,Date\n';
-  
-  if (campaign.bounces.length === 0) {
-    csv += 'Tous les emails ont été délivrés avec succès\n';
-  } else {
-    campaign.bounces.forEach(bounce => {
-      csv += `${bounce.email},${bounce.reason},${new Date(bounce.timestamp).toLocaleString()}\n`;
-    });
-  }
-
-  // Ajouter les informations sur les ouvertures d'emails si disponibles
-  if (campaign.opens && campaign.opens.length > 0) {
-    csv += '\nOuvertures d\'emails\n';
-    csv += 'Email,Date,User Agent\n';
-    
-    campaign.opens.forEach(open => {
-      csv += `${open.email},${new Date(open.timestamp).toLocaleString()},${open.userAgent || 'Non disponible'}\n`;
-    });
-  }
-
-  // Ajouter les informations sur les clics si disponibles
-  if (campaign.clicks && campaign.clicks.length > 0) {
-    csv += '\nClics sur les liens\n';
-    csv += 'Email,Date,URL,User Agent\n';
-    
-    campaign.clicks.forEach(click => {
-      csv += `${click.email},${new Date(click.timestamp).toLocaleString()},${click.url},${click.userAgent || 'Non disponible'}\n`;
-    });
+  // Ajouter les emails non délivrés si demandé
+  if (type === 'all' || type === 'failed') {
+    if (campaign.deliveries && campaign.deliveries.filter((d: EmailDelivery) => d.status === 'failed').length > 0) {
+      campaign.deliveries
+        .filter((d: EmailDelivery) => d.status === 'failed')
+        .forEach((delivery: EmailDelivery) => {
+          csv += `${delivery.email},${new Date(delivery.timestamp).toLocaleString()},"Non délivré","${delivery.reason || 'Erreur inconnue'}"\n`;
+        });
+    }
   }
   
   return csv;
+};
+
+// Fonction pour vérifier si un email a déjà été contacté pour une campagne spécifique
+export const checkEmailAlreadyContacted = async (
+  campaignId: string,
+  email: string
+): Promise<boolean> => {
+  try {
+    // Vérifier si la campagne existe
+    const campaignRef = doc(db, 'campaigns', campaignId);
+    const campaignDoc = await getDoc(campaignRef);
+    
+    if (!campaignDoc.exists()) {
+      console.error(`La campagne ${campaignId} n'existe pas`);
+      return false;
+    }
+    
+    // Vérifier si l'email est dans la liste des destinataires contactés
+    const trackingRef = doc(db, 'campaign_tracking', campaignId);
+    const trackingDoc = await getDoc(trackingRef);
+    
+    if (!trackingDoc.exists()) {
+      console.log(`Aucun tracking trouvé pour la campagne ${campaignId}`);
+      return false;
+    }
+    
+    const trackingData = trackingDoc.data();
+    const contactedEmails = trackingData.contactedEmails || [];
+    
+    return contactedEmails.includes(email);
+  } catch (error) {
+    console.error('Erreur lors de la vérification des emails contactés:', error);
+    return false;
+  }
+};
+
+// Fonction pour ajouter un email à la liste des destinataires contactés
+export const addEmailToContactedList = async (
+  campaignId: string,
+  email: string
+): Promise<void> => {
+  try {
+    const trackingRef = doc(db, 'campaign_tracking', campaignId);
+    const trackingDoc = await getDoc(trackingRef);
+    
+    if (trackingDoc.exists()) {
+      const trackingData = trackingDoc.data();
+      const contactedEmails = trackingData.contactedEmails || [];
+      
+      // Vérifier si l'email est déjà dans la liste
+      if (!contactedEmails.includes(email)) {
+        // Ajouter l'email à la liste
+        await updateDoc(trackingRef, {
+          contactedEmails: [...contactedEmails, email]
+        });
+      }
+    } else {
+      // Créer un nouveau document de tracking
+      await updateDoc(trackingRef, {
+        contactedEmails: [email]
+      });
+    }
+  } catch (error) {
+    console.error('Erreur lors de l\'ajout de l\'email à la liste des contactés:', error);
+  }
 }; 

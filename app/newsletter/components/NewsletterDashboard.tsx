@@ -40,6 +40,13 @@ type EmailBounce = {
   timestamp: string;
 };
 
+type EmailDelivery = {
+  email: string;
+  timestamp: string;
+  status: 'delivered' | 'failed';
+  reason?: string;
+};
+
 type CampaignData = {
   id: string;
   name: string;
@@ -50,6 +57,7 @@ type CampaignData = {
   clicked: number;
   replied: number;
   bounces: EmailBounce[];
+  deliveries?: EmailDelivery[];
 };
 
 export default function NewsletterDashboard() {
@@ -158,13 +166,13 @@ export default function NewsletterDashboard() {
   };
 
   // Fonction pour télécharger les données CSV
-  const handleExportCsv = () => {
-    const csvContent = exportCampaignDataToCsv(currentCampaign);
+  const handleExportCsv = (status: 'delivered' | 'failed') => {
+    const csvContent = exportCampaignDataToCsv(currentCampaign, status);
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `newsletter_${currentCampaign.name.replace(/\s+/g, '_')}.csv`);
+    link.setAttribute('download', `newsletter_${currentCampaign.name.replace(/\s+/g, '_')}_${status}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -304,7 +312,7 @@ export default function NewsletterDashboard() {
       {/* Bouton d'export */}
       <div className="flex justify-end">
         <button
-          onClick={handleExportCsv}
+          onClick={() => handleExportCsv('delivered')}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -312,6 +320,222 @@ export default function NewsletterDashboard() {
           </svg>
           Exporter les données (CSV)
         </button>
+      </div>
+
+      <div className="mt-8">
+        <h3 className="text-xl font-semibold mb-4">Statistiques détaillées</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Graphique des ouvertures et clics par heure */}
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h4 className="text-lg font-medium mb-4">Activité par heure</h4>
+            {currentCampaign?.timeData && currentCampaign.timeData.length > 0 ? (
+              <div className="h-64">
+                <Bar 
+                  data={{
+                    labels: currentCampaign.timeData.map(d => d.hour),
+                    datasets: [
+                      {
+                        label: 'Ouvertures',
+                        data: currentCampaign.timeData.map(d => d.opens),
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1,
+                      },
+                      {
+                        label: 'Clics',
+                        data: currentCampaign.timeData.map(d => d.clicks),
+                        backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1,
+                      }
+                    ]
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        ticks: {
+                          precision: 0
+                        }
+                      }
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-10">Aucune donnée disponible</p>
+            )}
+          </div>
+
+          {/* Graphique des ouvertures et clics par consultant */}
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h4 className="text-lg font-medium mb-4">Performance par consultant</h4>
+            {currentCampaign?.consultantData && currentCampaign.consultantData.length > 0 ? (
+              <div className="h-64">
+                <Bar 
+                  data={{
+                    labels: currentCampaign.consultantData.map(d => d.name),
+                    datasets: [
+                      {
+                        label: 'Ouvertures',
+                        data: currentCampaign.consultantData.map(d => d.opens),
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1,
+                      },
+                      {
+                        label: 'Clics',
+                        data: currentCampaign.consultantData.map(d => d.clicks),
+                        backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1,
+                      }
+                    ]
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        ticks: {
+                          precision: 0
+                        }
+                      }
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-10">Aucune donnée disponible</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Tableaux des emails délivrés et non délivrés */}
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Tableau des emails délivrés */}
+        <div className="bg-white p-6 rounded-lg shadow-lg">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-lg font-medium">Emails délivrés</h4>
+            <button 
+              onClick={() => handleExportCsv('delivered')}
+              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md text-sm transition-colors"
+            >
+              Exporter CSV
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Email
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Statut
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {currentCampaign?.deliveries?.filter((d: EmailDelivery) => d.status === 'delivered').slice(0, 10).map((delivery: EmailDelivery, index: number) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {delivery.email}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(delivery.timestamp).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                        Délivré
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {(!currentCampaign?.deliveries || currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'delivered').length === 0) && (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500">
+                      Aucun email délivré enregistré
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            {currentCampaign?.deliveries && currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'delivered').length > 10 && (
+              <div className="mt-2 text-right">
+                <span className="text-sm text-gray-500">
+                  Affichage des 10 premiers résultats sur {currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'delivered').length}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Tableau des emails non délivrés */}
+        <div className="bg-white p-6 rounded-lg shadow-lg">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-lg font-medium">Emails non délivrés</h4>
+            <button 
+              onClick={() => handleExportCsv('failed')}
+              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm transition-colors"
+            >
+              Exporter CSV
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Email
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Raison
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {currentCampaign?.deliveries?.filter((d: EmailDelivery) => d.status === 'failed').slice(0, 10).map((delivery: EmailDelivery, index: number) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {delivery.email}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(delivery.timestamp).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-500">
+                      {delivery.reason || 'Erreur inconnue'}
+                    </td>
+                  </tr>
+                ))}
+                {(!currentCampaign?.deliveries || currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'failed').length === 0) && (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500">
+                      Aucun email non délivré enregistré
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            {currentCampaign?.deliveries && currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'failed').length > 10 && (
+              <div className="mt-2 text-right">
+                <span className="text-sm text-gray-500">
+                  Affichage des 10 premiers résultats sur {currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'failed').length}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

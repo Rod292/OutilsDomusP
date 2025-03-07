@@ -258,35 +258,61 @@ function encodeHeaderValue(str: string): string {
   return `=?UTF-8?B?${base64}?=`;
 }
 
-// Personnaliser le HTML pour chaque destinataire
-const personalizeHtml = (html: string, recipient: { name: string; company?: string; email?: string }) => {
-  let personalizedHtml = html;
+// Fonction pour ajouter les éléments de tracking dans l'email
+function addTrackingElements(html: string, recipient: { email?: string }, campaignId: string, baseUrl: string): string {
+  if (!recipient.email || !campaignId) {
+    return html;
+  }
+
+  const email = encodeURIComponent(recipient.email);
+  const cid = encodeURIComponent(campaignId);
   
+  // Ajouter un pixel de tracking pour les ouvertures d'emails
+  const trackingPixel = `<img src="${baseUrl}/api/track-open?cid=${cid}&email=${email}" width="1" height="1" alt="" style="display:none;width:1px;height:1px;" />`;
+  
+  // Ajouter le pixel de tracking juste avant la fermeture du body
+  let modifiedHtml = html.replace('</body>', `${trackingPixel}</body>`);
+  
+  // Remplacer tous les liens par des liens de tracking
+  modifiedHtml = modifiedHtml.replace(
+    /<a\s+(?:[^>]*?\s+)?href=["']([^"']*)["']([^>]*)>/gi,
+    (match, url, rest) => {
+      // Ne pas modifier les liens d'ancre, mailto ou javascript
+      if (url.startsWith('#') || url.startsWith('mailto:') || url.startsWith('javascript:') || url.startsWith('tel:')) {
+        return match;
+      }
+      
+      // Encoder l'URL
+      const encodedUrl = encodeURIComponent(url);
+      
+      // Créer le lien de tracking
+      return `<a href="${baseUrl}/api/track-click?cid=${cid}&email=${email}&url=${encodedUrl}"${rest}>`;
+    }
+  );
+  
+  return modifiedHtml;
+}
+
+// Personnaliser le HTML pour chaque destinataire
+const personalizeHtml = (html: string, recipient: { name: string; company?: string; email?: string }, campaignId?: string, baseUrl?: string) => {
   console.log('Personnalisation du HTML pour:', recipient);
   
-  // Remplacer {{NAME}} par le nom du destinataire (aussi bien en majuscules qu'en minuscules)
+  let personalizedHtml = html;
+  
+  // Remplacer les variables de personnalisation
   if (recipient.name) {
-    personalizedHtml = personalizedHtml.replace(/{{NAME}}/gi, recipient.name);
-    personalizedHtml = personalizedHtml.replace(/{{name}}/gi, recipient.name);
+    personalizedHtml = personalizedHtml.replace(/{{name}}/g, recipient.name);
     console.log('Nom remplacé:', recipient.name);
   }
   
-  // Remplacer {{COMPANY}} par l'entreprise du destinataire (aussi bien en majuscules qu'en minuscules)
   if (recipient.company) {
-    personalizedHtml = personalizedHtml.replace(/{{COMPANY}}/gi, recipient.company);
-    personalizedHtml = personalizedHtml.replace(/{{company}}/gi, recipient.company);
+    personalizedHtml = personalizedHtml.replace(/{{company}}/g, recipient.company);
     console.log('Entreprise remplacée:', recipient.company);
   }
   
-  // Remplacer {{EMAIL}} dans les liens de désinscription (aussi bien en majuscules qu'en minuscules)
-  if (recipient.email) {
-    personalizedHtml = personalizedHtml.replace(/{{EMAIL}}/gi, encodeURIComponent(recipient.email));
-    personalizedHtml = personalizedHtml.replace(/{{email}}/gi, encodeURIComponent(recipient.email));
-    
-    // Remplacer {{UNSUBSCRIBE_URL}} par l'URL complète vers la page de désinscription
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const unsubscribeUrl = `${baseUrl}/unsubscribe?email=${encodeURIComponent(recipient.email)}`;
-    personalizedHtml = personalizedHtml.replace(/{{UNSUBSCRIBE_URL}}/gi, unsubscribeUrl);
+  // Ajouter les éléments de tracking si l'ID de campagne et l'URL de base sont fournis
+  if (campaignId && baseUrl && recipient.email) {
+    personalizedHtml = addTrackingElements(personalizedHtml, recipient, campaignId, baseUrl);
   }
   
   return personalizedHtml;
@@ -376,7 +402,7 @@ export async function POST(request: NextRequest) {
           console.log(`Traitement du destinataire: ${JSON.stringify(recipient)}`);
           
           // Vérifier si l'email est désinscrit
-          console.log('Checking if email is unsubscribed:', recipient.email);
+          console.log('Vérification si l\'email est désinscrit:', recipient.email);
           try {
             const unsubscribeResponse = await fetch(`${baseUrl}/api/check-unsubscribed`, {
               method: 'POST',
@@ -388,27 +414,69 @@ export async function POST(request: NextRequest) {
               next: { revalidate: 0 }
             });
 
-            console.log('Unsubscribe check response:', {
+            console.log('Réponse de vérification de désinscription:', {
               status: unsubscribeResponse.status,
               statusText: unsubscribeResponse.statusText,
               headers: Object.fromEntries(unsubscribeResponse.headers.entries())
             });
 
             if (!unsubscribeResponse.ok) {
-              throw new Error(`HTTP error! status: ${unsubscribeResponse.status}`);
+              throw new Error(`Erreur HTTP! statut: ${unsubscribeResponse.status}`);
             }
 
             const unsubscribeData = await unsubscribeResponse.json();
-            console.log('Unsubscribe data:', unsubscribeData);
+            console.log('Données de désinscription:', unsubscribeData);
 
             if (unsubscribeData.isUnsubscribed) {
-              console.log('Email is unsubscribed, skipping send');
+              console.log('Email désinscrit, envoi ignoré');
               failedCount++;
+              errors.push(`${recipient.email}: Email désinscrit`);
               continue;
             }
           } catch (error) {
-            console.error('Error checking unsubscribe status:', error);
-            // Continue with sending email even if unsubscribe check fails
+            console.error('Erreur lors de la vérification de désinscription:', error);
+            // Continuer avec l'envoi de l'email même si la vérification échoue
+          }
+
+          // Vérifier si l'email a déjà été contacté pour cette campagne
+          if (requestData.campaignId) {
+            console.log('Vérification si l\'email a déjà été contacté pour cette campagne:', recipient.email);
+            try {
+              const alreadyContactedResponse = await fetch(`${baseUrl}/api/check-already-contacted`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                  email: recipient.email,
+                  campaignId: requestData.campaignId
+                }),
+                cache: 'no-store',
+                next: { revalidate: 0 }
+              });
+
+              console.log('Réponse de vérification d\'email déjà contacté:', {
+                status: alreadyContactedResponse.status,
+                statusText: alreadyContactedResponse.statusText
+              });
+
+              if (!alreadyContactedResponse.ok) {
+                throw new Error(`Erreur HTTP! statut: ${alreadyContactedResponse.status}`);
+              }
+
+              const alreadyContactedData = await alreadyContactedResponse.json();
+              console.log('Données de vérification d\'email déjà contacté:', alreadyContactedData);
+
+              if (alreadyContactedData.alreadyContacted) {
+                console.log('Email déjà contacté pour cette campagne, envoi ignoré');
+                failedCount++;
+                errors.push(`${recipient.email}: Email déjà contacté pour cette campagne`);
+                continue;
+              }
+            } catch (error) {
+              console.error('Erreur lors de la vérification d\'email déjà contacté:', error);
+              // Continuer avec l'envoi de l'email même si la vérification échoue
+            }
           }
 
           // Générer un token unique pour ce destinataire
@@ -419,7 +487,7 @@ export async function POST(request: NextRequest) {
             name: recipient.name || '',
             company: recipient.company || '',
             email: recipient.email || ''
-          });
+          }, requestData.campaignId, baseUrl);
 
           // Ajouter les informations du consultant si disponibles
           if (consultant) {
@@ -469,6 +537,34 @@ ${processedHtml}`;
           });
           
           console.log(`Email envoyé avec succès à ${recipient.email}`);
+          
+          // Ajouter l'email à la liste des destinataires contactés
+          if (requestData.campaignId) {
+            try {
+              // Appeler l'API pour ajouter l'email à la liste des contactés
+              const addToContactedResponse = await fetch(`${baseUrl}/api/add-to-contacted`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                  email: recipient.email,
+                  campaignId: requestData.campaignId
+                }),
+                cache: 'no-store',
+                next: { revalidate: 0 }
+              });
+              
+              if (!addToContactedResponse.ok) {
+                console.error(`Erreur lors de l'ajout de l'email à la liste des contactés: ${addToContactedResponse.status}`);
+              } else {
+                console.log(`Email ${recipient.email} ajouté à la liste des contactés pour la campagne ${requestData.campaignId}`);
+              }
+            } catch (error) {
+              console.error('Erreur lors de l\'ajout de l\'email à la liste des contactés:', error);
+            }
+          }
+          
           successCount++;
         } catch (error: any) {
           console.error(`Erreur lors de l'envoi de l'email à ${recipient.email}:`, error);
