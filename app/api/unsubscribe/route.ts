@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/app/lib/firebase';
 import { collection, query, where, getDocs, addDoc, Firestore, doc, setDoc } from 'firebase/firestore';
+import { adminDb } from '@/app/lib/firebase-admin';
 
 // Forcer le mode dynamique pour cette route API
 export const dynamic = 'force-dynamic';
@@ -10,14 +11,34 @@ export async function POST(request: Request) {
     console.log('Démarrage du processus de désinscription');
     
     // Log de la requête
-    console.log('Request headers:', Object.fromEntries(request.headers.entries()));
+    const headers = request.headers ? Object.fromEntries(request.headers.entries()) : {};
+    console.log('Request headers:', headers);
     
     // Vérifier l'initialisation de Firebase
     console.log('Firebase DB type:', typeof db);
     console.log('Firebase DB est une instance de Firestore:', db instanceof Firestore);
-    console.log('Firebase DB propriétés:', Object.keys(db));
     
-    const { email } = await request.json();
+    if (db) {
+      console.log('Firebase DB propriétés:', Object.keys(db));
+    } else {
+      console.log('Firebase DB est null ou undefined');
+    }
+    
+    // Vérifier si adminDb est disponible
+    console.log('Admin DB disponible:', !!adminDb);
+    
+    let data;
+    try {
+      data = await request.json();
+    } catch (error) {
+      console.error('Erreur lors de la lecture du corps de la requête:', error);
+      return NextResponse.json({ 
+        error: 'Erreur lors de la lecture de la requête', 
+        details: error instanceof Error ? error.message : String(error)
+      }, { status: 400 });
+    }
+    
+    const { email } = data || {};
     console.log('Email à désinscrire:', email);
 
     if (!email) {
@@ -25,14 +46,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Email requis' }, { status: 400 });
     }
 
-    // Vérifier si l'email est déjà dans la liste des désinscrits
-    console.log('Connexion à Firestore...');
-    if (!db) {
+    // Utiliser adminDb si disponible, sinon utiliser db
+    const firestore: Firestore = adminDb as Firestore || db;
+    
+    // Vérifier si Firestore est initialisé
+    if (!firestore) {
       console.error('Firestore non initialisé');
       return NextResponse.json({ 
         error: 'Firestore non initialisé', 
         dbType: typeof db,
-        dbExists: !!db
+        adminDbType: typeof adminDb,
+        dbExists: !!db,
+        adminDbExists: !!adminDb
       }, { status: 500 });
     }
     
@@ -41,7 +66,7 @@ export async function POST(request: Request) {
       console.log('Tentative de création d\'un document test pour vérifier la collection...');
       
       // Utiliser setDoc avec un ID spécifique pour éviter les doublons
-      const testDocRef = doc(db, 'unsubscribed', 'test-document');
+      const testDocRef = doc(firestore, 'unsubscribed', 'test-document');
       await setDoc(testDocRef, { 
         test: true, 
         createdAt: new Date() 
@@ -50,7 +75,7 @@ export async function POST(request: Request) {
       console.log('Document test créé avec succès, la collection existe');
       
       console.log('Tentative de création de la référence à la collection...');
-      const unsubscribedRef = collection(db, 'unsubscribed');
+      const unsubscribedRef = collection(firestore, 'unsubscribed');
       console.log('Référence à la collection créée avec succès');
       
       console.log('Création de la requête...');
@@ -70,7 +95,7 @@ export async function POST(request: Request) {
       
       // Utiliser setDoc avec un ID basé sur l'email pour éviter les doublons
       const emailHash = Buffer.from(email).toString('base64').replace(/[+/=]/g, '');
-      const emailDocRef = doc(db, 'unsubscribed', emailHash);
+      const emailDocRef = doc(firestore, 'unsubscribed', emailHash);
       
       await setDoc(emailDocRef, {
         email,
