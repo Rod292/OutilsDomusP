@@ -580,39 +580,33 @@ ${processedHtml}`;
           // Ajouter l'email à la liste des destinataires contactés
           if (requestData.campaignId) {
             try {
-              console.log(`Début de l'ajout à Firestore pour l'email: ${recipient.email}, campagneId: ${requestData.campaignId}`);
+              console.log(`🔍 Début de l'ajout à Firestore pour l'email: ${recipient.email}, campaignId: ${requestData.campaignId}`);
+              console.log(`🔑 Type de campaignId: ${typeof requestData.campaignId}, Valeur: "${requestData.campaignId}"`);
               
-              // Utiliser une sous-collection 'emails' dans la collection 'campaigns'
+              // Utiliser la campagne spécifiée
               const campaignRef = admin.firestore().collection('campaigns').doc(requestData.campaignId);
               
               // Vérifier si la campagne existe
               const campaignDoc = await campaignRef.get();
               if (!campaignDoc.exists) {
-                console.log(`La campagne ${requestData.campaignId} n'existe pas, création de la campagne...`);
-                // Créer la campagne si elle n'existe pas
-                await campaignRef.set({
-                  name: 'Campagne principale',
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                  stats: {
-                    emailsSent: 0,
-                    lastSent: null
-                  }
-                });
-                console.log(`Campagne ${requestData.campaignId} créée avec succès`);
+                console.error(`❌ La campagne ${requestData.campaignId} n'existe pas dans Firestore!`);
+                throw new Error(`La campagne ${requestData.campaignId} n'existe pas. Veuillez vérifier l'ID de la campagne utilisé.`);
+              } else {
+                console.log(`✅ Campagne trouvée: "${requestData.campaignId}"`, campaignDoc.data());
               }
               
-              // Préparer l'ID de l'email dans la même format que add-to-contacted
+              // Préparer l'ID de l'email dans le même format que add-to-contacted
               const emailId = Buffer.from(recipient.email).toString('base64').replace(/[+/=]/g, '');
-              console.log(`ID généré pour l'email: ${emailId}`);
+              console.log(`🆔 ID généré pour l'email: ${emailId}`);
               
               // Utilisez la nouvelle structure organisée par statut
               // Sous-collection: emails/delivered/items
               const deliveredRef = campaignRef.collection('emails').doc('delivered').collection('items').doc(emailId);
+              console.log(`📁 Chemin complet: campaigns/${requestData.campaignId}/emails/delivered/items/${emailId}`);
               
               // Vérifier si l'email existe déjà
               const emailDoc = await deliveredRef.get();
-              console.log(`L'email existe déjà dans la collection delivered? ${emailDoc.exists}`);
+              console.log(`🔍 L'email existe déjà dans la collection delivered? ${emailDoc.exists}`);
               
               // Préparer les données de l'email
               const emailData = {
@@ -623,44 +617,64 @@ ${processedHtml}`;
                 timestamp: new Date(),
                 updatedAt: new Date()
               };
+              console.log(`📨 Données d'email à enregistrer:`, emailData);
               
               // Transaction pour ajouter l'email et mettre à jour les compteurs
-              await admin.firestore().runTransaction(async (transaction) => {
-                // Ajouter ou mettre à jour l'email dans la sous-collection delivered
-                transaction.set(deliveredRef, emailData, { merge: true });
-                
-                // Mettre à jour le compteur dans le document de configuration
-                const configRef = campaignRef.collection('emails').doc('config');
-                const configDoc = await transaction.get(configRef);
-                
-                if (configDoc.exists) {
-                  // Mettre à jour le compteur existant
-                  transaction.update(configRef, {
-                    'totalEmails.delivered': admin.firestore.FieldValue.increment(1),
-                    'lastUpdated': new Date()
-                  });
-                } else {
-                  // Créer un nouveau document de configuration
-                  transaction.set(configRef, {
-                    totalEmails: {
-                      delivered: 1,
-                      pending: 0,
-                      failed: 0
-                    },
-                    lastUpdated: new Date()
-                  });
-                }
-              });
+              try {
+                console.log('🔄 Début de la transaction Firestore...');
+                await admin.firestore().runTransaction(async (transaction) => {
+                  // Ajouter ou mettre à jour l'email dans la sous-collection delivered
+                  console.log('✏️ Écriture des données email dans la transaction');
+                  transaction.set(deliveredRef, emailData, { merge: true });
+                  
+                  // Mettre à jour le compteur dans le document de configuration
+                  const configRef = campaignRef.collection('emails').doc('config');
+                  const configDoc = await transaction.get(configRef);
+                  
+                  console.log('⚙️ Configuration existante?', configDoc.exists);
+                  
+                  if (configDoc.exists) {
+                    // Mettre à jour le compteur existant
+                    console.log('⬆️ Mise à jour du compteur existant');
+                    transaction.update(configRef, {
+                      'totalEmails.delivered': admin.firestore.FieldValue.increment(1),
+                      'lastUpdated': new Date()
+                    });
+                  } else {
+                    // Créer un nouveau document de configuration
+                    console.log('🆕 Création d\'un nouveau document de configuration');
+                    transaction.set(configRef, {
+                      totalEmails: {
+                        delivered: 1,
+                        pending: 0,
+                        failed: 0
+                      },
+                      lastUpdated: new Date()
+                    });
+                  }
+                });
+                console.log('✅ Transaction Firestore réussie');
+              } catch (transactionError) {
+                console.error('❌ Erreur durant la transaction Firestore:', transactionError);
+                // Tenter un enregistrement sans transaction en cas d'échec
+                console.log('🔄 Tentative d\'enregistrement sans transaction...');
+                await deliveredRef.set(emailData, { merge: true });
+                console.log('✅ Enregistrement direct réussi');
+              }
               
-              console.log(`Email ${recipient.email} ajouté à la sous-collection emails/delivered/items de la campagne ${requestData.campaignId}`);
+              console.log(`✅ Email ${recipient.email} ajouté à la sous-collection emails/delivered/items de la campagne ${requestData.campaignId}`);
               
               // Mettre à jour les statistiques de la campagne
-              await campaignRef.update({
-                'stats.emailsSent': admin.firestore.FieldValue.increment(1),
-                'stats.lastSent': new Date(),
-                'updatedAt': new Date()
-              });
-              console.log(`Statistiques de la campagne ${requestData.campaignId} mises à jour`);
+              try {
+                await campaignRef.update({
+                  'stats.emailsSent': admin.firestore.FieldValue.increment(1),
+                  'stats.lastSent': new Date(),
+                  'updatedAt': new Date()
+                });
+                console.log(`📊 Statistiques de la campagne ${requestData.campaignId} mises à jour`);
+              } catch (statsError) {
+                console.error('❌ Erreur lors de la mise à jour des statistiques:', statsError);
+              }
 
               // Notifier le système de tracking via API add-to-contacted
               try {
