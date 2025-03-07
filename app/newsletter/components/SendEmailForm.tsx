@@ -1,12 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Button, Box, Typography, TextField, Paper, Alert,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  FormControl, InputLabel, Select, MenuItem
+  FormControl, InputLabel, Select, MenuItem, Stack, LinearProgress,
+  List, ListItem, ListItemText, Chip, Divider, IconButton
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
+import SendIcon from '@mui/icons-material/Send';
+import DeleteIcon from '@mui/icons-material/Delete';
+import SaveIcon from '@mui/icons-material/Save';
+import RestoreIcon from '@mui/icons-material/Restore';
 import Papa from 'papaparse';
 import GmailSenderClient from './GmailSenderClient';
 import { Campaign, getAllCampaigns, updateCampaignStats } from '../services/campaigns';
@@ -22,11 +29,28 @@ type SendEmailFormProps = {
   htmlContent: string;
 };
 
+type BatchRecord = {
+  batch: number;
+  sent: number;
+  failed: number;
+  timestamp: string;
+};
+
+// Définir la taille des lots
+const BATCH_SIZE = 100;
+
 export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
   const [subject, setSubject] = useState('');
   const [senderName, setSenderName] = useState('Arthur Loyd Bretagne');
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  
+  // Nouveaux états pour la gestion des lots
+  const [allRecipients, setAllRecipients] = useState<Recipient[]>([]);
+  const [currentBatch, setCurrentBatch] = useState(0);
   const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [batchHistory, setBatchHistory] = useState<BatchRecord[]>([]);
+  const [hasSavedData, setHasSavedData] = useState(false);
+  
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [sendResult, setSendResult] = useState({ success: 0, failed: 0 });
@@ -41,6 +65,7 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
   const [testCompany, setTestCompany] = useState('');
   const [showTestEmailForm, setShowTestEmailForm] = useState(false);
 
+  // Charger les campagnes au démarrage
   useEffect(() => {
     const loadCampaigns = async () => {
       try {
@@ -55,7 +80,98 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
     };
 
     loadCampaigns();
+    
+    // Vérifier s'il y a des données sauvegardées
+    checkForSavedData();
   }, []);
+  
+  // Mettre à jour les destinataires quand le lot courant change
+  useEffect(() => {
+    if (allRecipients.length > 0) {
+      const startIndex = currentBatch * BATCH_SIZE;
+      const batchRecipients = allRecipients.slice(startIndex, startIndex + BATCH_SIZE);
+      setRecipients(batchRecipients);
+      
+      // Mettre à jour localStorage
+      localStorage.setItem('currentBatch', currentBatch.toString());
+    }
+  }, [currentBatch, allRecipients]);
+  
+  // Fonction pour vérifier les données sauvegardées
+  const checkForSavedData = () => {
+    try {
+      const savedRecipients = localStorage.getItem('csvRecipients');
+      const savedBatch = localStorage.getItem('currentBatch');
+      const savedHistory = localStorage.getItem('batchHistory');
+      const savedCampaignId = localStorage.getItem('selectedCampaignId');
+      const savedSubject = localStorage.getItem('emailSubject');
+      
+      if (savedRecipients && savedBatch && savedCampaignId && savedSubject) {
+        setHasSavedData(true);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la vérification des données sauvegardées:', error);
+    }
+  };
+  
+  // Fonction pour restaurer les données sauvegardées
+  const restoreSavedData = () => {
+    try {
+      const savedRecipients = localStorage.getItem('csvRecipients');
+      const savedBatch = localStorage.getItem('currentBatch');
+      const savedHistory = localStorage.getItem('batchHistory');
+      const savedCampaignId = localStorage.getItem('selectedCampaignId');
+      const savedSubject = localStorage.getItem('emailSubject');
+      
+      if (savedRecipients) {
+        const parsed = JSON.parse(savedRecipients);
+        setAllRecipients(parsed);
+        
+        // Mettre à jour l'aperçu
+        setCsvPreview(parsed.slice(0, 3));
+      }
+      
+      if (savedBatch) {
+        const batchNum = parseInt(savedBatch);
+        setCurrentBatch(batchNum);
+      }
+      
+      if (savedHistory) {
+        const history = JSON.parse(savedHistory);
+        setBatchHistory(history);
+      }
+      
+      if (savedCampaignId) {
+        setSelectedCampaignId(savedCampaignId);
+      }
+      
+      if (savedSubject) {
+        setSubject(savedSubject);
+      }
+      
+      setSuccess('Données restaurées avec succès. Vous pouvez continuer l\'envoi.');
+      setHasSavedData(false);
+    } catch (error) {
+      console.error('Erreur lors de la restauration des données:', error);
+      setError('Impossible de restaurer les données sauvegardées.');
+    }
+  };
+  
+  // Fonction pour supprimer les données sauvegardées
+  const clearSavedData = () => {
+    try {
+      localStorage.removeItem('csvRecipients');
+      localStorage.removeItem('currentBatch');
+      localStorage.removeItem('batchHistory');
+      localStorage.removeItem('selectedCampaignId');
+      localStorage.removeItem('emailSubject');
+      
+      setHasSavedData(false);
+      setSuccess('Données sauvegardées supprimées.');
+    } catch (error) {
+      console.error('Erreur lors de la suppression des données:', error);
+    }
+  };
 
   const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     setError('');
@@ -100,9 +216,6 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
                 company: (row.company || '').trim()
               };
               
-              // Log pour débogage
-              console.log('Destinataire traité:', recipient);
-              
               return recipient;
             });
           
@@ -111,10 +224,31 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
             return;
           }
           
-          setRecipients(parsedRecipients);
+          // Stocker tous les destinataires et définir le lot initial
+          setAllRecipients(parsedRecipients);
+          setCurrentBatch(0);
+          setBatchHistory([]);
+          
+          // Préparer le premier lot
+          const firstBatch = parsedRecipients.slice(0, BATCH_SIZE);
+          setRecipients(firstBatch);
+          
+          // Sauvegarder dans localStorage
+          localStorage.setItem('csvRecipients', JSON.stringify(parsedRecipients));
+          localStorage.setItem('currentBatch', '0');
+          localStorage.setItem('batchHistory', JSON.stringify([]));
+          if (selectedCampaignId) {
+            localStorage.setItem('selectedCampaignId', selectedCampaignId);
+          }
+          if (subject) {
+            localStorage.setItem('emailSubject', subject);
+          }
+          
           // Afficher un aperçu des 3 premiers destinataires
           setCsvPreview(parsedRecipients.slice(0, 3));
-          setSuccess(`${parsedRecipients.length} destinataires chargés avec succès.${!hasNameColumn || !hasCompanyColumn ? '\nNote: Certaines colonnes sont manquantes, la personnalisation sera limitée.' : ''}`);
+          
+          const totalBatches = Math.ceil(parsedRecipients.length / BATCH_SIZE);
+          setSuccess(`${parsedRecipients.length} destinataires chargés avec succès. Divisés en ${totalBatches} lots de ${BATCH_SIZE} maximum.${!hasNameColumn || !hasCompanyColumn ? '\nNote: Certaines colonnes sont manquantes, la personnalisation sera limitée.' : ''}`);
         } else {
           setError('Le fichier CSV est vide ou mal formaté');
         }
@@ -128,7 +262,21 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
 
   const handleGmailComplete = async (results: { success: number; failed: number }) => {
     if (results.success > 0) {
-      setSuccess(`${results.success} emails envoyés avec succès via Gmail.`);
+      // Enregistrer ce lot dans l'historique
+      const newHistoryItem: BatchRecord = {
+        batch: currentBatch,
+        sent: results.success,
+        failed: results.failed,
+        timestamp: new Date().toISOString()
+      };
+      
+      const updatedHistory = [...batchHistory, newHistoryItem];
+      setBatchHistory(updatedHistory);
+      
+      // Sauvegarder l'historique dans localStorage
+      localStorage.setItem('batchHistory', JSON.stringify(updatedHistory));
+      
+      setSuccess(`Lot ${currentBatch + 1}: ${results.success} emails envoyés avec succès via Gmail.`);
       
       // Mettre à jour les statistiques de la campagne
       if (selectedCampaignId) {
@@ -142,14 +290,31 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
         }
       }
     }
+    
     if (results.failed > 0) {
       setError(`${results.failed} emails n'ont pas pu être envoyés.`);
     }
+    
     setSendResult(results);
   };
 
   const handleSelectCampaign = (campaignId: string) => {
     setSelectedCampaignId(campaignId);
+    localStorage.setItem('selectedCampaignId', campaignId);
+  };
+  
+  // Fonction pour passer au lot suivant
+  const handleNextBatch = () => {
+    if (currentBatch < Math.ceil(allRecipients.length / BATCH_SIZE) - 1) {
+      setCurrentBatch(currentBatch + 1);
+    }
+  };
+  
+  // Fonction pour revenir au lot précédent
+  const handlePreviousBatch = () => {
+    if (currentBatch > 0) {
+      setCurrentBatch(currentBatch - 1);
+    }
   };
   
   // Fonction pour envoyer un email test
@@ -178,11 +343,60 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
     setSuccess('Email test prêt à être envoyé. Cliquez sur "Envoyer via Gmail" pour continuer.');
   };
 
+  // Calculer le statut du lot courant
+  const getCurrentBatchStatus = () => {
+    const startIndex = currentBatch * BATCH_SIZE + 1;
+    const endIndex = Math.min((currentBatch + 1) * BATCH_SIZE, allRecipients.length);
+    const totalBatches = Math.ceil(allRecipients.length / BATCH_SIZE);
+    
+    return {
+      startIndex,
+      endIndex,
+      totalBatches,
+      progress: (currentBatch / (totalBatches - 1)) * 100
+    };
+  };
+
+  // Vérifier si le lot actuel a déjà été envoyé
+  const isBatchAlreadySent = () => {
+    return batchHistory.some(record => record.batch === currentBatch);
+  };
+
   return (
     <Paper sx={{ p: 3, mt: 3 }}>
       <Typography variant="h6" gutterBottom>
         Envoyer la newsletter
       </Typography>
+      
+      {/* Bannière de reprise de session */}
+      {hasSavedData && (
+        <Alert 
+          severity="info" 
+          sx={{ mb: 3 }}
+          action={
+            <Stack direction="row" spacing={1}>
+              <Button 
+                size="small" 
+                color="inherit" 
+                startIcon={<RestoreIcon />}
+                onClick={restoreSavedData}
+              >
+                Restaurer
+              </Button>
+              <Button 
+                size="small" 
+                color="inherit"
+                startIcon={<DeleteIcon />} 
+                onClick={clearSavedData}
+              >
+                Supprimer
+              </Button>
+            </Stack>
+          }
+        >
+          Vous avez une session d'envoi précédente sauvegardée. Voulez-vous la restaurer?
+        </Alert>
+      )}
       
       {/* Gestionnaire de campagnes */}
       <Box sx={{ mb: 3 }}>
@@ -201,7 +415,10 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
           variant="outlined"
           fullWidth
           value={subject}
-          onChange={(e) => setSubject(e.target.value)}
+          onChange={(e) => {
+            setSubject(e.target.value);
+            localStorage.setItem('emailSubject', e.target.value);
+          }}
           sx={{ mb: 2 }}
         />
         
@@ -329,11 +546,119 @@ export default function SendEmailForm({ htmlContent }: SendEmailFormProps) {
           </Box>
         )}
         
-        {recipients.length > 0 && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            {recipients.length} destinataires prêts à recevoir la newsletter.
-          </Alert>
+        {/* Section d'envoi par lots */}
+        {allRecipients.length > BATCH_SIZE && (
+          <Box sx={{ mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+            <Typography variant="h6" gutterBottom color="primary">
+              Envoi par lots de {BATCH_SIZE} emails
+            </Typography>
+            
+            {allRecipients.length > 0 && (
+              <>
+                <Box sx={{ mb: 2 }}>
+                  {(() => {
+                    const { startIndex, endIndex, totalBatches, progress } = getCurrentBatchStatus();
+                    return (
+                      <>
+                        <Typography variant="body1" gutterBottom>
+                          Lot actuel: <Chip color="primary" label={`${currentBatch + 1}/${totalBatches}`} /> 
+                          <span style={{ marginLeft: 8 }}>
+                            (contacts {startIndex}-{endIndex} sur {allRecipients.length})
+                          </span>
+                        </Typography>
+                        <LinearProgress 
+                          variant="determinate" 
+                          value={progress} 
+                          sx={{ height: 8, borderRadius: 1, mb: 1 }} 
+                        />
+                        <Stack direction="row" spacing={2} justifyContent="center" sx={{ mt: 2 }}>
+                          <Button 
+                            variant="outlined" 
+                            startIcon={<NavigateBeforeIcon />}
+                            disabled={currentBatch === 0}
+                            onClick={handlePreviousBatch}
+                          >
+                            Lot précédent
+                          </Button>
+                          <Button 
+                            variant="outlined"
+                            endIcon={<NavigateNextIcon />}
+                            onClick={handleNextBatch}
+                            disabled={currentBatch >= totalBatches - 1}
+                          >
+                            Lot suivant
+                          </Button>
+                        </Stack>
+                      </>
+                    );
+                  })()}
+                </Box>
+                
+                {isBatchAlreadySent() && (
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    Ce lot a déjà été envoyé précédemment. Sélectionnez un autre lot ou vérifiez l'historique d'envoi.
+                  </Alert>
+                )}
+                
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Diviser vos envois en lots de {BATCH_SIZE} permet d'éviter les limitations Gmail et améliore les taux de livraison.
+                </Typography>
+              </>
+            )}
+          </Box>
         )}
+        
+        {/* Historique des envois par lots */}
+        {batchHistory.length > 0 && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Historique des envois ({batchHistory.length} lots)
+            </Typography>
+            <List sx={{ bgcolor: '#f8f8f8', borderRadius: 1 }}>
+              {batchHistory.map((record, index) => {
+                const batchStart = record.batch * BATCH_SIZE + 1;
+                const batchEnd = Math.min((record.batch + 1) * BATCH_SIZE, allRecipients.length);
+                const batchDate = new Date(record.timestamp);
+                
+                return (
+                  <React.Fragment key={index}>
+                    <ListItem>
+                      <ListItemText 
+                        primary={
+                          <Typography variant="body1">
+                            <Chip size="small" color="primary" label={`Lot ${record.batch + 1}`} sx={{ mr: 1 }} />
+                            {record.sent} envoyés, {record.failed} échoués
+                          </Typography>
+                        }
+                        secondary={
+                          <>
+                            <Typography variant="body2" component="span" color="text.secondary">
+                              Contacts {batchStart}-{batchEnd} • 
+                              {` ${batchDate.toLocaleDateString()} ${batchDate.toLocaleTimeString()}`}
+                            </Typography>
+                          </>
+                        }
+                      />
+                      <IconButton 
+                        edge="end" 
+                        aria-label="aller au lot"
+                        onClick={() => setCurrentBatch(record.batch)}
+                      >
+                        <NavigateNextIcon />
+                      </IconButton>
+                    </ListItem>
+                    {index < batchHistory.length - 1 && <Divider />}
+                  </React.Fragment>
+                );
+              })}
+            </List>
+          </Box>
+        )}
+        
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {recipients.length} destinataires prêts à recevoir la newsletter
+          {allRecipients.length > 0 && ` (lot ${currentBatch + 1}/${Math.ceil(allRecipients.length / BATCH_SIZE)})`}.
+        </Alert>
       </Box>
       
       <GmailSenderClient
