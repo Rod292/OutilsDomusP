@@ -265,11 +265,14 @@ function addTrackingElements(html: string, recipient: { email?: string }, campai
     return html;
   }
 
+  // Toujours utiliser l'URL de production pour les liens de tracking
+  const productionUrl = process.env.NEXT_PUBLIC_BASE_URL || baseUrl;
+  
   const email = encodeURIComponent(recipient.email);
   const cid = encodeURIComponent(campaignId);
   
   // Ajouter un pixel de tracking pour les ouvertures d'emails
-  const trackingPixel = `<img src="${baseUrl}/api/track-open?cid=${cid}&email=${email}" width="1" height="1" alt="" style="display:none;width:1px;height:1px;" />`;
+  const trackingPixel = `<img src="${productionUrl}/api/track-open?cid=${cid}&email=${email}" width="1" height="1" alt="" style="display:none;width:1px;height:1px;" />`;
   
   // Ajouter le pixel de tracking juste avant la fermeture du body
   let modifiedHtml = html.replace('</body>', `${trackingPixel}</body>`);
@@ -287,7 +290,7 @@ function addTrackingElements(html: string, recipient: { email?: string }, campai
       const encodedUrl = encodeURIComponent(url);
       
       // Créer le lien de tracking
-      return `<a href="${baseUrl}/api/track-click?cid=${cid}&email=${email}&url=${encodedUrl}"${rest}>`;
+      return `<a href="${productionUrl}/api/track-click?cid=${cid}&email=${email}&url=${encodedUrl}"${rest}>`;
     }
   );
   
@@ -509,6 +512,13 @@ export async function POST(request: NextRequest) {
             company: recipient.company || '',
             email: recipient.email || ''
           }, requestData.campaignId, baseUrl);
+
+          // Créer l'URL de désinscription avec l'URL de production
+          const productionUrl = process.env.NEXT_PUBLIC_BASE_URL || baseUrl;
+          const unsubscribeUrl = `${productionUrl}/unsubscribe?token=${unsubscribeToken}&email=${encodeURIComponent(recipient.email)}`;
+          
+          // Remplacer le placeholder de désinscription par l'URL réelle
+          personalizedHtml = personalizedHtml.replace(/{{UNSUBSCRIBE_URL}}/g, unsubscribeUrl);
 
           // Ajouter les informations du consultant si disponibles
           if (consultant) {
