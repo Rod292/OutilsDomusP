@@ -25,17 +25,11 @@ export async function POST(request: Request) {
       const campaignDoc = await campaignRef.get();
       
       if (!campaignDoc.exists) {
-        console.log(`La campagne ${campaignId} n'existe pas, création de la campagne...`);
-        await campaignRef.set({
-          name: 'Campagne principale',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          stats: {
-            emailsSent: 0,
-            lastSent: null
-          }
-        });
-        console.log(`Campagne ${campaignId} créée avec succès`);
+        console.log(`La campagne ${campaignId} n'existe pas dans Firestore. Vérifiez l'ID.`);
+        return NextResponse.json({ 
+          error: `La campagne ${campaignId} n'existe pas.`,
+          deliveredEmails: [] 
+        }, { status: 404 });
       } else {
         console.log(`Campagne ${campaignId} trouvée:`, campaignDoc.data());
       }

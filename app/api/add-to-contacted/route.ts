@@ -21,6 +21,20 @@ export async function POST(request: Request) {
     try {
       console.log('Ajout de l\'email à la liste des contactés via Firestore Admin...');
       
+      // Vérifier si la campagne existe
+      const campaignRef = adminDb.collection('campaigns').doc(campaignId);
+      const campaignDoc = await campaignRef.get();
+      
+      if (!campaignDoc.exists) {
+        console.log(`La campagne ${campaignId} n'existe pas dans Firestore. Vérifiez l'ID.`);
+        return NextResponse.json({ 
+          error: `La campagne ${campaignId} n'existe pas.` 
+        }, { status: 404 });
+      } else {
+        const campaignData = campaignDoc.data() || {};
+        console.log(`Campagne ${campaignId} trouvée:`, campaignData.name || '(sans nom)');
+      }
+      
       // Ajouter l'email à la collection 'emails' de la campagne
       const emailId = Buffer.from(email).toString('base64').replace(/[+/=]/g, '');
       const emailRef = adminDb.collection('campaigns').doc(campaignId).collection('emails').doc(emailId);
@@ -36,14 +50,14 @@ export async function POST(request: Request) {
           timestamp: new Date(),
           updatedAt: new Date()
         });
-        console.log('Email ajouté à la collection des emails délivrés');
+        console.log(`Email ${email} ajouté à la collection des emails délivrés pour la campagne ${campaignId}`);
       } else {
         // Mettre à jour le statut de l'email à 'delivered'
         await emailRef.update({
           status: 'delivered',
           updatedAt: new Date()
         });
-        console.log('Statut de l\'email mis à jour à "delivered"');
+        console.log(`Statut de l'email ${email} mis à jour à "delivered" pour la campagne ${campaignId}`);
       }
       
       // Ajouter des en-têtes CORS
