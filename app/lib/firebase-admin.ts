@@ -1,5 +1,5 @@
 import { initializeApp, getApps, cert } from "firebase-admin/app"
-import { getFirestore } from "firebase-admin/firestore"
+import { getFirestore, Firestore } from "firebase-admin/firestore"
 import { getAuth } from "firebase-admin/auth"
 
 // Vérifier que les variables d'environnement nécessaires sont définies
@@ -21,7 +21,7 @@ const firebaseAdminConfig = {
 
 // Initialiser Firebase Admin seulement s'il n'a pas déjà été initialisé
 let firebaseAdmin;
-let adminDb;
+let adminDb: Firestore;
 
 try {
   if (getApps().length === 0) {

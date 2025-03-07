@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/app/lib/firebase-admin';
+import { Firestore } from 'firebase-admin/firestore';
 
 // Forcer le mode dynamique pour cette route API
 export const dynamic = 'force-dynamic';
@@ -21,8 +22,10 @@ export async function POST(request: Request) {
       console.log('Vérification dans Firestore Admin...');
       
       // Vérifier si l'email existe dans la sous-collection 'emails' de la campagne
+      // Utiliser le même format d'ID que dans add-to-contacted
+      const emailId = Buffer.from(email).toString('base64').replace(/[+/=]/g, '');
       const emailRef = adminDb.collection('campaigns').doc(campaignId)
-                             .collection('emails').doc(email.replace(/[.#$\/\[\]]/g, '_'));
+                             .collection('emails').doc(emailId);
       
       const emailDoc = await emailRef.get();
       
