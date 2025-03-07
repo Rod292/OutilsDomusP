@@ -1,14 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Button, Alert, Box, Typography, CircularProgress, Link, Tooltip 
+  Button, Alert, Box, Typography, CircularProgress, Link, Tooltip,
+  LinearProgress, Chip, Divider, Stack, Dialog, DialogTitle, DialogContent,
+  DialogActions, DialogContentText
 } from '@mui/material';
 import { GMAIL_CONFIG } from './gmail-config';
 import EmailIcon from '@mui/icons-material/Email';
 import LogoutIcon from '@mui/icons-material/Logout';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
+import PauseIcon from '@mui/icons-material/Pause';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 
 const { CLIENT_ID, SCOPES } = GMAIL_CONFIG;
+
+// Taille des micro-lots
+const MICRO_BATCH_SIZE = 10;
+// Délai entre les micro-lots (en millisecondes)
+const BATCH_DELAY = 3000; // 3 secondes
 
 // Ajouter le log de débogage
 console.log('Configuration Gmail:', {
@@ -27,6 +38,15 @@ type GmailSenderProps = {
   campaignId?: string;
 };
 
+type BatchStatus = {
+  batchNumber: number;
+  totalBatches: number;
+  successCount: number;
+  failedCount: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  errors?: string[];
+};
+
 export default function GmailSenderClient({ newsletterHtml, recipients, subject, senderName, onComplete, disabled = false, campaignId }: GmailSenderProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -37,6 +57,14 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
   const [authError, setAuthError] = useState('');
   const [authenticating, setAuthenticating] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  
+  // États pour les micro-lots
+  const [microBatches, setMicroBatches] = useState<Array<Array<{ email: string; name: string; company?: string }>>>([]);
+  const [currentBatchIndex, setCurrentBatchIndex] = useState(0);
+  const [batchStatuses, setBatchStatuses] = useState<BatchStatus[]>([]);
+  const [isPaused, setIsPaused] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [totalResults, setTotalResults] = useState({ success: 0, failed: 0 });
 
   // Vérifier le statut d'authentification au chargement
   useEffect(() => {
@@ -52,6 +80,31 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
 
     checkAuthStatus();
   }, []);
+
+  // Préparer les micro-lots lorsque les destinataires changent
+  useEffect(() => {
+    if (recipients.length > 0) {
+      const batches = [];
+      for (let i = 0; i < recipients.length; i += MICRO_BATCH_SIZE) {
+        batches.push(recipients.slice(i, i + MICRO_BATCH_SIZE));
+      }
+      
+      setMicroBatches(batches);
+      
+      // Initialiser les statuts des lots
+      const statuses: BatchStatus[] = batches.map((_, index) => ({
+        batchNumber: index + 1,
+        totalBatches: batches.length,
+        successCount: 0,
+        failedCount: 0,
+        status: 'pending'
+      }));
+      
+      setBatchStatuses(statuses);
+      setCurrentBatchIndex(0);
+      setTotalResults({ success: 0, failed: 0 });
+    }
+  }, [recipients]);
 
   // Fonction pour générer l'URL d'authentification OAuth
   const handleAuthenticate = () => {
@@ -190,24 +243,34 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
     }
   };
 
-  const sendEmails = async () => {
-    if (!isAuthenticated || recipients.length === 0) {
-      setError('Vous devez vous authentifier et fournir des destinataires');
+  // Fonction pour envoyer un micro-lot d'emails
+  const sendMicroBatch = useCallback(async (batchIndex: number) => {
+    if (batchIndex >= microBatches.length || !isAuthenticated || isPaused) {
       return;
     }
 
-    setIsSending(true);
-    setProgress(0);
-    setStatus('Préparation de l\'envoi...');
-    setError('');
+    // Mettre à jour le statut du lot en cours
+    setBatchStatuses(current => {
+      const updated = [...current];
+      updated[batchIndex] = {
+        ...updated[batchIndex],
+        status: 'processing'
+      };
+      return updated;
+    });
+
+    // Calculer et mettre à jour la progression globale
+    const progressPercent = (batchIndex / microBatches.length) * 100;
+    setProgress(progressPercent);
+    setStatus(`Traitement du lot ${batchIndex + 1}/${microBatches.length}`);
 
     try {
-      console.log('Début de l\'envoi des emails');
-      console.log('Nombre de destinataires:', recipients.length);
+      console.log(`Envoi du micro-lot ${batchIndex + 1}/${microBatches.length}`);
       
-      // Préparer les données à envoyer
-      // L'API s'attend à un objet consultant avec une structure { nom, fonction, email, telephone }
-      // Alors que nous avons juste un senderName ici
+      // Préparer les données pour ce micro-lot
+      const batchRecipients = microBatches[batchIndex];
+      
+      // Préparation des données pour la requête
       const consultant = senderName ? { 
         nom: senderName,
         fonction: '',
@@ -216,7 +279,7 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
       } : undefined;
 
       const requestData = {
-        recipients: recipients,
+        recipients: batchRecipients,
         subject: subject,
         html: newsletterHtml,
         consultant: consultant,
@@ -224,15 +287,7 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
         campaignId: campaignId
       };
       
-      console.log('Données envoyées à l\'API:', {
-        nbDestinataires: requestData.recipients.length,
-        sujet: requestData.subject,
-        consultant: consultant ? consultant.nom : 'Non défini',
-        baseUrl: requestData.baseUrl,
-        htmlTaille: requestData.html ? requestData.html.length : 0,
-        campaignId: requestData.campaignId || 'Non défini'
-      });
-      
+      // Envoyer la requête pour ce micro-lot
       const response = await fetch('/api/send-gmail', {
         method: 'POST',
         headers: {
@@ -240,8 +295,6 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
         },
         body: JSON.stringify(requestData),
       });
-
-      console.log('Réponse reçue du serveur:', response.status);
       
       // Vérifier si la réponse est du JSON valide
       let data;
@@ -258,60 +311,183 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
         console.log('Texte de réponse:', responseText);
         
         if (responseText.includes('An error occurred') || responseText.includes('token')) {
-          setError('Session Gmail expirée. Veuillez vous déconnecter et vous reconnecter à Gmail en utilisant le bouton DÉCONNEXION puis en vous authentifiant à nouveau.');
-          setResults({ success: 0, failed: recipients.length });
-          onComplete({ success: 0, failed: recipients.length });
+          setError('Session Gmail expirée. Veuillez vous déconnecter et vous reconnecter à Gmail.');
+          
+          // Mettre à jour le statut du lot en cours
+          setBatchStatuses(current => {
+            const updated = [...current];
+            updated[batchIndex] = {
+              ...updated[batchIndex],
+              status: 'failed',
+              failedCount: batchRecipients.length,
+              errors: ['Session Gmail expirée']
+            };
+            return updated;
+          });
+          
+          setTotalResults(prev => ({
+            success: prev.success,
+            failed: prev.failed + batchRecipients.length
+          }));
+          
           setIsSending(false);
           setProgress(100);
-          setStatus('Erreur d\'authentification');
           return;
         }
         
         // Autre erreur de parsing
         setError(`Erreur lors de l'envoi des emails: Le serveur a renvoyé une réponse non-JSON. Veuillez réessayer ou contacter l'administrateur.`);
-        setResults({ success: 0, failed: recipients.length });
-        onComplete({ success: 0, failed: recipients.length });
-        setIsSending(false);
-        setProgress(100);
-        setStatus('Échec');
+        
+        // Mettre à jour le statut du lot
+        setBatchStatuses(current => {
+          const updated = [...current];
+          updated[batchIndex] = {
+            ...updated[batchIndex],
+            status: 'failed',
+            failedCount: batchRecipients.length,
+            errors: ['Réponse invalide du serveur']
+          };
+          return updated;
+        });
+        
+        setTotalResults(prev => ({
+          success: prev.success,
+          failed: prev.failed + batchRecipients.length
+        }));
+        
         return;
       }
       
+      // Traiter la réponse
       if (response.ok && data.success) {
-        setStatus(`Envoi terminé: ${data.sent} réussis, ${data.failed} échoués`);
-        setResults({ success: data.sent, failed: data.failed });
+        // Mettre à jour le statut du lot
+        setBatchStatuses(current => {
+          const updated = [...current];
+          updated[batchIndex] = {
+            ...updated[batchIndex],
+            status: 'completed',
+            successCount: data.sent,
+            failedCount: data.failed,
+            errors: data.errors || []
+          };
+          return updated;
+        });
         
-        // Afficher les détails des erreurs si disponibles
-        if (data.errors && data.errors.length > 0) {
-          // Filtrer les erreurs pour trouver celles liées aux emails déjà contactés
-          const alreadyContactedErrors = data.errors.filter((error: string) => 
-            error.includes('déjà contacté pour cette campagne')
-          );
-          
-          if (alreadyContactedErrors.length > 0) {
-            setError(`${alreadyContactedErrors.length} email(s) n'ont pas été envoyés car ils ont déjà reçu cette campagne.`);
-          } else if (data.errors.length > 0) {
-            setError(`${data.errors.length} email(s) n'ont pas pu être envoyés. Vérifiez les logs pour plus de détails.`);
-          }
-        }
+        // Mettre à jour les résultats totaux
+        setTotalResults(prev => ({
+          success: prev.success + data.sent,
+          failed: prev.failed + data.failed
+        }));
         
-        onComplete({ success: data.sent, failed: data.failed });
+        console.log(`Micro-lot ${batchIndex + 1} traité: ${data.sent} réussis, ${data.failed} échoués`);
       } else {
-        setStatus('Échec de l\'envoi');
+        // Erreur dans la réponse
         setError(`Erreur: ${data.error || 'Une erreur est survenue lors de l\'envoi'}`);
-        setResults({ success: 0, failed: recipients.length });
-        onComplete({ success: 0, failed: recipients.length });
+        
+        // Mettre à jour le statut du lot
+        setBatchStatuses(current => {
+          const updated = [...current];
+          updated[batchIndex] = {
+            ...updated[batchIndex],
+            status: 'failed',
+            failedCount: batchRecipients.length,
+            errors: [data.error || 'Erreur inconnue']
+          };
+          return updated;
+        });
+        
+        setTotalResults(prev => ({
+          success: prev.success,
+          failed: prev.failed + batchRecipients.length
+        }));
       }
     } catch (error: any) {
-      console.error('Exception lors de l\'envoi des emails:', error);
-      setError(`Erreur lors de l'envoi des emails: ${error.message}`);
-      setResults({ success: 0, failed: recipients.length });
-      onComplete({ success: 0, failed: recipients.length });
-    } finally {
+      console.error(`Erreur lors de l'envoi du micro-lot ${batchIndex + 1}:`, error);
+      
+      // Mettre à jour le statut du lot
+      setBatchStatuses(current => {
+        const updated = [...current];
+        updated[batchIndex] = {
+          ...updated[batchIndex],
+          status: 'failed',
+          failedCount: microBatches[batchIndex].length,
+          errors: [error.message || 'Erreur inconnue']
+        };
+        return updated;
+      });
+      
+      setTotalResults(prev => ({
+        success: prev.success,
+        failed: prev.failed + microBatches[batchIndex].length
+      }));
+      
+      setError(`Erreur lors de l'envoi du lot ${batchIndex + 1}: ${error.message}`);
+    }
+    
+    // Passer au lot suivant après un délai
+    setCurrentBatchIndex(batchIndex + 1);
+  }, [microBatches, isAuthenticated, isPaused, newsletterHtml, subject, senderName, campaignId]);
+
+  // Effet pour l'automatisation de l'envoi des micro-lots
+  useEffect(() => {
+    if (isSending && currentBatchIndex < microBatches.length && !isPaused) {
+      const timer = setTimeout(() => {
+        sendMicroBatch(currentBatchIndex);
+      }, currentBatchIndex > 0 ? BATCH_DELAY : 0);
+      
+      return () => clearTimeout(timer);
+    } else if (isSending && currentBatchIndex >= microBatches.length) {
+      // Tous les lots ont été traités
       setIsSending(false);
       setProgress(100);
-      setStatus('Terminé');
+      setStatus('Envoi terminé');
+      
+      // Notifier le composant parent que l'envoi est terminé
+      onComplete(totalResults);
     }
+  }, [isSending, currentBatchIndex, microBatches, isPaused, sendMicroBatch, totalResults, onComplete]);
+
+  // Fonction pour démarrer l'envoi par lots
+  const startSending = () => {
+    if (!isAuthenticated) {
+      setError('Vous devez vous authentifier avant d\'envoyer des emails');
+      return;
+    }
+    
+    if (microBatches.length === 0) {
+      setError('Aucun destinataire à traiter');
+      return;
+    }
+    
+    setShowConfirmation(true);
+  };
+
+  // Fonction pour confirmer et démarrer l'envoi
+  const confirmSending = () => {
+    setShowConfirmation(false);
+    setIsSending(true);
+    setIsPaused(false);
+    setProgress(0);
+    setError('');
+    setStatus('Préparation de l\'envoi...');
+    setTotalResults({ success: 0, failed: 0 });
+    
+    // Réinitialiser les statuts des lots
+    const statuses: BatchStatus[] = microBatches.map((_, index) => ({
+      batchNumber: index + 1,
+      totalBatches: microBatches.length,
+      successCount: 0,
+      failedCount: 0,
+      status: 'pending'
+    }));
+    
+    setBatchStatuses(statuses);
+    setCurrentBatchIndex(0);
+  };
+
+  // Fonction pour mettre en pause ou reprendre l'envoi
+  const togglePause = () => {
+    setIsPaused(!isPaused);
   };
 
   // Fonction pour gérer la déconnexion Gmail
@@ -387,13 +563,43 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
 
   return (
     <Box sx={{ my: 3 }}>
-      <Typography variant="h6">Envoi via Gmail</Typography>
+      <Typography variant="h6">Envoi via Gmail par micro-lots</Typography>
       
       {error && (
         <Alert severity="error" sx={{ my: 2 }}>
           {error}
         </Alert>
       )}
+
+      {/* Boîte de dialogue de confirmation */}
+      <Dialog
+        open={showConfirmation}
+        onClose={() => setShowConfirmation(false)}
+      >
+        <DialogTitle>Confirmer l'envoi automatique</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Vous êtes sur le point d'envoyer {recipients.length} emails en {microBatches.length} micro-lots de {MICRO_BATCH_SIZE} emails maximum.
+            <br /><br />
+            L'envoi se fera automatiquement, avec une pause de {BATCH_DELAY/1000} secondes entre chaque lot.
+            <br /><br />
+            Assurez-vous que :
+            <ul>
+              <li>Votre connexion internet est stable</li>
+              <li>Votre session Gmail est active</li>
+              <li>Vous gardez cet onglet ouvert pendant tout le processus</li>
+            </ul>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowConfirmation(false)} color="inherit">
+            Annuler
+          </Button>
+          <Button onClick={confirmSending} color="primary" variant="contained">
+            Démarrer l'envoi automatique
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Box sx={{ mt: 3, mb: 3 }}>
         {!isAuthenticated ? (
@@ -416,7 +622,7 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
           <Box sx={{ my: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
               <Typography variant="body1">
-                ✅ Connecté à Gmail. Prêt à envoyer {recipients.length} emails.
+                ✅ Connecté à Gmail. {microBatches.length > 0 && `${recipients.length} emails seront envoyés en ${microBatches.length} micro-lots.`}
               </Typography>
               
               <Tooltip title="Se déconnecter de Gmail">
@@ -433,33 +639,171 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
               </Tooltip>
             </Box>
 
-            <Typography variant="body2" sx={{ mb: 2, fontStyle: 'italic', color: 'text.secondary' }}>
-              Note: Pour que le nom de l'expéditeur s'affiche correctement, vous devez avoir configuré un nom dans votre compte Gmail.
-              Vérifiez les paramètres de votre compte Gmail si le nom ne s'affiche pas correctement.
-            </Typography>
+            {/* Informations sur les micro-lots */}
+            {microBatches.length > 0 && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Vos emails seront envoyés en {microBatches.length} micro-lots de {MICRO_BATCH_SIZE} emails maximum, 
+                avec une pause de {BATCH_DELAY/1000} secondes entre chaque lot pour éviter les timeouts.
+              </Alert>
+            )}
 
             {isSending ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', my: 2 }}>
-                <CircularProgress variant="determinate" value={progress} />
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  {status} ({progress}%)
-                </Typography>
+              <Box sx={{ my: 3 }}>
+                {/* Progression globale */}
+                <Box sx={{ mb: 3 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="body2">
+                      Progression globale: {Math.floor(progress)}%
+                    </Typography>
+                    <Typography variant="body2">
+                      Lot {currentBatchIndex} sur {microBatches.length}
+                    </Typography>
+                  </Box>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={progress} 
+                    sx={{ height: 10, borderRadius: 1 }} 
+                  />
+                  
+                  <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                    <Button
+                      variant="outlined"
+                      color={isPaused ? "success" : "warning"}
+                      onClick={togglePause}
+                      startIcon={isPaused ? <PlayArrowIcon /> : <PauseIcon />}
+                      sx={{ mt: 1 }}
+                    >
+                      {isPaused ? "Reprendre l'envoi" : "Mettre en pause"}
+                    </Button>
+                  </Box>
+                </Box>
+                
+                {/* Résumé des résultats */}
+                <Box sx={{ mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Résultats en temps réel
+                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-around', mb: 2 }}>
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="h4" color="success.main">
+                        {totalResults.success}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Emails envoyés
+                      </Typography>
+                    </Box>
+                    <Divider orientation="vertical" flexItem />
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="h4" color="error.main">
+                        {totalResults.failed}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Échecs
+                      </Typography>
+                    </Box>
+                    <Divider orientation="vertical" flexItem />
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="h4" color="primary.main">
+                        {currentBatchIndex} / {microBatches.length}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Lots traités
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+                
+                {/* Liste des statuts des lots */}
+                <Box sx={{ maxHeight: '300px', overflow: 'auto', mb: 2 }}>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Statut détaillé des lots
+                  </Typography>
+                  {batchStatuses.map((batchStatus, index) => (
+                    <Box 
+                      key={index}
+                      sx={{ 
+                        p: 1, 
+                        borderRadius: 1, 
+                        mb: 1,
+                        bgcolor: 
+                          batchStatus.status === 'completed' ? '#e8f5e9' : 
+                          batchStatus.status === 'processing' ? '#fff8e1' :
+                          batchStatus.status === 'failed' ? '#ffebee' : '#f5f5f5',
+                        border: '1px solid',
+                        borderColor: 
+                          batchStatus.status === 'completed' ? '#c8e6c9' : 
+                          batchStatus.status === 'processing' ? '#ffecb3' :
+                          batchStatus.status === 'failed' ? '#ffcdd2' : '#e0e0e0',
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="subtitle2">
+                          Lot {batchStatus.batchNumber}/{batchStatus.totalBatches}
+                        </Typography>
+                        <Chip 
+                          size="small"
+                          label={
+                            batchStatus.status === 'pending' ? 'En attente' : 
+                            batchStatus.status === 'processing' ? 'En cours' :
+                            batchStatus.status === 'completed' ? 'Terminé' : 'Échoué'
+                          }
+                          color={
+                            batchStatus.status === 'completed' ? 'success' : 
+                            batchStatus.status === 'processing' ? 'warning' :
+                            batchStatus.status === 'failed' ? 'error' : 'default'
+                          }
+                          icon={
+                            batchStatus.status === 'completed' ? <CheckCircleIcon /> : 
+                            batchStatus.status === 'failed' ? <ErrorIcon /> : undefined
+                          }
+                        />
+                      </Box>
+                      
+                      {(batchStatus.status === 'completed' || batchStatus.status === 'failed') && (
+                        <Typography variant="body2" sx={{ mt: 1 }}>
+                          Résultat: {batchStatus.successCount} réussis, {batchStatus.failedCount} échoués
+                        </Typography>
+                      )}
+                      
+                      {batchStatus.status === 'failed' && batchStatus.errors && batchStatus.errors.length > 0 && (
+                        <Alert severity="error" sx={{ mt: 1, p: 0.5 }}>
+                          <Typography variant="caption">
+                            {batchStatus.errors[0]}
+                          </Typography>
+                        </Alert>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
               </Box>
             ) : (
               <>
-                {results.success > 0 || results.failed > 0 ? (
-                  <Alert severity={results.failed === 0 ? "success" : "warning"} sx={{ my: 2 }}>
-                    Résultat: {results.success} emails envoyés avec succès, {results.failed} échoués.
+                {totalResults.success > 0 || totalResults.failed > 0 ? (
+                  <Alert 
+                    severity={totalResults.failed === 0 ? "success" : "warning"} 
+                    sx={{ my: 2 }}
+                    action={
+                      <Button 
+                        size="small" 
+                        color="inherit" 
+                        onClick={startSending}
+                        disabled={recipients.length === 0 || disabled}
+                      >
+                        Recommencer
+                      </Button>
+                    }
+                  >
+                    Envoi terminé: {totalResults.success} emails envoyés avec succès, {totalResults.failed} échoués.
                   </Alert>
                 ) : (
                   <Button
                     variant="contained"
                     color="primary"
-                    onClick={sendEmails}
+                    onClick={startSending}
                     disabled={recipients.length === 0 || disabled}
                     startIcon={<EmailIcon />}
                   >
-                    Envoyer {recipients.length} emails maintenant
+                    Envoyer {recipients.length} emails par micro-lots
                   </Button>
                 )}
               </>
