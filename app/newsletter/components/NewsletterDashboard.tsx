@@ -43,8 +43,9 @@ type EmailBounce = {
 type EmailDelivery = {
   email: string;
   timestamp: string;
-  status: 'delivered' | 'failed';
+  status: 'delivered' | 'failed' | 'pending';
   reason?: string;
+  pendingReason?: string;
 };
 
 type CampaignData = {
@@ -64,6 +65,13 @@ export default function NewsletterDashboard() {
   const [campaigns, setCampaigns] = useState<CampaignWithAnalytics[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
+  const [currentCampaign, setCurrentCampaign] = useState<CampaignWithAnalytics | null>(null);
+
+  // Ajout des états pour la pagination
+  const [deliveredPage, setDeliveredPage] = useState<number>(1);
+  const [failedPage, setFailedPage] = useState<number>(1);
+  const [pendingPage, setPendingPage] = useState<number>(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     const loadCampaigns = async () => {
@@ -74,6 +82,7 @@ export default function NewsletterDashboard() {
         setCampaigns(data);
         if (data.length > 0) {
           setSelectedCampaign(data[0].id);
+          setCurrentCampaign(data[0]);
         }
       } catch (error) {
         console.error('Erreur lors du chargement des données:', error);
@@ -85,7 +94,94 @@ export default function NewsletterDashboard() {
     loadCampaigns();
   }, []);
 
-  const currentCampaign = campaigns.find(c => c.id === selectedCampaign);
+  // Effet pour charger les emails lorsque la campagne sélectionnée change
+  useEffect(() => {
+    if (selectedCampaign) {
+      loadAllEmails(selectedCampaign);
+    }
+  }, [selectedCampaign]);
+
+  // Fonction pour charger tous les types d'emails pour une campagne
+  const loadAllEmails = async (campaignId: string) => {
+    try {
+      console.log('Chargement des emails pour la campagne:', campaignId);
+      
+      // Charger les emails délivrés
+      const deliveredResponse = await fetch('/api/get-delivered-emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ campaignId }),
+        cache: 'no-store',
+      });
+      
+      // Charger les emails en attente
+      const pendingResponse = await fetch('/api/get-pending-emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ campaignId }),
+        cache: 'no-store',
+      });
+      
+      // Charger les emails non délivrés
+      const failedResponse = await fetch('/api/get-failed-emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ campaignId }),
+        cache: 'no-store',
+      });
+      
+      if (!deliveredResponse.ok || !pendingResponse.ok || !failedResponse.ok) {
+        throw new Error(`Erreur HTTP lors du chargement des emails`);
+      }
+      
+      const deliveredData = await deliveredResponse.json();
+      const pendingData = await pendingResponse.json();
+      const failedData = await failedResponse.json();
+      
+      console.log('Emails délivrés récupérés:', deliveredData.deliveredEmails.length);
+      console.log('Emails en attente récupérés:', pendingData.pendingEmails.length);
+      console.log('Emails non délivrés récupérés:', failedData.failedEmails.length);
+      
+      // Combiner tous les emails
+      const allDeliveries = [
+        ...deliveredData.deliveredEmails,
+        ...pendingData.pendingEmails,
+        ...failedData.failedEmails
+      ];
+      
+      // Mettre à jour la campagne actuelle avec tous les emails
+      if (currentCampaign) {
+        setCurrentCampaign({
+          ...currentCampaign,
+          deliveries: allDeliveries,
+          delivered: deliveredData.deliveredEmails.length
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des emails:', error);
+    }
+  };
+
+  // Lorsqu'une campagne est sélectionnée
+  const handleCampaignSelect = (campaignId: string) => {
+    setSelectedCampaign(campaignId);
+    const selected = campaigns.find(c => c.id === campaignId);
+    if (selected) {
+      setCurrentCampaign(selected);
+    }
+  };
+
+  // Fonction pour paginer les données
+  const paginateData = (data: any[], page: number, itemsPerPage: number) => {
+    const startIndex = (page - 1) * itemsPerPage;
+    return data.slice(startIndex, startIndex + itemsPerPage);
+  };
 
   if (loading) {
     return (
@@ -166,7 +262,7 @@ export default function NewsletterDashboard() {
   };
 
   // Fonction pour télécharger les données CSV
-  const handleExportCsv = (status: 'delivered' | 'failed') => {
+  const handleExportCsv = (status: 'delivered' | 'failed' | 'pending') => {
     const csvContent = exportCampaignDataToCsv(currentCampaign, status);
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -190,7 +286,10 @@ export default function NewsletterDashboard() {
         <select
           id="campaign-select"
           value={selectedCampaign}
-          onChange={(e) => setSelectedCampaign(e.target.value)}
+          onChange={(e) => {
+            setSelectedCampaign(e.target.value);
+            handleCampaignSelect(e.target.value);
+          }}
           className="block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
         >
           {campaigns.map((campaign) => (
@@ -415,7 +514,7 @@ export default function NewsletterDashboard() {
         </div>
       </div>
 
-      {/* Tableaux des emails délivrés et non délivrés */}
+      {/* Tableaux des emails délivrés, en attente et non délivrés */}
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Tableau des emails délivrés */}
         <div className="bg-white p-6 rounded-lg shadow-lg">
@@ -444,22 +543,28 @@ export default function NewsletterDashboard() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentCampaign?.deliveries?.filter((d: EmailDelivery) => d.status === 'delivered').slice(0, 10).map((delivery: EmailDelivery, index: number) => (
-                  <tr key={index}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {delivery.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(delivery.timestamp).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                        Délivré
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {(!currentCampaign?.deliveries || currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'delivered').length === 0) && (
+                {currentCampaign?.deliveries?.filter((d: EmailDelivery) => d.status === 'delivered')
+                  .length > 0 ? (
+                  paginateData(
+                    currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'delivered'),
+                    deliveredPage,
+                    itemsPerPage
+                  ).map((delivery: EmailDelivery, index: number) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {delivery.email}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(delivery.timestamp).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                          Délivré
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
                   <tr>
                     <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500">
                       Aucun email délivré enregistré
@@ -468,18 +573,117 @@ export default function NewsletterDashboard() {
                 )}
               </tbody>
             </table>
-            {currentCampaign?.deliveries && currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'delivered').length > 10 && (
-              <div className="mt-2 text-right">
-                <span className="text-sm text-gray-500">
-                  Affichage des 10 premiers résultats sur {currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'delivered').length}
-                </span>
+            {currentCampaign?.deliveries && currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'delivered').length > itemsPerPage && (
+              <div className="mt-4 flex justify-between items-center">
+                <div className="text-sm text-gray-500">
+                  Affichage de {Math.min((deliveredPage - 1) * itemsPerPage + 1, currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'delivered').length)} à {Math.min(deliveredPage * itemsPerPage, currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'delivered').length)} sur {currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'delivered').length}
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setDeliveredPage(prev => Math.max(prev - 1, 1))}
+                    disabled={deliveredPage === 1}
+                    className={`px-3 py-1 rounded ${deliveredPage === 1 ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+                  >
+                    Précédent
+                  </button>
+                  <button
+                    onClick={() => setDeliveredPage(prev => Math.min(prev + 1, Math.ceil(currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'delivered').length / itemsPerPage)))}
+                    disabled={deliveredPage >= Math.ceil(currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'delivered').length / itemsPerPage)}
+                    className={`px-3 py-1 rounded ${deliveredPage >= Math.ceil(currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'delivered').length / itemsPerPage) ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+                  >
+                    Suivant
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Tableau des emails en attente */}
+        <div className="bg-white p-6 rounded-lg shadow-lg">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-lg font-medium">Emails en attente</h4>
+            <button 
+              onClick={() => handleExportCsv('pending')}
+              className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded-md text-sm transition-colors"
+            >
+              Exporter CSV
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Email
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Statut
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {currentCampaign?.deliveries?.filter((d: EmailDelivery) => d.status === 'pending')
+                  .length > 0 ? (
+                  paginateData(
+                    currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'pending'),
+                    pendingPage,
+                    itemsPerPage
+                  ).map((delivery: EmailDelivery, index: number) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {delivery.email}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(delivery.timestamp).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                          En attente
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500">
+                      Aucun email en attente
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            {currentCampaign?.deliveries && currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'pending').length > itemsPerPage && (
+              <div className="mt-4 flex justify-between items-center">
+                <div className="text-sm text-gray-500">
+                  Affichage de {Math.min((pendingPage - 1) * itemsPerPage + 1, currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'pending').length)} à {Math.min(pendingPage * itemsPerPage, currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'pending').length)} sur {currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'pending').length}
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setPendingPage(prev => Math.max(prev - 1, 1))}
+                    disabled={pendingPage === 1}
+                    className={`px-3 py-1 rounded ${pendingPage === 1 ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+                  >
+                    Précédent
+                  </button>
+                  <button
+                    onClick={() => setPendingPage(prev => Math.min(prev + 1, Math.ceil(currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'pending').length / itemsPerPage)))}
+                    disabled={pendingPage >= Math.ceil(currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'pending').length / itemsPerPage)}
+                    className={`px-3 py-1 rounded ${pendingPage >= Math.ceil(currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'pending').length / itemsPerPage) ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+                  >
+                    Suivant
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </div>
 
         {/* Tableau des emails non délivrés */}
-        <div className="bg-white p-6 rounded-lg shadow-lg">
+        <div className="bg-white p-6 rounded-lg shadow-lg md:col-span-2">
           <div className="flex justify-between items-center mb-4">
             <h4 className="text-lg font-medium">Emails non délivrés</h4>
             <button 
@@ -505,20 +709,26 @@ export default function NewsletterDashboard() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentCampaign?.deliveries?.filter((d: EmailDelivery) => d.status === 'failed').slice(0, 10).map((delivery: EmailDelivery, index: number) => (
-                  <tr key={index}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {delivery.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(delivery.timestamp).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-500">
-                      {delivery.reason || 'Erreur inconnue'}
-                    </td>
-                  </tr>
-                ))}
-                {(!currentCampaign?.deliveries || currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'failed').length === 0) && (
+                {currentCampaign?.deliveries?.filter((d: EmailDelivery) => d.status === 'failed')
+                  .length > 0 ? (
+                  paginateData(
+                    currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'failed'),
+                    failedPage,
+                    itemsPerPage
+                  ).map((delivery: EmailDelivery, index: number) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {delivery.email}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(delivery.timestamp).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-red-500">
+                        {delivery.reason || 'Erreur inconnue'}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
                   <tr>
                     <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500">
                       Aucun email non délivré enregistré
@@ -527,11 +737,27 @@ export default function NewsletterDashboard() {
                 )}
               </tbody>
             </table>
-            {currentCampaign?.deliveries && currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'failed').length > 10 && (
-              <div className="mt-2 text-right">
-                <span className="text-sm text-gray-500">
-                  Affichage des 10 premiers résultats sur {currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'failed').length}
-                </span>
+            {currentCampaign?.deliveries && currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'failed').length > itemsPerPage && (
+              <div className="mt-4 flex justify-between items-center">
+                <div className="text-sm text-gray-500">
+                  Affichage de {Math.min((failedPage - 1) * itemsPerPage + 1, currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'failed').length)} à {Math.min(failedPage * itemsPerPage, currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'failed').length)} sur {currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'failed').length}
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setFailedPage(prev => Math.max(prev - 1, 1))}
+                    disabled={failedPage === 1}
+                    className={`px-3 py-1 rounded ${failedPage === 1 ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+                  >
+                    Précédent
+                  </button>
+                  <button
+                    onClick={() => setFailedPage(prev => Math.min(prev + 1, Math.ceil(currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'failed').length / itemsPerPage)))}
+                    disabled={failedPage >= Math.ceil(currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'failed').length / itemsPerPage)}
+                    className={`px-3 py-1 rounded ${failedPage >= Math.ceil(currentCampaign.deliveries.filter((d: EmailDelivery) => d.status === 'failed').length / itemsPerPage) ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+                  >
+                    Suivant
+                  </button>
+                </div>
               </div>
             )}
           </div>

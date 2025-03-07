@@ -6,11 +6,12 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    console.log('Démarrage de la vérification d\'email déjà contacté');
+    console.log('Démarrage de l\'ajout d\'email à la liste des non délivrés');
     
-    const { email, campaignId } = await request.json();
-    console.log('Email à vérifier:', email);
+    const { email, campaignId, reason } = await request.json();
+    console.log('Email à ajouter:', email);
     console.log('Campagne concernée:', campaignId);
+    console.log('Raison:', reason);
 
     if (!email || !campaignId) {
       console.log('Email ou ID de campagne manquant dans la requête');
@@ -18,20 +19,22 @@ export async function POST(request: Request) {
     }
 
     try {
-      console.log('Vérification dans Firestore Admin...');
+      console.log('Ajout de l\'email à la liste des non délivrés via Firestore Admin...');
       
-      // Vérifier si l'email existe dans la sous-collection 'emails' de la campagne
-      const emailRef = adminDb.collection('campaigns').doc(campaignId)
-                             .collection('emails').doc(email.replace(/[.#$\/\[\]]/g, '_'));
-      
-      const emailDoc = await emailRef.get();
-      
-      const alreadyContacted = emailDoc.exists;
-      console.log('Email déjà contacté:', alreadyContacted);
+      // Ajouter l'email à la collection des emails non délivrés
+      const deliveryRef = adminDb.collection('email_deliveries').doc();
+      await deliveryRef.set({
+        email,
+        campaignId,
+        status: 'failed',
+        reason: reason || 'Raison inconnue',
+        timestamp: new Date()
+      });
+      console.log('Email ajouté à la collection des emails non délivrés');
       
       // Ajouter des en-têtes CORS
       return new NextResponse(
-        JSON.stringify({ alreadyContacted }),
+        JSON.stringify({ success: true }),
         {
           status: 200,
           headers: {
@@ -43,13 +46,13 @@ export async function POST(request: Request) {
         }
       );
     } catch (error) {
-      console.error('Erreur Firestore lors de la vérification:', error);
+      console.error('Erreur Firestore lors de l\'ajout:', error);
       throw error;
     }
   } catch (error) {
-    console.error('Erreur lors de la vérification d\'email déjà contacté:', error);
+    console.error('Erreur lors de l\'ajout d\'email à la liste des non délivrés:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de la vérification', details: error instanceof Error ? error.message : String(error) },
+      { error: 'Erreur lors de l\'ajout', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

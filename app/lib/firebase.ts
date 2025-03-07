@@ -28,12 +28,12 @@ if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebaseapp.com`,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '602323147221',
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:602323147221:web:7a1d976ac0478b593b455c',
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || ''
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 console.log('Firebase Config:', {
@@ -49,47 +49,21 @@ let db: Firestore;
 let auth: Auth;
 let storage: any;
 
-try {
-  if (!getApps().length) {
-    console.log('Creating new Firebase app');
-    app = initializeApp(firebaseConfig);
-  } else {
-    console.log('Using existing Firebase app');
-    app = getApp();
-  }
-
-  // Initialize Firestore
-  console.log('Initializing Firestore...');
-  db = getFirestore(app);
-  console.log('Firestore initialized:', {
-    dbType: typeof db,
-    dbExists: !!db,
-    dbProperties: Object.keys(db)
-  });
-
-  // Initialize Auth only in browser environment
-  if (typeof window !== 'undefined') {
-    console.log('Initializing Auth in browser environment...');
+if (typeof window !== 'undefined') {
+  try {
+    if (!getApps().length) {
+      app = initializeApp(firebaseConfig);
+    } else {
+      app = getApp();
+    }
+    
+    db = getFirestore(app);
     auth = getAuth(app);
-    console.log('Auth initialized (browser environment)', { 
-      authInitialized: !!auth,
-      authType: typeof auth,
-      authProperties: Object.keys(auth)
-    });
-  } else {
-    // Créer un objet factice pour SSR
-    console.log('Creating Auth mock for SSR...');
-    auth = {} as Auth;
-    console.log('Auth mock created for SSR');
+    storage = getStorage(app);
+  } catch (error) {
+    console.error('Erreur lors de l\'initialisation de Firebase:', error);
+    throw error;
   }
-
-  storage = getStorage(app);
-} catch (error) {
-  console.error('Erreur lors de l\'initialisation de Firebase:', error);
-  // Créer des objets factices en cas d'erreur
-  app = {} as FirebaseApp;
-  db = {} as Firestore;
-  auth = {} as Auth;
 }
 
 // Liste des domaines d'email autorisés
@@ -178,6 +152,9 @@ export {
   auth, 
   db, 
   storage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
   signInWithEmailAndPassword,
   sendPasswordResetEmail
 };

@@ -248,16 +248,34 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
       
       if (response.ok && data.success) {
         setStatus(`Envoi terminé: ${data.sent} réussis, ${data.failed} échoués`);
-        const finalResults = { success: data.sent, failed: data.failed };
-        setResults(finalResults);
-        onComplete(finalResults);
+        setResults({ success: data.sent, failed: data.failed });
+        
+        // Afficher les détails des erreurs si disponibles
+        if (data.errors && data.errors.length > 0) {
+          // Filtrer les erreurs pour trouver celles liées aux emails déjà contactés
+          const alreadyContactedErrors = data.errors.filter((error: string) => 
+            error.includes('déjà contacté pour cette campagne')
+          );
+          
+          if (alreadyContactedErrors.length > 0) {
+            setError(`${alreadyContactedErrors.length} email(s) n'ont pas été envoyés car ils ont déjà reçu cette campagne.`);
+          } else if (data.errors.length > 0) {
+            setError(`${data.errors.length} email(s) n'ont pas pu être envoyés. Vérifiez les logs pour plus de détails.`);
+          }
+        }
+        
+        onComplete({ success: data.sent, failed: data.failed });
       } else {
-        console.error('Erreur lors de l\'envoi des emails:', data.error);
-        setError(`Erreur lors de l'envoi des emails: ${data.error}`);
+        setStatus('Échec de l\'envoi');
+        setError(`Erreur: ${data.error || 'Une erreur est survenue lors de l\'envoi'}`);
+        setResults({ success: 0, failed: recipients.length });
+        onComplete({ success: 0, failed: recipients.length });
       }
     } catch (error: any) {
       console.error('Exception lors de l\'envoi des emails:', error);
       setError(`Erreur lors de l'envoi des emails: ${error.message}`);
+      setResults({ success: 0, failed: recipients.length });
+      onComplete({ success: 0, failed: recipients.length });
     } finally {
       setIsSending(false);
       setProgress(100);

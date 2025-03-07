@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase';
-import { collection, getDocs, Timestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, Timestamp, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 import { Campaign } from './campaigns';
 
 // Types pour les données d'analyse
@@ -39,8 +39,9 @@ export type ConsultantDataPoint = {
 export type EmailDelivery = {
   email: string;
   timestamp: string;
-  status: 'delivered' | 'failed';
+  status: 'delivered' | 'failed' | 'pending';
   reason?: string;
+  pendingReason?: string;
 };
 
 export type CampaignWithAnalytics = {
@@ -273,7 +274,7 @@ export const trackEmailClick = async (
 };
 
 // Fonction pour exporter les données d'une campagne au format CSV
-export const exportCampaignDataToCsv = (campaign: CampaignWithAnalytics, type: 'delivered' | 'failed' | 'all' = 'all'): string => {
+export const exportCampaignDataToCsv = (campaign: CampaignWithAnalytics, type: 'delivered' | 'failed' | 'pending' | 'all' = 'all'): string => {
   if (!campaign) return '';
   
   let csv = 'Email,Date,Statut,Raison\n';
@@ -285,6 +286,17 @@ export const exportCampaignDataToCsv = (campaign: CampaignWithAnalytics, type: '
         .filter((d: EmailDelivery) => d.status === 'delivered')
         .forEach((delivery: EmailDelivery) => {
           csv += `${delivery.email},${new Date(delivery.timestamp).toLocaleString()},"Délivré",\n`;
+        });
+    }
+  }
+  
+  // Ajouter les emails en attente si demandé
+  if (type === 'all' || type === 'pending') {
+    if (campaign.deliveries && campaign.deliveries.filter((d: EmailDelivery) => d.status === 'pending').length > 0) {
+      campaign.deliveries
+        .filter((d: EmailDelivery) => d.status === 'pending')
+        .forEach((delivery: EmailDelivery) => {
+          csv += `${delivery.email},${new Date(delivery.timestamp).toLocaleString()},"En attente","${delivery.pendingReason || 'En attente de confirmation'}"\n`;
         });
     }
   }
@@ -309,21 +321,22 @@ export const checkEmailAlreadyContacted = async (
   email: string
 ): Promise<boolean> => {
   try {
-    // Vérifier si la campagne existe
-    const campaignRef = doc(db, 'campaigns', campaignId);
-    const campaignDoc = await getDoc(campaignRef);
-    
-    if (!campaignDoc.exists()) {
-      console.error(`La campagne ${campaignId} n'existe pas`);
+    if (!db) {
+      console.error('Firestore non initialisé');
       return false;
     }
-    
-    // Vérifier si l'email est dans la liste des destinataires contactés
+
+    // Vérifier si le document de tracking existe
     const trackingRef = doc(db, 'campaign_tracking', campaignId);
     const trackingDoc = await getDoc(trackingRef);
     
     if (!trackingDoc.exists()) {
-      console.log(`Aucun tracking trouvé pour la campagne ${campaignId}`);
+      // Si le document n'existe pas, on le crée
+      await setDoc(trackingRef, {
+        campaignId,
+        contactedEmails: [],
+        createdAt: new Date()
+      });
       return false;
     }
     
@@ -343,6 +356,11 @@ export const addEmailToContactedList = async (
   email: string
 ): Promise<void> => {
   try {
+    if (!db) {
+      console.error('Firestore non initialisé');
+      return;
+    }
+
     const trackingRef = doc(db, 'campaign_tracking', campaignId);
     const trackingDoc = await getDoc(trackingRef);
     
@@ -354,16 +372,21 @@ export const addEmailToContactedList = async (
       if (!contactedEmails.includes(email)) {
         // Ajouter l'email à la liste
         await updateDoc(trackingRef, {
-          contactedEmails: [...contactedEmails, email]
+          contactedEmails: [...contactedEmails, email],
+          updatedAt: new Date()
         });
       }
     } else {
       // Créer un nouveau document de tracking
-      await updateDoc(trackingRef, {
-        contactedEmails: [email]
+      await setDoc(trackingRef, {
+        campaignId,
+        contactedEmails: [email],
+        createdAt: new Date(),
+        updatedAt: new Date()
       });
     }
   } catch (error) {
     console.error('Erreur lors de l\'ajout de l\'email à la liste des contactés:', error);
+    throw error;
   }
 }; 

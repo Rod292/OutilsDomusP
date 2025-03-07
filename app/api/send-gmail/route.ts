@@ -8,6 +8,7 @@ import * as mime from 'mime-types';
 import { getUserProfile, sendMessage, createMessage } from '../../lib/gmail';
 import { getGmailClient } from '../../lib/gmail';
 import { generateUnsubscribeToken } from '../../utils/token';
+import * as admin from 'firebase-admin';
 
 const { CLIENT_ID } = GMAIL_CONFIG;
 
@@ -471,6 +472,26 @@ export async function POST(request: NextRequest) {
                 console.log('Email déjà contacté pour cette campagne, envoi ignoré');
                 failedCount++;
                 errors.push(`${recipient.email}: Email déjà contacté pour cette campagne`);
+                
+                // Ajouter l'email à la sous-collection 'emails' avec le statut 'failed'
+                try {
+                  const campaignRef = admin.firestore().collection('campaigns').doc(requestData.campaignId);
+                  const emailRef = campaignRef.collection('emails').doc(recipient.email.replace(/[.#$\/\[\]]/g, '_'));
+                  
+                  await emailRef.set({
+                    email: recipient.email,
+                    name: recipient.name || '',
+                    company: recipient.company || '',
+                    status: 'failed',
+                    reason: 'Email déjà contacté pour cette campagne',
+                    timestamp: new Date()
+                  });
+                  
+                  console.log(`Email ${recipient.email} ajouté à la liste des emails non délivrés (déjà contacté)`);
+                } catch (error) {
+                  console.error('Erreur lors de l\'ajout de l\'email à la liste des non délivrés:', error);
+                }
+                
                 continue;
               }
             } catch (error) {
@@ -541,27 +562,37 @@ ${processedHtml}`;
           // Ajouter l'email à la liste des destinataires contactés
           if (requestData.campaignId) {
             try {
-              // Appeler l'API pour ajouter l'email à la liste des contactés
-              const addToContactedResponse = await fetch(`${baseUrl}/api/add-to-contacted`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                  email: recipient.email,
-                  campaignId: requestData.campaignId
-                }),
-                cache: 'no-store',
-                next: { revalidate: 0 }
-              });
+              // Utiliser une sous-collection 'emails' dans la collection 'campaigns'
+              const campaignRef = admin.firestore().collection('campaigns').doc(requestData.campaignId);
               
-              if (!addToContactedResponse.ok) {
-                console.error(`Erreur lors de l'ajout de l'email à la liste des contactés: ${addToContactedResponse.status}`);
-              } else {
-                console.log(`Email ${recipient.email} ajouté à la liste des contactés pour la campagne ${requestData.campaignId}`);
+              // Vérifier si la campagne existe
+              const campaignDoc = await campaignRef.get();
+              if (!campaignDoc.exists) {
+                console.error(`La campagne ${requestData.campaignId} n'existe pas`);
+                throw new Error(`La campagne ${requestData.campaignId} n'existe pas`);
               }
+              
+              // Ajouter l'email à la sous-collection 'emails' de la campagne
+              const emailRef = campaignRef.collection('emails').doc(recipient.email.replace(/[.#$\/\[\]]/g, '_'));
+              await emailRef.set({
+                email: recipient.email,
+                name: recipient.name || '',
+                company: recipient.company || '',
+                status: 'pending', // Marquer comme "en attente" plutôt que "délivré"
+                timestamp: new Date(),
+                pendingReason: 'En attente de confirmation de livraison'
+              });
+              console.log(`Email ${recipient.email} ajouté à la sous-collection emails de la campagne ${requestData.campaignId}`);
+              
+              // Mettre à jour les statistiques de la campagne
+              await campaignRef.update({
+                'stats.emailsSent': admin.firestore.FieldValue.increment(1),
+                'stats.lastSent': new Date(),
+                'updatedAt': new Date()
+              });
+              console.log(`Statistiques de la campagne ${requestData.campaignId} mises à jour`);
             } catch (error) {
-              console.error('Erreur lors de l\'ajout de l\'email à la liste des contactés:', error);
+              console.error('Erreur lors de l\'ajout de l\'email à la campagne:', error);
             }
           }
           
@@ -579,7 +610,8 @@ ${processedHtml}`;
         success: true,
         sent: successCount,
         failed: failedCount,
-        errors: errors.length > 0 ? errors : undefined
+        errors: errors,
+        message: `${successCount} emails envoyés avec succès, ${failedCount} échecs`
       });
     } catch (error: any) {
       console.error('Erreur lors de l\'intégration des images ou de l\'envoi des emails:', error);

@@ -12,10 +12,10 @@ export default function CampaignManager({ onSelectCampaign, selectedCampaignId }
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newCampaign, setNewCampaign] = useState({
+  const [newCampaign, setNewCampaign] = useState<Omit<Campaign, 'id' | 'createdAt' | 'updatedAt' | 'stats'>>({
     name: '',
     description: '',
-    status: 'active' as const
+    status: 'active'
   });
 
   useEffect(() => {
@@ -47,11 +47,13 @@ export default function CampaignManager({ onSelectCampaign, selectedCampaignId }
         return;
       }
       
-      const campaignId = await createCampaign(newCampaign);
+      const campaign = await createCampaign(newCampaign);
       setNewCampaign({ name: '', description: '', status: 'active' });
       setShowCreateForm(false);
       await loadCampaigns();
-      onSelectCampaign(campaignId);
+      if (campaign.id) {
+        onSelectCampaign(campaign.id);
+      }
     } catch (error) {
       console.error('Erreur lors de la création de la campagne:', error);
       alert('Erreur lors de la création de la campagne');
