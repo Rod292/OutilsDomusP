@@ -338,7 +338,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const propertyDescription = formData.get('propertyDescription') as string || '';
     const highlightsList = formData.get('highlightsList') as string || '';
     const ctaText = formData.get('ctaText') as string || 'Découvrir le projet';
-    const ctaUrl = formData.get('ctaUrl') as string || 'https://www.arthur-loyd-bretagne.com';
+    const ctaUrl = formData.get('ctaUrl') as string || 'https://www.arthur-loyd.com/brest';
     
     // Traiter les images (jusqu'à 4 images)
     const image1 = formData.get('image1') as File | null;

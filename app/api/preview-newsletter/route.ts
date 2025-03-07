@@ -573,7 +573,7 @@ function generatePemSudTemplate(params: PemSudTemplateParams): string {
                       <a href="https://www.instagram.com/arthurloydbretagne/" style="color: #ffffff; text-decoration: none; font-size: 14px;">Instagram</a>
                     </td>
                     <td width="33.33%" style="text-align: center; padding: 8px;">
-                      <a href="https://www.arthur-loyd-bretagne.com/" style="color: #ffffff; text-decoration: none; font-size: 14px;">Site Web</a>
+                      <a href="https://www.arthur-loyd.com/brest" style="color: #ffffff; text-decoration: none; font-size: 14px;">Site Web</a>
                     </td>
                   </tr>
                 </table>
@@ -583,7 +583,7 @@ function generatePemSudTemplate(params: PemSudTemplateParams): string {
               <td style="font-family: Arial, sans-serif; font-size: 12px; color: #dddddd; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
                 © ${new Date().getFullYear()} Arthur Loyd Bretagne. Tous droits réservés.
                 <br><br>
-                <a href="https://www.arthur-loyd-bretagne.com/politique-confidentialite/" style="color: #ffffff; text-decoration: underline;">Politique de confidentialité</a>
+                <a href="https://www.arthur-loyd.com/brest/politique-confidentialite/" style="color: #ffffff; text-decoration: underline;">Politique de confidentialité</a>
                 &nbsp;|&nbsp;
                 <a href="{{UNSUBSCRIBE_URL}}" style="color: #ffffff; text-decoration: underline;">Se désabonner</a>
               </td>
