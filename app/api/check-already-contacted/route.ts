@@ -21,20 +21,56 @@ export async function POST(request: Request) {
     try {
       console.log('Vérification dans Firestore Admin...');
       
-      // Vérifier si l'email existe dans la sous-collection 'emails' de la campagne
-      // Utiliser le même format d'ID que dans add-to-contacted
+      // Vérifier si la campagne existe
+      const campaignRef = adminDb.collection('campaigns').doc(campaignId);
+      const campaignDoc = await campaignRef.get();
+      
+      if (!campaignDoc.exists) {
+        console.log(`La campagne ${campaignId} n'existe pas dans Firestore.`);
+        return NextResponse.json({ 
+          error: `La campagne ${campaignId} n'existe pas.`,
+          alreadyContacted: false
+        }, { status: 404 });
+      }
+      
+      // Générer l'ID unique pour l'email dans le même format que add-to-contacted
       const emailId = Buffer.from(email).toString('base64').replace(/[+/=]/g, '');
-      const emailRef = adminDb.collection('campaigns').doc(campaignId)
-                             .collection('emails').doc(emailId);
+      console.log('ID généré pour vérification:', emailId);
       
-      const emailDoc = await emailRef.get();
+      // Vérifier dans les trois sous-collections possible (delivered, en_attente, non_delivre)
+      const statuses = ['delivered', 'en_attente', 'non_delivre'];
+      let alreadyContacted = false;
+      let foundInCollection = '';
       
-      const alreadyContacted = emailDoc.exists;
-      console.log('Email déjà contacté:', alreadyContacted);
+      // Vérifier chaque statut
+      for (const status of statuses) {
+        // Récupérer la référence à la sous-collection correspondant au statut
+        const emailRef = campaignRef.collection('emails').doc(status).collection('items').doc(emailId);
+        const emailDoc = await emailRef.get();
+        
+        if (emailDoc.exists) {
+          alreadyContacted = true;
+          foundInCollection = status;
+          break;
+        }
+      }
+      
+      // Vérifier également l'ancienne structure au cas où
+      if (!alreadyContacted) {
+        const legacyEmailRef = campaignRef.collection('emails').doc(emailId);
+        const legacyEmailDoc = await legacyEmailRef.get();
+        
+        if (legacyEmailDoc.exists) {
+          alreadyContacted = true;
+          foundInCollection = 'legacy_structure';
+        }
+      }
+      
+      console.log('Email déjà contacté:', alreadyContacted, foundInCollection ? `(trouvé dans: ${foundInCollection})` : '');
       
       // Ajouter des en-têtes CORS
       return new NextResponse(
-        JSON.stringify({ alreadyContacted }),
+        JSON.stringify({ alreadyContacted, foundInCollection }),
         {
           status: 200,
           headers: {
