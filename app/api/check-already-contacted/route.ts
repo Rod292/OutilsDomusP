@@ -37,40 +37,119 @@ export async function POST(request: Request) {
       const emailId = Buffer.from(email).toString('base64').replace(/[+/=]/g, '');
       console.log('ID généré pour vérification:', emailId);
       
-      // Vérifier dans les trois sous-collections possible (delivered, en_attente, non_delivre)
-      const statuses = ['delivered', 'en_attente', 'non_delivre'];
-      let alreadyContacted = false;
-      let foundInCollection = '';
+      // CORRECTION: Vérifier d'abord dans la structure exacte utilisée par add-to-contacted
+      // Vérifier dans la sous-collection "delivered/items"
+      const deliveredRef = campaignRef.collection('emails').doc('delivered').collection('items').doc(emailId);
+      const deliveredDoc = await deliveredRef.get();
       
-      // Vérifier chaque statut
-      for (const status of statuses) {
-        // Récupérer la référence à la sous-collection correspondant au statut
-        const emailRef = campaignRef.collection('emails').doc(status).collection('items').doc(emailId);
-        const emailDoc = await emailRef.get();
+      if (deliveredDoc.exists) {
+        console.log(`Email ${email} trouvé dans la sous-collection delivered/items`);
+        return new NextResponse(
+          JSON.stringify({ 
+            alreadyContacted: true, 
+            foundInCollection: 'delivered',
+            details: 'Email trouvé dans la structure actuelle (delivered/items)'
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            },
+          }
+        );
+      }
+      
+      // Vérifier dans les autres sous-collections possible (en_attente, non_delivre)
+      const otherStatuses = ['en_attente', 'non_delivre'];
+      for (const status of otherStatuses) {
+        const statusRef = campaignRef.collection('emails').doc(status).collection('items').doc(emailId);
+        const statusDoc = await statusRef.get();
         
-        if (emailDoc.exists) {
-          alreadyContacted = true;
-          foundInCollection = status;
-          break;
+        if (statusDoc.exists) {
+          console.log(`Email ${email} trouvé dans la sous-collection ${status}/items`);
+          return new NextResponse(
+            JSON.stringify({ 
+              alreadyContacted: true, 
+              foundInCollection: status,
+              details: `Email trouvé dans la structure actuelle (${status}/items)`
+            }),
+            {
+              status: 200,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+              },
+            }
+          );
         }
       }
       
-      // Vérifier également l'ancienne structure au cas où
-      if (!alreadyContacted) {
-        const legacyEmailRef = campaignRef.collection('emails').doc(emailId);
-        const legacyEmailDoc = await legacyEmailRef.get();
-        
-        if (legacyEmailDoc.exists) {
-          alreadyContacted = true;
-          foundInCollection = 'legacy_structure';
+      // Vérifier également l'ancienne structure (directement dans la collection emails)
+      const legacyEmailRef = campaignRef.collection('emails').doc(emailId);
+      const legacyEmailDoc = await legacyEmailRef.get();
+      
+      if (legacyEmailDoc.exists) {
+        console.log(`Email ${email} trouvé dans l'ancienne structure (directement dans emails)`);
+        return new NextResponse(
+          JSON.stringify({ 
+            alreadyContacted: true, 
+            foundInCollection: 'legacy_structure',
+            details: 'Email trouvé dans l\'ancienne structure'
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            },
+          }
+        );
+      }
+      
+      // Vérifier également dans la structure utilisée par send-gmail
+      // (directement dans la collection emails avec le statut 'delivered')
+      const sendGmailEmailRef = campaignRef.collection('emails').doc(emailId);
+      const sendGmailEmailDoc = await sendGmailEmailRef.get();
+      
+      if (sendGmailEmailDoc.exists) {
+        const data = sendGmailEmailDoc.data();
+        if (data && data.status === 'delivered') {
+          console.log(`Email ${email} trouvé dans la structure utilisée par send-gmail`);
+          return new NextResponse(
+            JSON.stringify({ 
+              alreadyContacted: true, 
+              foundInCollection: 'send_gmail_structure',
+              details: 'Email trouvé dans la structure utilisée par send-gmail'
+            }),
+            {
+              status: 200,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+              },
+            }
+          );
         }
       }
       
-      console.log('Email déjà contacté:', alreadyContacted, foundInCollection ? `(trouvé dans: ${foundInCollection})` : '');
+      // Si on arrive ici, l'email n'a pas été trouvé
+      console.log(`Email ${email} non trouvé dans aucune structure`);
       
       // Ajouter des en-têtes CORS
       return new NextResponse(
-        JSON.stringify({ alreadyContacted, foundInCollection }),
+        JSON.stringify({ 
+          alreadyContacted: false,
+          details: 'Email non trouvé dans aucune structure'
+        }),
         {
           status: 200,
           headers: {
