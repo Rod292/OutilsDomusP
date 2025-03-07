@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/app/lib/firebase-admin';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, Firestore } from 'firebase-admin/firestore';
 
 // Forcer le mode dynamique pour cette route API
 export const dynamic = 'force-dynamic';
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       console.log('Ajout de l\'email à la liste des contactés via Firestore Admin...');
       
       // Vérifier si le document de tracking existe
-      const trackingRef = adminDb.collection('campaign_tracking').doc(campaignId);
+      const trackingRef = (adminDb as Firestore).collection('campaign_tracking').doc(campaignId);
       const trackingDoc = await trackingRef.get();
       
       if (trackingDoc.exists) {
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
       
       // Ajouter l'email à la collection 'emails' de la campagne
       const emailId = Buffer.from(email).toString('base64').replace(/[+/=]/g, '');
-      const emailRef = adminDb.collection('campaigns').doc(campaignId).collection('emails').doc(emailId);
+      const emailRef = (adminDb as Firestore).collection('campaigns').doc(campaignId).collection('emails').doc(emailId);
       
       // Vérifier si l'email existe déjà dans la collection
       const emailDoc = await emailRef.get();
