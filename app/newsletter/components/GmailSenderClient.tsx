@@ -19,7 +19,7 @@ const { CLIENT_ID, SCOPES } = GMAIL_CONFIG;
 // Taille des micro-lots
 const MICRO_BATCH_SIZE = 3;
 // Délai entre les micro-lots (en millisecondes)
-const BATCH_DELAY = 3000;
+const BATCH_DELAY = 1000;
 
 // Ajouter le log de débogage
 console.log('Configuration Gmail:', {
@@ -581,7 +581,7 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
           <DialogContentText>
             Vous êtes sur le point d'envoyer {recipients.length} emails en {microBatches.length} micro-lots de {MICRO_BATCH_SIZE} emails maximum.
             <br /><br />
-            L'envoi se fera automatiquement, avec une pause de {BATCH_DELAY/1000} secondes entre chaque lot pour éviter les timeouts.
+            L'envoi se fera automatiquement, avec une pause de {BATCH_DELAY/1000} seconde entre chaque lot pour éviter les timeouts.
             <br /><br />
             Cette configuration optimisée (lots de 3 emails) contourne efficacement les limites de timeout de Vercel.
             <br /><br />
@@ -645,7 +645,7 @@ export default function GmailSenderClient({ newsletterHtml, recipients, subject,
             {microBatches.length > 0 && (
               <Alert severity="info" sx={{ mb: 2 }}>
                 Vos emails seront envoyés en {microBatches.length} micro-lots de {MICRO_BATCH_SIZE} emails maximum, 
-                avec une pause de {BATCH_DELAY/1000} secondes entre chaque lot pour éviter les timeouts.
+                avec une pause de {BATCH_DELAY/1000} seconde entre chaque lot pour éviter les timeouts.
                 <br />
                 <strong>Configuration optimisée :</strong> Cette approche prudente garantit que chaque requête se termine avant la limite de 10 secondes de Vercel.
               </Alert>
