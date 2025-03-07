@@ -53,6 +53,31 @@ export async function POST(request: Request) {
         console.log('Nouveau document de tracking créé avec l\'email');
       }
       
+      // Ajouter l'email à la collection 'emails' de la campagne
+      const emailId = Buffer.from(email).toString('base64').replace(/[+/=]/g, '');
+      const emailRef = adminDb.collection('campaigns').doc(campaignId).collection('emails').doc(emailId);
+      
+      // Vérifier si l'email existe déjà dans la collection
+      const emailDoc = await emailRef.get();
+      
+      if (!emailDoc.exists) {
+        // Ajouter l'email à la collection avec le statut 'delivered'
+        await emailRef.set({
+          email: email,
+          status: 'delivered',
+          timestamp: new Date(),
+          updatedAt: new Date()
+        });
+        console.log('Email ajouté à la collection des emails délivrés');
+      } else {
+        // Mettre à jour le statut de l'email à 'delivered'
+        await emailRef.update({
+          status: 'delivered',
+          updatedAt: new Date()
+        });
+        console.log('Statut de l\'email mis à jour à "delivered"');
+      }
+      
       // Ajouter des en-têtes CORS
       return new NextResponse(
         JSON.stringify({ success: true }),
