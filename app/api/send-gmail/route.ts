@@ -286,6 +286,14 @@ function addTrackingElements(html: string, recipient: { email?: string }, campai
         return match;
       }
       
+      // Ne pas modifier les liens de désinscription
+      if (url.toLowerCase().includes('unsubscribe') || 
+          url.toLowerCase().includes('désinscrire') || 
+          url.toLowerCase().includes('desinscrire') ||
+          url === '{{UNSUBSCRIBE_URL}}') {
+        return match;
+      }
+      
       // Encoder l'URL
       const encodedUrl = encodeURIComponent(url);
       
@@ -503,9 +511,6 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          // Générer un token unique pour ce destinataire
-          const unsubscribeToken = generateUnsubscribeToken(recipient.email);
-
           // Remplacer les placeholders dans le HTML
           let personalizedHtml = personalizeHtml(html, {
             name: recipient.name || '',
@@ -515,7 +520,7 @@ export async function POST(request: NextRequest) {
 
           // Créer l'URL de désinscription avec l'URL de production
           const productionUrl = process.env.NEXT_PUBLIC_BASE_URL || baseUrl;
-          const unsubscribeUrl = `${productionUrl}/unsubscribe?token=${unsubscribeToken}&email=${encodeURIComponent(recipient.email)}`;
+          const unsubscribeUrl = `${productionUrl}/unsubscribe?email=${encodeURIComponent(recipient.email)}`;
           
           // Remplacer le placeholder de désinscription par l'URL réelle
           personalizedHtml = personalizedHtml.replace(/{{UNSUBSCRIBE_URL}}/g, unsubscribeUrl);
