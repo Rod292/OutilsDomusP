@@ -606,12 +606,13 @@ ${processedHtml}`;
               const emailId = Buffer.from(recipient.email).toString('base64').replace(/[+/=]/g, '');
               console.log(`ID généré pour l'email: ${emailId}`);
               
-              // Ajouter l'email à la sous-collection 'emails' de la campagne
-              const emailRef = campaignRef.collection('emails').doc(emailId);
+              // Utilisez la nouvelle structure organisée par statut
+              // Sous-collection: emails/delivered/items
+              const deliveredRef = campaignRef.collection('emails').doc('delivered').collection('items').doc(emailId);
               
               // Vérifier si l'email existe déjà
-              const emailDoc = await emailRef.get();
-              console.log(`L'email existe déjà dans la collection? ${emailDoc.exists}`);
+              const emailDoc = await deliveredRef.get();
+              console.log(`L'email existe déjà dans la collection delivered? ${emailDoc.exists}`);
               
               // Préparer les données de l'email
               const emailData = {
@@ -623,9 +624,35 @@ ${processedHtml}`;
                 updatedAt: new Date()
               };
               
-              // Ajouter ou mettre à jour l'email
-              await emailRef.set(emailData, { merge: true });
-              console.log(`Email ${recipient.email} ajouté à la sous-collection emails de la campagne ${requestData.campaignId}, données:`, emailData);
+              // Transaction pour ajouter l'email et mettre à jour les compteurs
+              await admin.firestore().runTransaction(async (transaction) => {
+                // Ajouter ou mettre à jour l'email dans la sous-collection delivered
+                transaction.set(deliveredRef, emailData, { merge: true });
+                
+                // Mettre à jour le compteur dans le document de configuration
+                const configRef = campaignRef.collection('emails').doc('config');
+                const configDoc = await transaction.get(configRef);
+                
+                if (configDoc.exists) {
+                  // Mettre à jour le compteur existant
+                  transaction.update(configRef, {
+                    'totalEmails.delivered': admin.firestore.FieldValue.increment(1),
+                    'lastUpdated': new Date()
+                  });
+                } else {
+                  // Créer un nouveau document de configuration
+                  transaction.set(configRef, {
+                    totalEmails: {
+                      delivered: 1,
+                      pending: 0,
+                      failed: 0
+                    },
+                    lastUpdated: new Date()
+                  });
+                }
+              });
+              
+              console.log(`Email ${recipient.email} ajouté à la sous-collection emails/delivered/items de la campagne ${requestData.campaignId}`);
               
               // Mettre à jour les statistiques de la campagne
               await campaignRef.update({
@@ -634,7 +661,7 @@ ${processedHtml}`;
                 'updatedAt': new Date()
               });
               console.log(`Statistiques de la campagne ${requestData.campaignId} mises à jour`);
-              
+
               // Notifier le système de tracking via API add-to-contacted
               try {
                 const contactedResponse = await fetch(`${baseUrl}/api/add-to-contacted`, {
