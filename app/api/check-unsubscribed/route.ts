@@ -33,37 +33,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Email requis' }, { status: 400 });
     }
 
-    // Utiliser adminDb si disponible, sinon utiliser db
-    const firestore: Firestore = adminDb as Firestore || db;
-    
-    // Vérifier si Firestore est initialisé
+    // Vérifier si adminDb est disponible
     console.log('Connexion à Firestore...');
-    if (!firestore) {
-      console.error('Firestore non initialisé');
+    if (!adminDb) {
+      console.error('Firebase Admin non initialisé');
       return NextResponse.json({ 
-        error: 'Firestore non initialisé',
-        dbType: typeof db,
-        adminDbType: typeof adminDb,
-        dbExists: !!db,
-        adminDbExists: !!adminDb
+        error: 'Firebase Admin non initialisé',
+        details: 'La connexion à la base de données n\'a pas pu être établie'
       }, { status: 500 });
     }
     
-    console.log('DB object type:', typeof firestore);
-    
     try {
-      const unsubscribedRef = collection(firestore, 'unsubscribed');
-      const q = query(unsubscribedRef, where('email', '==', email));
+      // Utiliser directement adminDb pour les opérations Firestore Admin
+      const unsubscribedCollection = adminDb.collection('unsubscribed');
       
       console.log('Exécution de la requête Firestore...');
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await unsubscribedCollection.where('email', '==', email).get();
+      
       console.log('Résultat de la requête:', {
         empty: querySnapshot.empty,
         size: querySnapshot.size,
         docs: querySnapshot.docs.map(doc => ({
           id: doc.id,
           email: doc.data().email,
-          unsubscribedAt: doc.data().unsubscribedAt?.toDate?.()
+          unsubscribedAt: doc.data().unsubscribedAt
         }))
       });
 

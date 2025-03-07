@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/app/lib/firebase';
 import { collection, query, where, getDocs, addDoc, Firestore, doc, setDoc } from 'firebase/firestore';
 import { adminDb } from '@/app/lib/firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 
 // Forcer le mode dynamique pour cette route API
 export const dynamic = 'force-dynamic';
@@ -16,16 +17,7 @@ export async function POST(request: Request) {
     
     // Vérifier l'initialisation de Firebase
     console.log('Firebase DB type:', typeof db);
-    console.log('Firebase DB est une instance de Firestore:', db instanceof Firestore);
-    
-    if (db) {
-      console.log('Firebase DB propriétés:', Object.keys(db));
-    } else {
-      console.log('Firebase DB est null ou undefined');
-    }
-    
-    // Vérifier si adminDb est disponible
-    console.log('Admin DB disponible:', !!adminDb);
+    console.log('Firebase Admin DB type:', typeof adminDb);
     
     let data;
     try {
@@ -46,64 +38,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Email requis' }, { status: 400 });
     }
 
-    // Utiliser adminDb si disponible, sinon utiliser db
-    const firestore: Firestore = adminDb as Firestore || db;
-    
-    // Vérifier si Firestore est initialisé
-    if (!firestore) {
-      console.error('Firestore non initialisé');
+    // Vérifier si adminDb est disponible
+    if (!adminDb) {
+      console.error('Firebase Admin non initialisé');
       return NextResponse.json({ 
-        error: 'Firestore non initialisé', 
-        dbType: typeof db,
-        adminDbType: typeof adminDb,
-        dbExists: !!db,
-        adminDbExists: !!adminDb
+        error: 'Firebase Admin non initialisé',
+        details: 'La connexion à la base de données n\'a pas pu être établie'
       }, { status: 500 });
     }
     
     try {
-      // Essayer de créer un document directement dans la collection pour s'assurer qu'elle existe
-      console.log('Tentative de création d\'un document test pour vérifier la collection...');
+      console.log('Ajout de l\'email à la liste des désinscrits...');
       
-      // Utiliser setDoc avec un ID spécifique pour éviter les doublons
-      const testDocRef = doc(firestore, 'unsubscribed', 'test-document');
-      await setDoc(testDocRef, { 
-        test: true, 
-        createdAt: new Date() 
-      }, { merge: true });
+      // Utiliser directement adminDb pour les opérations Firestore Admin
+      // Créer un ID basé sur l'email pour éviter les doublons
+      const emailHash = Buffer.from(email).toString('base64').replace(/[+/=]/g, '');
       
-      console.log('Document test créé avec succès, la collection existe');
-      
-      console.log('Tentative de création de la référence à la collection...');
-      const unsubscribedRef = collection(firestore, 'unsubscribed');
-      console.log('Référence à la collection créée avec succès');
-      
-      console.log('Création de la requête...');
-      const q = query(unsubscribedRef, where('email', '==', email));
-      console.log('Requête créée avec succès');
-      
-      console.log('Exécution de la requête Firestore...');
-      const querySnapshot = await getDocs(q);
-      console.log('Requête exécutée avec succès, résultats:', querySnapshot.size);
+      // Vérifier d'abord si l'email est déjà désinscrit
+      const unsubscribedCollection = adminDb.collection('unsubscribed');
+      const querySnapshot = await unsubscribedCollection.where('email', '==', email).get();
       
       if (!querySnapshot.empty) {
         console.log('Email déjà désinscrit');
         return NextResponse.json({ success: true, message: 'Déjà désinscrit' });
       }
-
-      console.log('Ajout de l\'email à la liste des désinscrits...');
       
-      // Utiliser setDoc avec un ID basé sur l'email pour éviter les doublons
-      const emailHash = Buffer.from(email).toString('base64').replace(/[+/=]/g, '');
-      const emailDocRef = doc(firestore, 'unsubscribed', emailHash);
-      
-      await setDoc(emailDocRef, {
+      // Ajouter l'email à la collection des désinscrits
+      await unsubscribedCollection.doc(emailHash).set({
         email,
         unsubscribedAt: new Date(),
       });
       
-      console.log('Email ajouté avec succès, ID du document:', emailHash);
-      console.log('Email désinscrit avec succès');
+      console.log('Email ajouté avec succès à la liste des désinscrits, ID du document:', emailHash);
     } catch (firestoreError) {
       console.error('Erreur Firestore spécifique:', firestoreError);
       return NextResponse.json({ 
