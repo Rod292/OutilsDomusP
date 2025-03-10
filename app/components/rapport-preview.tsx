@@ -22,47 +22,55 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
   useEffect(() => {
     console.log("RapportPreview - Données reçues:", formData);
     
-    // Vérifier que formData est un objet valide et non un objet React
-    if (formData && typeof formData === 'object' && !React.isValidElement(formData)) {
-      setValidFormData(formData);
-      console.log("Propriétés de niveau supérieur:", Object.keys(formData));
-      
-      // Vérifier les pièces
-      if (formData.pieces) {
-        console.log("Nombre de pièces:", formData.pieces.length);
-        if (formData.pieces.length > 0) {
-          console.log("Structure de la première pièce:", Object.keys(formData.pieces[0]));
-          
-          // Vérifier la présence de l'objet etat
-          if (formData.pieces[0].etat) {
-            console.log("Structure de l'objet etat:", Object.keys(formData.pieces[0].etat));
-          } else {
-            console.warn("Attention: L'objet etat est manquant dans la première pièce");
-          }
-          
-          // Vérifier les photos
-          if (formData.pieces[0].photos) {
-            console.log("Nombre de photos dans la première pièce:", formData.pieces[0].photos.length);
-            if (formData.pieces[0].photos.length > 0) {
-              console.log("Type de la première photo:", typeof formData.pieces[0].photos[0]);
+    try {
+      // Vérifier que formData est un objet valide et non un objet React
+      if (formData && typeof formData === 'object' && !React.isValidElement(formData)) {
+        // Créer une copie sécurisée des données
+        const safeData = JSON.parse(JSON.stringify(formData));
+        setValidFormData(safeData);
+        console.log("Propriétés de niveau supérieur:", Object.keys(safeData));
+        
+        // Vérifier les pièces
+        if (safeData.pieces) {
+          console.log("Nombre de pièces:", safeData.pieces.length);
+          if (safeData.pieces.length > 0) {
+            console.log("Structure de la première pièce:", Object.keys(safeData.pieces[0]));
+            
+            // Vérifier la présence de l'objet etat
+            if (safeData.pieces[0].etat) {
+              console.log("Structure de l'objet etat:", Object.keys(safeData.pieces[0].etat));
+            } else {
+              console.warn("Attention: L'objet etat est manquant dans la première pièce");
             }
-          } else {
-            console.warn("Attention: L'objet photos est manquant dans la première pièce");
+            
+            // Vérifier les photos
+            if (safeData.pieces[0].photos) {
+              console.log("Nombre de photos dans la première pièce:", safeData.pieces[0].photos.length);
+              if (safeData.pieces[0].photos.length > 0) {
+                console.log("Type de la première photo:", typeof safeData.pieces[0].photos[0]);
+              }
+            } else {
+              console.warn("Attention: L'objet photos est manquant dans la première pièce");
+            }
           }
+        } else {
+          console.warn("Attention: La propriété pieces est absente ou null");
+        }
+        
+        // Vérifier les compteurs
+        if (safeData.compteurs) {
+          console.log("Structure des compteurs:", Object.keys(safeData.compteurs));
+        } else {
+          console.warn("Attention: La propriété compteurs est absente ou null");
         }
       } else {
-        console.warn("Attention: La propriété pieces est absente ou null");
+        console.error("formData n'est pas un objet valide:", formData);
+        setError("Données de formulaire invalides");
+        setValidFormData(null);
       }
-      
-      // Vérifier les compteurs
-      if (formData.compteurs) {
-        console.log("Structure des compteurs:", Object.keys(formData.compteurs));
-      } else {
-        console.warn("Attention: La propriété compteurs est absente ou null");
-      }
-    } else {
-      console.error("formData n'est pas un objet valide:", formData);
-      setError("Données de formulaire invalides");
+    } catch (err) {
+      console.error("Erreur lors du traitement des données:", err);
+      setError(`Erreur de traitement: ${err instanceof Error ? err.message : "Erreur inconnue"}`);
       setValidFormData(null);
     }
   }, [formData]);

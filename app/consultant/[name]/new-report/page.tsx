@@ -554,7 +554,11 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
           <div className="max-w-full">
             <h1 className="text-2xl font-bold mb-6 text-gray-800 px-1">Aperçu du rapport</h1>
             {rapport ? (
-              <RapportPreview formData={formData} />
+              <div key={JSON.stringify(formData)}>
+                <RapportPreview 
+                  formData={formData} 
+                />
+              </div>
             ) : (
               <div className="p-4 bg-white rounded-lg shadow text-center mx-1">
                 <p className="text-gray-500">Générez d'abord un rapport pour voir l'aperçu</p>
