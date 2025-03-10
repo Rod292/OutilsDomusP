@@ -48,10 +48,10 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
 
   const consultantName = params.name.replace("-", " ")
 
-  // Rediriger vers la page d'accueil si l'utilisateur n'est pas authentifié
-  if (auth.currentUser === null) {
-    router.push("/")
-  }
+  // Ne pas vérifier auth.currentUser ici car auth pourrait ne pas être initialisé
+  // if (auth.currentUser === null) {
+  //   router.push("/")
+  // }
 
   // Effet pour vérifier l'authentification
   useEffect(() => {

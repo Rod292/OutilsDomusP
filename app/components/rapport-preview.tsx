@@ -181,9 +181,13 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
             {/* En-tête avec titre et boutons */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
               <div>
-                <h2 className="text-2xl font-bold text-primary">État des lieux {validFormData?.typeEtatDesLieux === 'entree' ? "d'entrée" : "de sortie"}</h2>
+                <h2 className="text-2xl font-bold text-primary">
+                  {typeof validFormData.typeEtatDesLieux === 'string' 
+                    ? `État des lieux ${validFormData.typeEtatDesLieux === 'entree' ? "d'entrée" : "de sortie"}`
+                    : "État des lieux"}
+                </h2>
                 <p className="text-muted-foreground">
-                  {validFormData?.adresseBien ? validFormData.adresseBien : 'Adresse non spécifiée'}
+                  {typeof validFormData.adresseBien === 'string' ? validFormData.adresseBien : 'Adresse non spécifiée'}
                 </p>
               </div>
               
@@ -230,18 +234,32 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
                 {/* Page de garde simulée */}
                 <div className="text-center mb-8">
                   <h3 className="text-xl font-bold text-primary">ÉTAT DES LIEUX</h3>
-                  <p className="text-lg font-semibold">{validFormData?.typeEtatDesLieux === 'entree' ? 'ENTRÉE' : 'SORTIE'}</p>
+                  <p className="text-lg font-semibold">
+                    {typeof validFormData.typeEtatDesLieux === 'string' 
+                      ? (validFormData.typeEtatDesLieux === 'entree' ? 'ENTRÉE' : 'SORTIE')
+                      : ''}
+                  </p>
                   <div className="w-32 h-1 bg-primary mx-auto my-4"></div>
                   
                   <div className="mt-6 inline-block text-left bg-gray-50 p-4 rounded-md">
                     <p className="font-semibold mb-1">Bien immobilier:</p>
-                    <p className="text-sm italic mb-3">{getTypeBienLabel(validFormData.typeBien)}</p>
+                    <p className="text-sm italic mb-3">
+                      {typeof validFormData.typeBien === 'string' 
+                        ? getTypeBienLabel(validFormData.typeBien)
+                        : 'Non spécifié'}
+                    </p>
                     
                     <p className="font-semibold mb-1">Adresse:</p>
-                    <p className="text-sm italic mb-3">{validFormData.adresseBien || ''}, {validFormData.codePostalBien || ''} {validFormData.villeBien || ''}</p>
+                    <p className="text-sm italic mb-3">
+                      {typeof validFormData.adresseBien === 'string' ? validFormData.adresseBien : ''}, 
+                      {typeof validFormData.codePostalBien === 'string' ? validFormData.codePostalBien : ''} 
+                      {typeof validFormData.villeBien === 'string' ? validFormData.villeBien : ''}
+                    </p>
                     
                     <p className="font-semibold mb-1">Date:</p>
-                    <p className="text-sm italic">{formatDate(validFormData.dateEtatDesLieux)}</p>
+                    <p className="text-sm italic">
+                      {validFormData.dateEtatDesLieux ? formatDate(validFormData.dateEtatDesLieux) : 'Non spécifiée'}
+                    </p>
                   </div>
                 </div>
                 
