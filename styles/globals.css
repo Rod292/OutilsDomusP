@@ -30,8 +30,25 @@ body {
   
   /* Mobile optimization */
   .mobile-container {
-    @apply w-full px-1 mx-auto;
-    max-width: calc(100% - 8px);
+    @apply w-full px-0 mx-auto;
+    max-width: 100%;
+  }
+  
+  /* Mobile zoom optimization */
+  .mobile-zoom {
+    /* Forcer la page à utiliser 100% de la largeur disponible */
+    width: 100%;
+    min-width: 100%;
+    
+    /* Léger zoom pour utiliser l'espace disponible */
+    transform: scale(1.02);
+    transform-origin: center top;
+  }
+  
+  /* Section container avec marges minimales */
+  .section-container {
+    @apply w-full px-0.5 mx-auto;
+    max-width: 100%;
   }
   
   /* Masquer la scrollbar tout en conservant la fonctionnalité */
