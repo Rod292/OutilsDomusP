@@ -233,24 +233,25 @@ export default function NewsletterEditorVisual() {
         emailVerified: auth.currentUser?.emailVerified
       });
       
-      // Charger les templates depuis la collection newsletter_templates
-      const templatesCollection = collection(db, 'newsletter_templates');
-      console.log("Collection Firestore ciblée (1):", {
+      // NOTE: Nous avons migré tous les templates vers la collection 'newsletterTemplates'
+      // L'ancienne collection 'newsletter_templates' n'est plus utilisée
+      const templatesCollection = collection(db, 'newsletterTemplates');
+      console.log("Collection Firestore ciblée:", {
         collectionPath: templatesCollection.path,
         databaseInstance: !!db
       });
       
       const templatesSnapshot = await getDocs(templatesCollection);
-      console.log("Résultat de la requête Firestore (newsletter_templates):", {
+      console.log("Résultat de la requête Firestore:", {
         success: !!templatesSnapshot,
         numberOfDocs: templatesSnapshot.size,
         empty: templatesSnapshot.empty,
         metadata: templatesSnapshot.metadata
       });
       
-      const templates1 = templatesSnapshot.docs.map(doc => {
+      const templates = templatesSnapshot.docs.map(doc => {
         const data = doc.data();
-        console.log("Document template chargé (newsletter_templates):", {
+        console.log("Document template chargé:", {
           id: doc.id,
           name: data.name,
           sectionsCount: data.sections?.length,
@@ -266,44 +267,7 @@ export default function NewsletterEditorVisual() {
         };
       }) as NewsletterTemplate[];
       
-      // Charger les templates depuis la collection newsletterTemplates
-      const templatesCollection2 = collection(db, 'newsletterTemplates');
-      console.log("Collection Firestore ciblée (2):", {
-        collectionPath: templatesCollection2.path,
-        databaseInstance: !!db
-      });
-      
-      const templatesSnapshot2 = await getDocs(templatesCollection2);
-      console.log("Résultat de la requête Firestore (newsletterTemplates):", {
-        success: !!templatesSnapshot2,
-        numberOfDocs: templatesSnapshot2.size,
-        empty: templatesSnapshot2.empty,
-        metadata: templatesSnapshot2.metadata
-      });
-      
-      const templates2 = templatesSnapshot2.docs.map(doc => {
-        const data = doc.data();
-        console.log("Document template chargé (newsletterTemplates):", {
-          id: doc.id,
-          name: data.name,
-          sectionsCount: data.sections?.length,
-          createdAt: data.createdAt,
-          updatedAt: data.updatedAt
-        });
-        return {
-          id: doc.id,
-          name: data.name,
-          sections: data.sections,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date()
-        };
-      }) as NewsletterTemplate[];
-      
-      // Fusionner les templates des deux collections
-      const allTemplates = [...templates1, ...templates2];
-      console.log("Nombre total de templates chargés:", allTemplates.length);
-      
-      setSavedTemplates(allTemplates);
+      setSavedTemplates(templates);
     } catch (error: any) {
       console.error('Erreur détaillée lors du chargement des templates:', {
         name: error.name,
@@ -1829,54 +1793,12 @@ export default function NewsletterEditorVisual() {
         
         if (!templateDoc.exists()) {
           console.error("Le document n'existe pas dans la collection 'newsletterTemplates'");
-          
-          // Vérifier dans l'autre collection
-          const altTemplateRef = doc(db, 'newsletter_templates', selectedTemplate);
-          const altTemplateDoc = await getDoc(altTemplateRef);
-          
-          console.log("Vérification dans la collection alternative:", {
-            exists: altTemplateDoc.exists(),
-            id: altTemplateDoc.id,
-            path: altTemplateRef.path
-          });
-          
-          if (altTemplateDoc.exists()) {
-            console.log("Le document existe dans la collection 'newsletter_templates', utilisation de cette collection à la place");
-            
-            // Utiliser la collection alternative
-            const updateData = {
-              sections: sectionsToSave,
-              updatedAt: new Date()
-            };
-            
-            await updateDoc(altTemplateRef, updateData);
-            console.log("Template mis à jour avec succès dans la collection 'newsletter_templates'");
-            
-            // Mettre à jour l'état local
-            const updatedTemplates = savedTemplates.map(t => {
-              if (t.id === selectedTemplate) {
-                return {
-                  ...t,
-                  sections: sectionsToSave,
-                  updatedAt: new Date()
-                };
-              }
-              return t;
-            });
-            
-            setSavedTemplates(updatedTemplates);
-            toast.success(`Le template "${templateToUpdate.name}" a été mis à jour avec succès`);
-            return;
-          } else {
-            console.error("Le document n'existe dans aucune collection");
-            toast.error("Le template n'existe pas dans la base de données");
-            setIsLoading(false);
-            return;
-          }
+          toast.error("Le template n'existe pas ou a été supprimé");
+          setIsLoading(false);
+          return;
         }
         
-        // Mettre à jour le template dans Firestore
-        // Utiliser new Date() au lieu de serverTimestamp() pour éviter les problèmes de compatibilité
+        // Mettre à jour le document
         const updateData = {
           sections: sectionsToSave,
           updatedAt: new Date()
