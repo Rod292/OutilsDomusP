@@ -192,20 +192,14 @@ export async function generatePDFFromData(data: any, options: GeneratePDFOptions
         doc!.setTextColor(secondaryColor);
         doc!.setFont("helvetica", "normal");
         
-        // Texte à gauche
+        // Texte à gauche avec la date du jour
+        const today = new Date();
+        const formattedDate = today.toLocaleDateString('fr-FR');
+        
         doc!.text(
-          "Arthur Loyd - État des lieux", 
+          `Arthur Loyd Bretagne - Document généré le ${formattedDate}`, 
           margin, 
           footerY
-        );
-        
-        // Texte à droite
-        const today = new Date().toLocaleDateString('fr-FR');
-        doc!.text(
-          `Édité le ${today}`, 
-          pageWidth - margin, 
-          footerY, 
-          { align: "right" }
         );
       } catch (error) {
         console.error("Erreur lors de l'ajout du pied de page:", error);
@@ -451,7 +445,7 @@ export async function generatePDFFromData(data: any, options: GeneratePDFOptions
       yPos += 15;
       
       // Section Identification du bien
-      await addSectionTitle("INFORMATIONS GÉNÉRALES");
+      await addSectionTitle("1 - INFORMATIONS GÉNÉRALES");
       
       // Type de bien avec cases à cocher
       xOffset = await addCheckbox(
@@ -612,17 +606,203 @@ export async function generatePDFFromData(data: any, options: GeneratePDFOptions
       });
     };
 
-    // Mise à jour des appels de tableaux dans la section "Relevés de compteurs"
+    // Fonction pour ajouter les informations sur le contrat
+    const addInformationsContrat = async () => {
+      console.log("Début de la fonction addInformationsContrat");
+      console.log("Données du contrat:", data.contrat);
+      
+      if (!data.contrat) {
+        console.log("Aucune donnée de contrat trouvée");
+        return;
+      }
+      
+      // Vérifier s'il reste assez d'espace pour cette section
+      if (pageHeight - margin - yPos < 60) {
+        await checkNewPage(0, true);
+      }
+      
+      await addSectionTitle("2 - INFORMATIONS SUR LE CONTRAT");
+      
+      await addFramedSection("Contrat de location", async () => {
+        // Date de signature
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Date de signature", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(formatDate(data.contrat.dateSignature) || "", contentWidth - margin, yPos, { align: 'right' });
+        
+        yPos += 10;
+        
+        // Date d'entrée
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Date d'entrée", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(formatDate(data.contrat.dateEntree) || "", contentWidth - margin, yPos, { align: 'right' });
+        
+        yPos += 10;
+        
+        // Date de sortie
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Date de sortie", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(formatDate(data.contrat.dateSortie) || "", contentWidth - margin, yPos, { align: 'right' });
+        
+        yPos += 10;
+        
+        // Durée du contrat
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Durée du contrat", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(data.contrat.dureeContrat || "", contentWidth - margin, yPos, { align: 'right' });
+        
+        yPos += 10;
+        
+        // Montant du loyer
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Montant du loyer", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(data.contrat.montantLoyer || "", contentWidth - margin, yPos, { align: 'right' });
+        
+        yPos += 10;
+        
+        // Montant des charges
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Montant des charges", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(data.contrat.montantCharges || "", contentWidth - margin, yPos, { align: 'right' });
+        
+        yPos += 10;
+        
+        // Montant du dépôt de garantie
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Montant du dépôt de garantie", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(data.contrat.montantDepotGarantie || "", contentWidth - margin, yPos, { align: 'right' });
+        
+        yPos += 10;
+        
+        // Type d'activité
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Type d'activité", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(data.contrat.typeActivite || "", contentWidth - margin, yPos, { align: 'right' });
+      });
+    };
+    
+    // Fonction pour ajouter les informations sur les éléments remis
+    const addElementsRemis = async () => {
+      console.log("Début de la fonction addElementsRemis");
+      console.log("Données des éléments:", data.elements);
+      
+      if (!data.elements) {
+        console.log("Aucune donnée d'éléments trouvée");
+        return;
+      }
+      
+      // Vérifier s'il reste assez d'espace pour cette section
+      if (pageHeight - margin - yPos < 60) {
+        await checkNewPage(0, true);
+      }
+      
+      await addSectionTitle("3 - ÉLÉMENTS REMIS AU LOCATAIRE");
+      
+      // Clés
+      await addFramedSection("Clés", async () => {
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Nombre de clés", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(data.elements.cles?.nombre || "0", contentWidth - margin, yPos, { align: 'right' });
+        
+        yPos += 10;
+        
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Détail", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(data.elements.cles?.detail || "", contentWidth - margin, yPos, { align: 'right' });
+      });
+      
+      // Badges
+      await addFramedSection("Badges/cartes d'accès", async () => {
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Nombre de badges", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(data.elements.badges?.nombre || "0", contentWidth - margin, yPos, { align: 'right' });
+        
+        yPos += 10;
+        
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Détail", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(data.elements.badges?.detail || "", contentWidth - margin, yPos, { align: 'right' });
+      });
+      
+      // Télécommandes
+      await addFramedSection("Télécommandes", async () => {
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Nombre de télécommandes", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(data.elements.telecommandes?.nombre || "0", contentWidth - margin, yPos, { align: 'right' });
+        
+        yPos += 10;
+        
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Détail", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(data.elements.telecommandes?.detail || "", contentWidth - margin, yPos, { align: 'right' });
+      });
+      
+      // Documents remis
+      await addFramedSection("Documents remis", async () => {
+        const documents = data.elements.documents || {};
+        
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Diagnostics techniques", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(documents.diagnostics ? "Oui" : "Non", contentWidth - margin, yPos, { align: 'right' });
+        
+        yPos += 10;
+        
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Plans des locaux", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(documents.planLocaux ? "Oui" : "Non", contentWidth - margin, yPos, { align: 'right' });
+        
+        yPos += 10;
+        
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Règlement d'immeuble", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(documents.reglementImmeuble ? "Oui" : "Non", contentWidth - margin, yPos, { align: 'right' });
+        
+        yPos += 10;
+        
+        doc!.setFont("helvetica", "bold");
+        doc!.text("Notice de maintenance", margin, yPos);
+        doc!.setFont("helvetica", "normal");
+        doc!.text(documents.noticeMaintenance ? "Oui" : "Non", contentWidth - margin, yPos, { align: 'right' });
+      });
+      
+      // Autres éléments
+      if (data.elements.autresElements) {
+        await addFramedSection("Autres éléments", async () => {
+          doc!.setFont("helvetica", "normal");
+          doc!.text(data.elements.autresElements || "", margin, yPos);
+        });
+      }
+    };
+
+    // Fonction pour ajouter les relevés de compteurs
     const addReleveCompteurs = async () => {
-      if (!data.releveCompteurs || Object.keys(data.releveCompteurs).length === 0) return;
+      if (!data.compteurs) return;
       
-      // Forcer une nouvelle page pour les compteurs
-      await checkNewPage(0, true);
+      // Vérifier s'il reste assez d'espace pour cette section
+      if (pageHeight - margin - yPos < 60) {
+        await checkNewPage(0, true);
+      }
       
-      await addSectionTitle("1 - RELEVÉS DES COMPTEURS");
+      await addSectionTitle("4 - RELEVÉ DES COMPTEURS");
       
       // Pour chaque type de compteur
-      for (const [key, compteurData] of Object.entries(data.releveCompteurs)) {
+      for (const [key, compteurData] of Object.entries(data.compteurs)) {
         if (!compteurData) continue;
         
         // S'assurer que compteurData est traité comme un objet de type Compteur
@@ -697,7 +877,7 @@ export async function generatePDFFromData(data: any, options: GeneratePDFOptions
         await checkNewPage(0, true);
       }
       
-      await addSectionTitle("CLÉS REMISES");
+      await addSectionTitle("5 - CLÉS REMISES");
       
       await addFramedSection("Type", async () => {
         // Nombre de clés
@@ -729,7 +909,7 @@ export async function generatePDFFromData(data: any, options: GeneratePDFOptions
       // Force une nouvelle page pour la section des pièces
       await checkNewPage(0, true);
       
-      await addSectionTitle("4 - ÉTAT DES LIEUX PIÈCE PAR PIÈCE");
+      await addSectionTitle("6 - ÉTAT DES LIEUX PIÈCE PAR PIÈCE");
       
       for (const piece of data.pieces) {
         if (!piece) continue;
@@ -737,33 +917,129 @@ export async function generatePDFFromData(data: any, options: GeneratePDFOptions
         // Titre de la pièce avec un fond coloré
         await addFramedSection(piece.nom || "Pièce sans nom", async () => {
           // Création du tableau d'éléments
-          const headers = ["Élément", "État", "Commentaire"];
+          const headers = ["Élément", "Nature", "État", "Observations"];
           const rows: string[][] = [];
           
-          if (piece.etat && typeof piece.etat === 'object') {
-            const commentaires = piece.commentaires || {};
-            
-            for (const [key, value] of Object.entries(piece.etat)) {
-              rows.push([
-                key || "",
-                value ? String(value) : "",
-                commentaires[key] || ""
-              ]);
+          // Ajouter les éléments standards
+          if (piece.sols) {
+            rows.push([
+              "Sols",
+              piece.sols.nature || "",
+              piece.sols.etat || "",
+              piece.sols.observations || ""
+            ]);
+          }
+          
+          if (piece.murs) {
+            rows.push([
+              "Murs",
+              piece.murs.nature || "",
+              piece.murs.etat || "",
+              piece.murs.observations || ""
+            ]);
+          }
+          
+          if (piece.plafonds) {
+            rows.push([
+              "Plafonds",
+              piece.plafonds.nature || "",
+              piece.plafonds.etat || "",
+              piece.plafonds.observations || ""
+            ]);
+          }
+          
+          if (piece.plinthes) {
+            rows.push([
+              "Plinthes",
+              piece.plinthes.nature || "",
+              piece.plinthes.etat || "",
+              piece.plinthes.observations || ""
+            ]);
+          }
+          
+          if (piece.fenetres) {
+            rows.push([
+              "Fenêtres",
+              piece.fenetres.nature || "",
+              piece.fenetres.etat || "",
+              piece.fenetres.observations || ""
+            ]);
+          }
+          
+          if (piece.portes) {
+            rows.push([
+              "Portes",
+              piece.portes.nature || "",
+              piece.portes.etat || "",
+              piece.portes.observations || ""
+            ]);
+          }
+          
+          if (piece.chauffage) {
+            rows.push([
+              "Chauffage",
+              piece.chauffage.nature || "",
+              piece.chauffage.etat || "",
+              piece.chauffage.observations || ""
+            ]);
+          }
+          
+          if (piece.prises) {
+            rows.push([
+              "Prises électriques",
+              piece.prises.nombre || "0",
+              piece.prises.etat || "",
+              piece.prises.observations || ""
+            ]);
+          }
+          
+          if (piece.interrupteurs) {
+            rows.push([
+              "Interrupteurs",
+              piece.interrupteurs.nombre || "0",
+              piece.interrupteurs.etat || "",
+              piece.interrupteurs.observations || ""
+            ]);
+          }
+          
+          // Ajouter les équipements personnalisés
+          if (piece.equipements && Array.isArray(piece.equipements)) {
+            console.log(`Pièce ${piece.nom}: ${piece.equipements.length} équipements trouvés`);
+            for (const equipement of piece.equipements) {
+              if (equipement && equipement.nom) {
+                console.log(`Ajout de l'équipement: ${equipement.nom}, état: ${equipement.etat}`);
+                rows.push([
+                  equipement.nom,
+                  "",
+                  equipement.etat || "",
+                  equipement.observations || ""
+                ]);
+              }
             }
+          } else {
+            console.log(`Pièce ${piece.nom}: pas d'équipements ou format invalide`, piece.equipements);
           }
           
           // Ajouter le tableau des éléments de la pièce
           if (rows.length > 0) {
             // Largeurs des colonnes
             const colWidths = [
-              contentWidth * 0.25, // Élément
-              contentWidth * 0.25, // État
-              contentWidth * 0.5   // Commentaire
+              contentWidth * 0.2, // Élément
+              contentWidth * 0.2, // Nature
+              contentWidth * 0.2, // État
+              contentWidth * 0.4  // Observations
             ];
             
             await addTable(headers, rows, colWidths);
           } else {
             await addText("Aucun élément enregistré pour cette pièce.", 10, false, true);
+          }
+          
+          // Ajouter les observations générales de la pièce
+          if (piece.observations) {
+            await addSpace(5);
+            await addText("Observations générales:", 10, true, false);
+            await addText(piece.observations, 10, false, true);
           }
           
           // Ajouter les photos si disponibles
@@ -955,7 +1231,12 @@ export async function generatePDFFromData(data: any, options: GeneratePDFOptions
 
     // Fonction pour ajouter des photos
     const addPhotos = async (photos: any[]) => {
-      if (!photos || photos.length === 0) return;
+      if (!photos || !Array.isArray(photos) || photos.length === 0) {
+        console.log("Aucune photo à ajouter");
+        return;
+      }
+      
+      console.log(`Ajout de ${photos.length} photos`);
       
       // Titre pour les photos
       doc!.setFontSize(11);
@@ -984,12 +1265,19 @@ export async function generatePDFFromData(data: any, options: GeneratePDFOptions
       // Fonction améliorée pour extraire les données d'image
       const extractImageData = async (photo: any): Promise<string | null> => {
         try {
+          console.log("Type de photo:", typeof photo);
+          
           // Cas 1: Photo est une chaîne (URL ou base64)
           if (typeof photo === 'string') {
+            console.log("Photo est une chaîne, début:", photo.substring(0, 50));
+            
             // Si c'est une base64, on la retourne directement
             if (photo.startsWith('data:')) {
+              console.log("Photo est une base64");
               return photo;
             }
+            
+            console.log("Photo est une URL:", photo);
             
             // Si c'est une URL, on essaie de la charger via XHR
             return new Promise((resolve, reject) => {
@@ -1017,7 +1305,7 @@ export async function generatePDFFromData(data: any, options: GeneratePDFOptions
           // Cas 3: Photo est un objet avec des propriétés d'image
           if (photo && typeof photo === 'object') {
             // Vérifier toutes les propriétés possibles
-            const propertiesToCheck = ['url', 'src', 'data', 'base64', 'path', 'preview'];
+            const propertiesToCheck = ['url', 'src', 'data', 'base64', 'path', 'preview', 'downloadUrl'];
             
             for (const prop of propertiesToCheck) {
               if (photo[prop]) {
@@ -1028,7 +1316,7 @@ export async function generatePDFFromData(data: any, options: GeneratePDFOptions
                   } else if (photo[prop].startsWith('http') || photo[prop].startsWith('blob:')) {
                     // Charger l'URL
                     return new Promise((resolve, reject) => {
-                      const img = new Image();
+                      const img = document.createElement('img');
                       img.crossOrigin = 'Anonymous';
                       img.onload = function() {
                         const canvas = document.createElement('canvas');
@@ -1073,8 +1361,14 @@ export async function generatePDFFromData(data: any, options: GeneratePDFOptions
         }
       };
       
-      // Afficher seulement les 4 premières photos
-      for (const photo of photos.slice(0, 4)) {
+      // Traiter toutes les photos en parallèle pour accélérer le chargement
+      const photoPromises = photos.slice(0, 4).map(extractImageData);
+      const photoDataArray = await Promise.all(photoPromises);
+      
+      // Afficher les photos avec les données extraites
+      for (let i = 0; i < Math.min(photos.length, 4); i++) {
+        const photoData = photoDataArray[i];
+        
         // Vérifier si on commence une nouvelle ligne
         if (count % photosPerRow === 0 && count > 0) {
           currentX = margin;
@@ -1096,14 +1390,11 @@ export async function generatePDFFromData(data: any, options: GeneratePDFOptions
           doc!.setFillColor("#F5F5F5");
           doc!.rect(currentX, currentY, photoWidth, photoHeight, 'F');
           
-          // Récupérer les données de l'image avec la nouvelle fonction
-          const imageData = await extractImageData(photo);
-          
           // Ajouter l'image si on a des données valides
-          if (imageData) {
+          if (photoData) {
             try {
               doc!.addImage(
-                imageData,
+                photoData,
                 "JPEG",
                 currentX + 0.5,
                 currentY + 0.5,
@@ -1157,6 +1448,8 @@ export async function generatePDFFromData(data: any, options: GeneratePDFOptions
       
       // Générer les sections du document
       await addInformationsGenerales();
+      await addInformationsContrat();
+      await addElementsRemis();
       await addReleveCompteurs();
       await addClesRemises();
       await addEtatLieuxPieces();

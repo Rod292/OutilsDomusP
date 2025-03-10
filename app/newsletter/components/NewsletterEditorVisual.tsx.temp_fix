@@ -2322,23 +2322,25 @@ export default function NewsletterEditorVisual() {
   // Nouvelle fonction pour déplacer une section vers le haut
   const moveSectionUp = (sectionId: string) => {
     saveScrollPosition();
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
     
-    // Obtenir les sections éditables
-    const editableSections = getEditableSections(sections);
+    // Vérifier si la section peut être déplacée vers le haut
+    if (sectionIndex <= 0) return; // Déjà en haut
     
-    // Trouver l'index de la section dans les sections éditables
-    const editableIndex = editableSections.findIndex(s => s.id === sectionId);
-    if (editableIndex <= 0) return; // Déjà en haut des sections éditables
+    // Trouver l'index de la section précédente qui n'est pas un header
+    let prevEditableIndex = sectionIndex - 1;
+    while (prevEditableIndex >= 0 && sections[prevEditableIndex].type === 'header') {
+      prevEditableIndex--;
+    }
     
-    // Trouver les indices réels dans le tableau complet
-    const currentIndex = sections.findIndex(s => s.id === sectionId);
-    const targetIndex = sections.findIndex(s => s.id === editableSections[editableIndex - 1].id);
+    // Si on ne trouve pas de section éditable précédente, ne rien faire
+    if (prevEditableIndex < 0) return;
     
     // Échanger les sections
     const newSections = [...sections];
-    const temp = newSections[currentIndex];
-    newSections[currentIndex] = newSections[targetIndex];
-    newSections[targetIndex] = temp;
+    const temp = newSections[sectionIndex];
+    newSections[sectionIndex] = newSections[prevEditableIndex];
+    newSections[prevEditableIndex] = temp;
     
     setSections(newSections);
     
@@ -2351,23 +2353,25 @@ export default function NewsletterEditorVisual() {
   // Nouvelle fonction pour déplacer une section vers le bas
   const moveSectionDown = (sectionId: string) => {
     saveScrollPosition();
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
     
-    // Obtenir les sections éditables
-    const editableSections = getEditableSections(sections);
+    // Vérifier si la section peut être déplacée vers le bas
+    if (sectionIndex === -1 || sectionIndex >= sections.length - 1) return; // Déjà en bas ou non trouvée
     
-    // Trouver l'index de la section dans les sections éditables
-    const editableIndex = editableSections.findIndex(s => s.id === sectionId);
-    if (editableIndex === -1 || editableIndex >= editableSections.length - 1) return; // Déjà en bas des sections éditables
+    // Trouver l'index de la section suivante qui n'est pas un footer
+    let nextEditableIndex = sectionIndex + 1;
+    while (nextEditableIndex < sections.length && sections[nextEditableIndex].type === 'footer') {
+      nextEditableIndex++;
+    }
     
-    // Trouver les indices réels dans le tableau complet
-    const currentIndex = sections.findIndex(s => s.id === sectionId);
-    const targetIndex = sections.findIndex(s => s.id === editableSections[editableIndex + 1].id);
+    // Si on ne trouve pas de section éditable suivante, ne rien faire
+    if (nextEditableIndex >= sections.length) return;
     
     // Échanger les sections
     const newSections = [...sections];
-    const temp = newSections[currentIndex];
-    newSections[currentIndex] = newSections[targetIndex];
-    newSections[targetIndex] = temp;
+    const temp = newSections[sectionIndex];
+    newSections[sectionIndex] = newSections[nextEditableIndex];
+    newSections[nextEditableIndex] = temp;
     
     setSections(newSections);
     
@@ -2525,7 +2529,7 @@ export default function NewsletterEditorVisual() {
                           <div className="flex space-x-2 mr-2">
                             <button
                               onClick={() => moveSectionUp(section.id)}
-                              disabled={index === 0}
+                              disabled={isFirstEditable}
                               className="text-gray-500 hover:text-gray-700 disabled:opacity-30"
                               title="Déplacer vers le haut"
                             >
@@ -2533,7 +2537,7 @@ export default function NewsletterEditorVisual() {
                             </button>
                             <button
                               onClick={() => moveSectionDown(section.id)}
-                              disabled={index === getEditableSections(sections).length - 1}
+                              disabled={isLastEditable}
                               className="text-gray-500 hover:text-gray-700 disabled:opacity-30"
                               title="Déplacer vers le bas"
                             >

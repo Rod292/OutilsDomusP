@@ -1,50 +1,61 @@
 // Script de migration pour fusionner les collections newsletter_templates et newsletterTemplates
 // Ce script lit les templates des deux collections et les fusionne dans newsletterTemplates
 
-const { initializeApp, cert } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
-const fs = require('fs');
-const path = require('path');
+const { initializeApp } = require('firebase/app');
+const { getFirestore, collection, getDocs, doc, getDoc, setDoc } = require('firebase/firestore');
+const { getAuth, signInWithEmailAndPassword } = require('firebase/auth');
+const readline = require('readline');
 
-// Charger les variables d'environnement
-require('dotenv').config();
+// Configuration Firebase (identique à celle utilisée dans l'application)
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyDujTJIyvicJnP-nMgodJs63rU0fDA69Qc",
+  authDomain: "etat-des-lieux-arthur-loyd.firebaseapp.com",
+  projectId: "etat-des-lieux-arthur-loyd",
+  storageBucket: "etat-des-lieux-arthur-loyd.firebasestorage.app",
+  messagingSenderId: "602323147221",
+  appId: "1:602323147221:web:7a1d976ac0478b593b455c"
+};
 
-// Chemin vers le fichier de clé de service Firebase
-const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
+// Initialiser Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
 
-// Initialiser Firebase Admin
-let app;
-try {
-  if (fs.existsSync(serviceAccountPath)) {
-    const serviceAccount = require(path.resolve(serviceAccountPath));
-    app = initializeApp({
-      credential: cert(serviceAccount)
+// Créer une interface pour lire l'entrée utilisateur
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+// Fonction pour demander l'email et le mot de passe
+function promptCredentials() {
+  return new Promise((resolve) => {
+    rl.question('Email: ', (email) => {
+      rl.question('Mot de passe: ', (password) => {
+        resolve({ email, password });
+      });
     });
-  } else {
-    // Utiliser les variables d'environnement si le fichier n'existe pas
-    app = initializeApp({
-      credential: cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-      })
-    });
-  }
-} catch (error) {
-  console.error('Erreur lors de l\'initialisation de Firebase Admin:', error);
-  process.exit(1);
+  });
 }
-
-const db = getFirestore();
 
 // Fonction principale
 async function migrateTemplates() {
-  console.log('Début de la migration des templates...');
+  console.log('Authentification requise pour la migration...');
   
   try {
+    // Demander les identifiants
+    const { email, password } = await promptCredentials();
+    
+    // Se connecter à Firebase
+    console.log('Tentative de connexion...');
+    await signInWithEmailAndPassword(auth, email, password);
+    console.log('Connexion réussie!');
+    
+    console.log('Début de la migration des templates...');
+    
     // 1. Récupérer tous les templates de la collection newsletter_templates
-    const oldCollectionRef = db.collection('newsletter_templates');
-    const oldTemplatesSnapshot = await oldCollectionRef.get();
+    const oldCollectionRef = collection(db, 'newsletter_templates');
+    const oldTemplatesSnapshot = await getDocs(oldCollectionRef);
     
     console.log(`Nombre de templates dans newsletter_templates: ${oldTemplatesSnapshot.size}`);
     
@@ -57,8 +68,8 @@ async function migrateTemplates() {
     });
     
     // 2. Récupérer tous les templates de la collection newsletterTemplates
-    const newCollectionRef = db.collection('newsletterTemplates');
-    const newTemplatesSnapshot = await newCollectionRef.get();
+    const newCollectionRef = collection(db, 'newsletterTemplates');
+    const newTemplatesSnapshot = await getDocs(newCollectionRef);
     
     console.log(`Nombre de templates dans newsletterTemplates: ${newTemplatesSnapshot.size}`);
     
@@ -84,7 +95,7 @@ async function migrateTemplates() {
       
       if (!existsInNew) {
         // Créer un nouveau document avec le même ID dans la nouvelle collection
-        await newCollectionRef.doc(template.id).set(template);
+        await setDoc(doc(db, 'newsletterTemplates', template.id), template);
         console.log(`Migré: ${template.id} - ${template.name}`);
         migratedCount++;
       } else {
@@ -108,6 +119,8 @@ async function migrateTemplates() {
     
   } catch (error) {
     console.error('Erreur lors de la migration:', error);
+  } finally {
+    rl.close();
   }
 }
 
@@ -119,5 +132,6 @@ migrateTemplates()
   })
   .catch(error => {
     console.error('Erreur non gérée:', error);
+    rl.close();
     process.exit(1);
   }); 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -80,6 +80,9 @@ interface FormData {
     prenom: string
     telephone: string
     email: string
+    adresse: string
+    codePostal: string
+    ville: string
   }
   
   // Mandataire (si présent)
@@ -204,6 +207,7 @@ interface FormData {
       observations: string
     }
     equipements: Array<{
+      id: string
       nom: string
       etat: string
       observations: string
@@ -269,6 +273,24 @@ interface FormData {
   }
 }
 
+// Fonction pour créer une signature unique pour une image base64
+const getImageSignature = (base64Image: string): string => {
+  // Signature plus robuste basée sur parties de l'image
+  const startPos = Math.min(100, Math.floor(base64Image.length / 4));
+  const midPos = Math.floor(base64Image.length / 2);
+  const endPos = Math.max(0, base64Image.length - 100);
+  
+  let signature = '';
+  signature += base64Image.substring(startPos, startPos + 20);
+  if (midPos + 20 < base64Image.length) {
+    signature += '_' + base64Image.substring(midPos, midPos + 20);
+  }
+  if (endPos > 0 && endPos < base64Image.length) {
+    signature += '_' + base64Image.substring(endPos, endPos + 20);
+  }
+  return signature;
+};
+
 export function EtatDesLieuxForm({
   onRapportGenerated,
   initialData,
@@ -297,203 +319,240 @@ export function EtatDesLieuxForm({
   const [progress, setProgress] = useState(0)
   
   // État pour le formulaire
-  const [formData, setFormData] = useState<FormData>({
-    // Valeurs par défaut ou données initiales si fournies
-    typeEtatDesLieux: initialData?.typeEtatDesLieux || "entree",
-    dateEtatDesLieux: initialData?.dateEtatDesLieux || getTodayDate(),
-    dateEtat: initialData?.dateEtat || getTodayDate(),
+  const [formData, setFormData] = useState<FormData>(() => {
+    if (initialData) {
+      // Assurer que toutes les pièces ont un ID
+      const dataWithIds = { ...initialData };
+      
+      // Vérifier et ajouter des IDs aux pièces si nécessaire
+      if (dataWithIds.pieces) {
+        dataWithIds.pieces = dataWithIds.pieces.map((piece: any) => {
+          // Ajouter un ID à la pièce si manquant
+          if (!piece.id) {
+            piece.id = `piece_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+            console.log(`ID généré pour pièce existante: ${piece.id}`);
+          }
+          
+          // Ajouter des IDs aux équipements si nécessaire
+          if (piece.equipements) {
+            piece.equipements = piece.equipements.map((equip: any) => {
+              if (!equip.id) {
+                equip.id = `equip_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+                console.log(`ID généré pour équipement existant: ${equip.id}`);
+              }
+              return equip;
+            });
+          }
+          
+          return piece;
+        });
+      }
+      
+      console.log("Données initiales avec IDs:", dataWithIds);
+      return dataWithIds;
+    }
     
-    typeBien: initialData?.typeBien || [],
-    adresseBien: initialData?.adresseBien || "",
-    codePostalBien: initialData?.codePostalBien || "",
-    villeBien: initialData?.villeBien || "",
-    
-    bailleur: {
-      nom: initialData?.bailleur?.nom || "",
-      prenom: initialData?.bailleur?.prenom || "",
-      adresse: initialData?.bailleur?.adresse || "",
-      codePostal: initialData?.bailleur?.codePostal || "",
-      ville: initialData?.bailleur?.ville || "",
-      telephone: initialData?.bailleur?.telephone || "",
-      email: initialData?.bailleur?.email || "",
-    },
-    
-    locataire: {
-      nom: initialData?.locataire?.nom || "",
-      prenom: initialData?.locataire?.prenom || "",
-      telephone: initialData?.locataire?.telephone || "",
-      email: initialData?.locataire?.email || "",
-    },
-    
-    mandataire: {
-      present: initialData?.mandataire?.present || false,
-      nom: initialData?.mandataire?.nom || "",
-      adresse: initialData?.mandataire?.adresse || "",
-      telephone: initialData?.mandataire?.telephone || "",
-    },
-    
-    contrat: {
-      dateSignature: initialData?.contrat?.dateSignature || "",
-      dateEntree: initialData?.contrat?.dateEntree || "",
-      dateSortie: initialData?.contrat?.dateSortie || "",
-      dureeContrat: initialData?.contrat?.dureeContrat || "",
-      montantLoyer: initialData?.contrat?.montantLoyer || "",
-      montantCharges: initialData?.contrat?.montantCharges || "",
-      montantDepotGarantie: initialData?.contrat?.montantDepotGarantie || "",
-      typeActivite: initialData?.contrat?.typeActivite || "",
-    },
-    
-    elements: {
-      cles: {
-        nombre: initialData?.elements?.cles?.nombre || "0",
-        detail: initialData?.elements?.cles?.detail || "",
+    return {
+      // Valeurs par défaut ou données initiales si fournies
+      typeEtatDesLieux: initialData?.typeEtatDesLieux || "entree",
+      dateEtatDesLieux: initialData?.dateEtatDesLieux || getTodayDate(),
+      dateEtat: initialData?.dateEtat || getTodayDate(),
+      
+      typeBien: initialData?.typeBien || [],
+      adresseBien: initialData?.adresseBien || "",
+      codePostalBien: initialData?.codePostalBien || "",
+      villeBien: initialData?.villeBien || "",
+      
+      bailleur: {
+        nom: initialData?.bailleur?.nom || "",
+        prenom: initialData?.bailleur?.prenom || "",
+        adresse: initialData?.bailleur?.adresse || "",
+        codePostal: initialData?.bailleur?.codePostal || "",
+        ville: initialData?.bailleur?.ville || "",
+        telephone: initialData?.bailleur?.telephone || "",
+        email: initialData?.bailleur?.email || "",
       },
-      badges: {
-        nombre: initialData?.elements?.badges?.nombre || "0",
-        detail: initialData?.elements?.badges?.detail || "",
+      
+      locataire: {
+        nom: initialData?.locataire?.nom || "",
+        prenom: initialData?.locataire?.prenom || "",
+        telephone: initialData?.locataire?.telephone || "",
+        email: initialData?.locataire?.email || "",
+        adresse: initialData?.locataire?.adresse || "",
+        codePostal: initialData?.locataire?.codePostal || "",
+        ville: initialData?.locataire?.ville || "",
       },
-      telecommandes: {
-        nombre: initialData?.elements?.telecommandes?.nombre || "0",
-        detail: initialData?.elements?.telecommandes?.detail || "",
+      
+      mandataire: {
+        present: initialData?.mandataire?.present || false,
+        nom: initialData?.mandataire?.nom || "",
+        adresse: initialData?.mandataire?.adresse || "",
+        telephone: initialData?.mandataire?.telephone || "",
       },
-      documents: {
-        diagnostics: initialData?.elements?.documents?.diagnostics || false,
-        planLocaux: initialData?.elements?.documents?.planLocaux || false,
-        reglementImmeuble: initialData?.elements?.documents?.reglementImmeuble || false,
-        noticeMaintenance: initialData?.elements?.documents?.noticeMaintenance || false
+      
+      contrat: {
+        dateSignature: initialData?.contrat?.dateSignature || "",
+        dateEntree: initialData?.contrat?.dateEntree || "",
+        dateSortie: initialData?.contrat?.dateSortie || "",
+        dureeContrat: initialData?.contrat?.dureeContrat || "",
+        montantLoyer: initialData?.contrat?.montantLoyer || "",
+        montantCharges: initialData?.contrat?.montantCharges || "",
+        montantDepotGarantie: initialData?.contrat?.montantDepotGarantie || "",
+        typeActivite: initialData?.contrat?.typeActivite || "",
       },
-      autresElements: initialData?.elements?.autresElements || ""
-    },
-    
-    compteurs: {
-      eau: {
-        presence: initialData?.compteurs?.eau?.presence || false,
-        numero: initialData?.compteurs?.eau?.numero || "",
-        releve: initialData?.compteurs?.eau?.releve || "",
-        localisation: initialData?.compteurs?.eau?.localisation || "",
-        observations: initialData?.compteurs?.eau?.observations || "",
-        photos: initialData?.compteurs?.eau?.photos || [],
+      
+      elements: {
+        cles: {
+          nombre: initialData?.elements?.cles?.nombre || "0",
+          detail: initialData?.elements?.cles?.detail || "",
+        },
+        badges: {
+          nombre: initialData?.elements?.badges?.nombre || "0",
+          detail: initialData?.elements?.badges?.detail || "",
+        },
+        telecommandes: {
+          nombre: initialData?.elements?.telecommandes?.nombre || "0",
+          detail: initialData?.elements?.telecommandes?.detail || "",
+        },
+        documents: {
+          diagnostics: initialData?.elements?.documents?.diagnostics || false,
+          planLocaux: initialData?.elements?.documents?.planLocaux || false,
+          reglementImmeuble: initialData?.elements?.documents?.reglementImmeuble || false,
+          noticeMaintenance: initialData?.elements?.documents?.noticeMaintenance || false
+        },
+        autresElements: initialData?.elements?.autresElements || ""
       },
-      electricite: {
-        presence: initialData?.compteurs?.electricite?.presence || false,
-        numero: initialData?.compteurs?.electricite?.numero || "",
-        releve: initialData?.compteurs?.electricite?.releve || "",
-        puissance: initialData?.compteurs?.electricite?.puissance || "",
-        localisation: initialData?.compteurs?.electricite?.localisation || "",
-        observations: initialData?.compteurs?.electricite?.observations || "",
-        photos: initialData?.compteurs?.electricite?.photos || [],
+      
+      compteurs: {
+        eau: {
+          presence: initialData?.compteurs?.eau?.presence || false,
+          numero: initialData?.compteurs?.eau?.numero || "",
+          releve: initialData?.compteurs?.eau?.releve || "",
+          localisation: initialData?.compteurs?.eau?.localisation || "",
+          observations: initialData?.compteurs?.eau?.observations || "",
+          photos: initialData?.compteurs?.eau?.photos || [],
+        },
+        electricite: {
+          presence: initialData?.compteurs?.electricite?.presence || false,
+          numero: initialData?.compteurs?.electricite?.numero || "",
+          releve: initialData?.compteurs?.electricite?.releve || "",
+          puissance: initialData?.compteurs?.electricite?.puissance || "",
+          localisation: initialData?.compteurs?.electricite?.localisation || "",
+          observations: initialData?.compteurs?.electricite?.observations || "",
+          photos: initialData?.compteurs?.electricite?.photos || [],
+        },
+        gaz: {
+          presence: initialData?.compteurs?.gaz?.presence || false,
+          numero: initialData?.compteurs?.gaz?.numero || "",
+          releve: initialData?.compteurs?.gaz?.releve || "",
+          localisation: initialData?.compteurs?.gaz?.localisation || "",
+          observations: initialData?.compteurs?.gaz?.observations || "",
+          photos: initialData?.compteurs?.gaz?.photos || [],
+        },
       },
-      gaz: {
-        presence: initialData?.compteurs?.gaz?.presence || false,
-        numero: initialData?.compteurs?.gaz?.numero || "",
-        releve: initialData?.compteurs?.gaz?.releve || "",
-        localisation: initialData?.compteurs?.gaz?.localisation || "",
-        observations: initialData?.compteurs?.gaz?.observations || "",
-        photos: initialData?.compteurs?.gaz?.photos || [],
-      },
-    },
-    
-    pieces: initialData?.pieces || [
-      {
-        id: "1",
-        nom: "Entrée",
-        sols: {
-          nature: "",
-          etat: "",
+      
+      pieces: initialData?.pieces || [
+        {
+          id: "1",
+          nom: "Entrée",
+          sols: {
+            nature: "",
+            etat: "",
+            observations: "",
+          },
+          murs: {
+            nature: "",
+            etat: "",
+            observations: "",
+          },
+          plafonds: {
+            nature: "",
+            etat: "",
+            observations: "",
+          },
+          plinthes: {
+            nature: "",
+            etat: "",
+            observations: "",
+          },
+          fenetres: {
+            nature: "",
+            etat: "",
+            observations: "",
+          },
+          portes: {
+            nature: "",
+            etat: "",
+            observations: "",
+          },
+          chauffage: {
+            nature: "",
+            etat: "",
+            observations: "",
+          },
+          prises: {
+            nombre: "0",
+            etat: "",
+            observations: "",
+          },
+          interrupteurs: {
+            nombre: "0",
+            etat: "",
+            observations: "",
+          },
+          equipements: [],
+          photos: [],
           observations: "",
         },
-        murs: {
-          nature: "",
-          etat: "",
-          observations: "",
+      ],
+      
+      exterieur: {
+        jardin: {
+          presence: initialData?.exterieur?.jardin?.presence || false,
+          etat: initialData?.exterieur?.jardin?.etat || "",
+          observations: initialData?.exterieur?.jardin?.observations || "",
+          photos: initialData?.exterieur?.jardin?.photos || [],
         },
-        plafonds: {
-          nature: "",
-          etat: "",
-          observations: "",
+        terrasse: {
+          presence: initialData?.exterieur?.terrasse?.presence || false,
+          etat: initialData?.exterieur?.terrasse?.etat || "",
+          observations: initialData?.exterieur?.terrasse?.observations || "",
+          photos: initialData?.exterieur?.terrasse?.photos || [],
         },
-        plinthes: {
-          nature: "",
-          etat: "",
-          observations: "",
+        balcon: {
+          presence: initialData?.exterieur?.balcon?.presence || false,
+          etat: initialData?.exterieur?.balcon?.etat || "",
+          observations: initialData?.exterieur?.balcon?.observations || "",
+          photos: initialData?.exterieur?.balcon?.photos || [],
         },
-        fenetres: {
-          nature: "",
-          etat: "",
-          observations: "",
+        garage: {
+          presence: initialData?.exterieur?.garage?.presence || false,
+          etat: initialData?.exterieur?.garage?.etat || "",
+          observations: initialData?.exterieur?.garage?.observations || "",
+          photos: initialData?.exterieur?.garage?.photos || [],
         },
-        portes: {
-          nature: "",
-          etat: "",
-          observations: "",
+        parking: {
+          presence: initialData?.exterieur?.parking?.presence || false,
+          etat: initialData?.exterieur?.parking?.etat || "",
+          observations: initialData?.exterieur?.parking?.observations || "",
+          photos: initialData?.exterieur?.parking?.photos || [],
         },
-        chauffage: {
-          nature: "",
-          etat: "",
-          observations: "",
+        cave: {
+          presence: initialData?.exterieur?.cave?.presence || false,
+          etat: initialData?.exterieur?.cave?.etat || "",
+          observations: initialData?.exterieur?.cave?.observations || "",
+          photos: initialData?.exterieur?.cave?.photos || [],
         },
-        prises: {
-          nombre: "0",
-          etat: "",
-          observations: "",
-        },
-        interrupteurs: {
-          nombre: "0",
-          etat: "",
-          observations: "",
-        },
-        equipements: [],
-        photos: [],
-        observations: "",
       },
-    ],
-    
-    exterieur: {
-      jardin: {
-        presence: initialData?.exterieur?.jardin?.presence || false,
-        etat: initialData?.exterieur?.jardin?.etat || "",
-        observations: initialData?.exterieur?.jardin?.observations || "",
-        photos: initialData?.exterieur?.jardin?.photos || [],
+      
+      observationsGenerales: initialData?.observationsGenerales || "",
+      
+      signatures: {
+        bailleur: initialData?.signatures?.bailleur || false,
+        locataire: initialData?.signatures?.locataire || false,
+        mandataire: initialData?.signatures?.mandataire || false,
       },
-      terrasse: {
-        presence: initialData?.exterieur?.terrasse?.presence || false,
-        etat: initialData?.exterieur?.terrasse?.etat || "",
-        observations: initialData?.exterieur?.terrasse?.observations || "",
-        photos: initialData?.exterieur?.terrasse?.photos || [],
-      },
-      balcon: {
-        presence: initialData?.exterieur?.balcon?.presence || false,
-        etat: initialData?.exterieur?.balcon?.etat || "",
-        observations: initialData?.exterieur?.balcon?.observations || "",
-        photos: initialData?.exterieur?.balcon?.photos || [],
-      },
-      garage: {
-        presence: initialData?.exterieur?.garage?.presence || false,
-        etat: initialData?.exterieur?.garage?.etat || "",
-        observations: initialData?.exterieur?.garage?.observations || "",
-        photos: initialData?.exterieur?.garage?.photos || [],
-      },
-      parking: {
-        presence: initialData?.exterieur?.parking?.presence || false,
-        etat: initialData?.exterieur?.parking?.etat || "",
-        observations: initialData?.exterieur?.parking?.observations || "",
-        photos: initialData?.exterieur?.parking?.photos || [],
-      },
-      cave: {
-        presence: initialData?.exterieur?.cave?.presence || false,
-        etat: initialData?.exterieur?.cave?.etat || "",
-        observations: initialData?.exterieur?.cave?.observations || "",
-        photos: initialData?.exterieur?.cave?.photos || [],
-      },
-    },
-    
-    observationsGenerales: initialData?.observationsGenerales || "",
-    
-    signatures: {
-      bailleur: initialData?.signatures?.bailleur || false,
-      locataire: initialData?.signatures?.locataire || false,
-      mandataire: initialData?.signatures?.mandataire || false,
-    },
+    }
   })
   
   // Toast pour les notifications
@@ -577,9 +636,31 @@ export function EtatDesLieuxForm({
     });
   };
   
-  // Gérer l'ajout d'une photo
+  // Variable pour suivre les opérations d'upload en cours
+  const uploadsInProgress = useRef<Record<string, boolean>>({});
+  
+  // Cache des signatures d'images pour éviter les doublons
+  const imageSignatureCache = useRef<Record<string, Set<string>>>({});
+
   const handlePhotoUpload = (fieldPath: string, e?: React.ChangeEvent<HTMLInputElement>) => {
     console.log("handlePhotoUpload appelé - début", fieldPath);
+    
+    // Fonction interne pour générer une signature unique d'image
+    const getImageSignature = (base64Image: string): string => {
+      const startPos = Math.min(100, Math.floor(base64Image.length / 4));
+      const midPos = Math.floor(base64Image.length / 2);
+      const endPos = Math.max(0, base64Image.length - 100);
+      
+      let signature = '';
+      signature += base64Image.substring(startPos, startPos + 20);
+      if (midPos + 20 < base64Image.length) {
+        signature += '_' + base64Image.substring(midPos, midPos + 20);
+      }
+      if (endPos > 0 && endPos < base64Image.length) {
+        signature += '_' + base64Image.substring(endPos, endPos + 20);
+      }
+      return signature;
+    };
     
     // Si aucun événement n'est fourni, créer un input file caché et le déclencher
     if (!e) {
@@ -608,12 +689,52 @@ export function EtatDesLieuxForm({
     }
     
     if (e && e.target.files && e.target.files.length > 0) {
+      // Vérifier si un upload est déjà en cours pour ce champ
+      if (uploadsInProgress.current[fieldPath]) {
+        console.log(`Upload déjà en cours pour ${fieldPath}, annulation pour éviter les doublons`);
+        return;
+      }
+      
+      // Marquer cet upload comme en cours
+      uploadsInProgress.current[fieldPath] = true;
+      
+      // Initialiser le cache des signatures pour ce champ s'il n'existe pas
+      if (!imageSignatureCache.current[fieldPath]) {
+        imageSignatureCache.current[fieldPath] = new Set<string>();
+      }
+      
       const files = Array.from(e.target.files);
       console.log(`${files.length} fichier(s) sélectionné(s)`);
       
+      // Vérifier l'état actuel du tableau de photos
+      const paths = fieldPath.split('.');
+      let currentPhotos: any[] = [];
+      let current = { ...formData } as any;
+      
+      for (let i = 0; i < paths.length; i++) {
+        if (i === paths.length - 1) {
+          // S'assurer que le champ est un tableau
+          if (!Array.isArray(current[paths[i]])) {
+            current[paths[i]] = [];
+          }
+          currentPhotos = current[paths[i]];
+        } else {
+          if (!current[paths[i]]) {
+            current[paths[i]] = {};
+          }
+          current = current[paths[i]];
+        }
+      }
+      
+      console.log(`État actuel du tableau de photos (${fieldPath}):`, currentPhotos);
+      console.log(`Nombre de photos avant ajout: ${currentPhotos.length}`);
+      
+      // Créer un tableau pour stocker toutes les promesses de traitement d'images
+      const imageProcessingPromises: Promise<string | null>[] = [];
+      
       // Traiter chaque fichier
       files.forEach(file => {
-        console.log(`Traitement du fichier: ${file.name}, taille: ${file.size}`);
+        console.log(`Traitement du fichier: ${file.name}, taille: ${file.size}, type: ${file.type}`);
         
         // Vérifier la taille du fichier (max 5Mo)
         if (file.size > 5 * 1024 * 1024) {
@@ -625,59 +746,271 @@ export function EtatDesLieuxForm({
           return; // Passer au fichier suivant
         }
         
-        // Créer un URL pour la prévisualisation
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (event.target && event.target.result) {
-            const imageData = event.target.result;
-            console.log(`Image ${file.name} lue avec succès, taille des données: ${typeof imageData === 'string' ? imageData.length : 'non-string'}`);
-            
-            // Mettre à jour le chemin spécifié avec la nouvelle photo
-            setFormData((prevData) => {
-              const newData = { ...prevData };
-              const paths = fieldPath.split('.');
-              let current: any = newData;
-              
-              // Naviguer jusqu'à l'objet parent du champ à mettre à jour
-              for (let i = 0; i < paths.length - 1; i++) {
-                if (!current[paths[i]]) {
-                  current[paths[i]] = {};
+        // Vérifier que le type de fichier est une image
+        if (!file.type.startsWith('image/')) {
+          toast({
+            title: "Type de fichier non supporté",
+            description: `Le fichier ${file.name} n'est pas une image (type: ${file.type})`,
+            variant: "destructive",
+          });
+          return; // Passer au fichier suivant
+        }
+        
+        // Créer une promesse pour le traitement de cette image
+        const processPromise = new Promise<string | null>((resolve) => {
+          // Compresser l'image
+          compressImage(file).then(compressedFile => {
+            // Créer un URL pour la prévisualisation
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              if (event.target && event.target.result) {
+                const imageData = event.target.result;
+                console.log(`Image ${file.name} lue avec succès, taille des données: ${typeof imageData === 'string' ? imageData.length : 'non-string'}`);
+                
+                // Vérifier que les données sont au format base64
+                if (typeof imageData !== 'string' || !imageData.startsWith('data:')) {
+                  console.error(`Image ${file.name} n'est pas au format base64 valide`);
+                  toast({
+                    title: "Erreur de format",
+                    description: `Impossible de traiter l'image ${file.name}`,
+                    variant: "destructive",
+                  });
+                  resolve(null);
+                  return;
                 }
-                current = current[paths[i]];
-              }
-              
-              // Ajouter la photo au tableau
-              if (!Array.isArray(current[paths[paths.length - 1]])) {
-                current[paths[paths.length - 1]] = [];
-              }
-              
-              // Vérifier si l'image existe déjà pour éviter les doublons
-              const photoArray = current[paths[paths.length - 1]];
-              const imageExists = photoArray.some((existingPhoto: any) => {
-                if (typeof existingPhoto === 'string' && typeof imageData === 'string') {
-                  // Comparer les 100 premiers caractères pour une vérification rapide
-                  return existingPhoto.substring(0, 100) === imageData.substring(0, 100);
-                }
-                return false;
-              });
-              
-              if (!imageExists) {
-                console.log(`Ajout de l'image au tableau, nouvelle longueur: ${photoArray.length + 1}`);
-                photoArray.push(imageData);
+                
+                // Résoudre avec les données de l'image
+                resolve(imageData as string);
               } else {
-                console.log(`Image ignorée car elle existe déjà dans le tableau`);
+                console.error(`Échec de lecture de l'image ${file.name}`);
+                resolve(null);
               }
-              
-              return newData;
+            };
+            reader.onerror = () => {
+              console.error(`Erreur lors de la lecture de l'image ${file.name}`);
+              resolve(null);
+            };
+            reader.readAsDataURL(compressedFile);
+          }).catch(error => {
+            console.error(`Erreur lors de la compression de l'image ${file.name}:`, error);
+            toast({
+              title: "Erreur de compression",
+              description: `Impossible de compresser l'image ${file.name}`,
+              variant: "destructive",
             });
-          }
-        };
-        reader.readAsDataURL(file);
+            resolve(null);
+          });
+        });
+        
+        // Ajouter la promesse au tableau
+        imageProcessingPromises.push(processPromise);
       });
+      
+      // Attendre que toutes les images soient traitées
+      Promise.all(imageProcessingPromises)
+        .then((results) => {
+          // S'assurer que l'upload est toujours en cours pour ce champ
+          if (!uploadsInProgress.current[fieldPath]) {
+            console.log(`Upload pour ${fieldPath} a été annulé entre-temps, arrêt du traitement`);
+            return;
+          }
+          
+          // Filtrer les résultats pour ne garder que les images valides
+          const validImages = results.filter((img): img is string => img !== null);
+          console.log(`${validImages.length} images valides sur ${results.length} traitées`);
+          
+          if (validImages.length === 0) {
+            console.log("Aucune image valide à ajouter");
+            // Libérer le marqueur d'upload
+            uploadsInProgress.current[fieldPath] = false;
+            return;
+          }
+          
+          // Filtrer les doublons basés sur les signatures
+          const uniqueImages: string[] = [];
+          validImages.forEach(imageData => {
+            const signature = getImageSignature(imageData);
+            if (!imageSignatureCache.current[fieldPath].has(signature)) {
+              imageSignatureCache.current[fieldPath].add(signature);
+              uniqueImages.push(imageData);
+            } else {
+              console.log("Image dupliquée détectée et ignorée (signature déjà présente)");
+            }
+          });
+          
+          console.log(`${uniqueImages.length} nouvelles images uniques sur ${validImages.length} traitées`);
+          
+          if (uniqueImages.length === 0) {
+            console.log("Toutes les images sont des doublons, rien à ajouter");
+            uploadsInProgress.current[fieldPath] = false;
+            return;
+          }
+          
+          // Mise à jour en une seule opération avec vérification supplémentaire
+          setFormData(prevData => {
+            const newData = { ...prevData };
+            let current = newData as any;
+            
+            // Naviguer jusqu'au tableau de photos
+            const paths = fieldPath.split('.');
+            for (let i = 0; i < paths.length - 1; i++) {
+              if (!current[paths[i]]) {
+                current[paths[i]] = {};
+              }
+              current = current[paths[i]];
+            }
+            
+            // S'assurer que le champ est un tableau
+            const lastPath = paths[paths.length - 1];
+            if (!Array.isArray(current[lastPath])) {
+              current[lastPath] = [];
+            }
+            
+            // Récupérer le tableau actuel de photos
+            const currentArray = current[lastPath];
+            console.log(`Tableau de photos avant ajout: ${currentArray.length} éléments`);
+            
+            // PROTECTION FINALE CONTRE LA DUPLICATION:
+            // Vérifier si la dernière image que nous allons ajouter existe déjà
+            // Cela détecte si cet ajout a déjà été fait lors d'un rendu précédent
+            const lastImageToAdd = uniqueImages[uniqueImages.length - 1];
+            const lastImageSignature = getImageSignature(lastImageToAdd);
+            
+            // Vérifier si l'image existe déjà dans le tableau actuel
+            const imageExists = currentArray.some((existingPhoto: any) => {
+              if (typeof existingPhoto === 'string') {
+                return getImageSignature(existingPhoto) === lastImageSignature;
+              }
+              return false;
+            });
+            
+            if (imageExists) {
+              console.log("Dernier lot d'images déjà présent dans le tableau, annulation pour éviter les doublons");
+              return prevData; // Retourner l'état précédent sans modification
+            }
+            
+            // Ajouter toutes les nouvelles images
+            uniqueImages.forEach(img => {
+              currentArray.push(img);
+            });
+            
+            console.log(`${uniqueImages.length} nouvelles images ajoutées, tableau final: ${currentArray.length} éléments`);
+            
+            // Après avoir effectué la mise à jour, supprimer le marqueur d'upload
+            setTimeout(() => {
+              uploadsInProgress.current[fieldPath] = false;
+              console.log(`Upload terminé pour ${fieldPath}, marqueur supprimé`);
+            }, 1000);
+            
+            toast({
+              title: "Images ajoutées",
+              description: `${uniqueImages.length} image(s) ajoutée(s) avec succès`,
+              variant: "default",
+            });
+            
+            return newData;
+          });
+        })
+        .catch(error => {
+          // En cas d'erreur, supprimer également le marqueur d'upload
+          uploadsInProgress.current[fieldPath] = false;
+          console.error("Erreur lors du traitement des images:", error);
+          toast({
+            title: "Erreur",
+            description: "Une erreur est survenue lors du traitement des images",
+            variant: "destructive",
+          });
+        });
     }
     
     console.log("handlePhotoUpload appelé - fin");
   }
+  
+  // Fonction pour compresser une image
+  const compressImage = async (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (!event.target || !event.target.result) {
+          reject(new Error("Échec de la lecture du fichier"));
+          return;
+        }
+
+        // Utiliser l'objet Image natif du navigateur au lieu de l'importation Next.js
+        const img = document.createElement('img');
+        img.onload = () => {
+          // Calculer les dimensions pour la compression
+          let width = img.width;
+          let height = img.height;
+          const maxDimension = 1200; // Dimension maximale pour l'image
+
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          // Créer un canvas pour la compression
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) {
+            reject(new Error("Impossible de créer le contexte du canvas"));
+            return;
+          }
+          
+          // Dessiner l'image sur le canvas
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Convertir en blob avec compression
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error("Échec de la conversion en blob"));
+                return;
+              }
+              
+              // Vérifier que le blob est valide
+              if (blob.size === 0) {
+                console.error("Blob de taille nulle généré");
+                reject(new Error("Image compressée invalide (taille nulle)"));
+                return;
+              }
+              
+              // Ajouter des informations de débogage
+              console.log(`Image compressée avec succès: ${width}x${height}, taille: ${blob.size} octets, type: ${blob.type}`);
+              
+              resolve(blob);
+            },
+            'image/jpeg',
+            0.8 // Qualité de compression légèrement augmentée (0.8 = 80%)
+          );
+        };
+        
+        img.onerror = (error) => {
+          console.error("Erreur lors du chargement de l'image:", error);
+          reject(new Error("Échec du chargement de l'image"));
+        };
+        
+        // S'assurer que la source est une chaîne
+        const imgSrc = event.target.result.toString();
+        img.src = imgSrc;
+      };
+      
+      reader.onerror = (error) => {
+        console.error("Erreur lors de la lecture du fichier:", error);
+        reject(new Error("Échec de la lecture du fichier"));
+      };
+      
+      reader.readAsDataURL(file);
+    });
+  };
   
   // Gérer la suppression d'une photo
   const handleRemovePhoto = (fieldPath: string, index: number) => {
@@ -705,58 +1038,84 @@ export function EtatDesLieuxForm({
     });
   };
   
-  // Ajouter une référence pour suivre l'état d'ajout de pièce
-  const isAddingRoomRef = useRef(false);
+  // Ajouter un état pour suivre si une action est en cours
+  const [isAddingRoom, setIsAddingRoom] = useState(false);
+  const [isAddingEquipment, setIsAddingEquipment] = useState<Record<number, boolean>>({});
   
   // Gérer l'ajout d'une pièce
   const handleAddRoom = () => {
     console.log("handleAddRoom appelé - début");
     
     // Vérifier si un ajout est déjà en cours
-    if (isAddingRoomRef.current) {
+    if (isAddingRoom) {
       console.log("Ajout de pièce déjà en cours, annulation");
       return;
     }
     
-    // Marquer qu'un ajout est en cours
-    isAddingRoomRef.current = true;
+    // Marquer l'ajout comme en cours
+    setIsAddingRoom(true);
+    console.log("Marquage de l'ajout de pièce comme en cours");
     
-    // Ajouter un ID unique basé sur timestamp pour éviter les doublons
-    const uniqueId = Date.now().toString();
-    console.log(`Génération d'un ID unique pour la pièce: ${uniqueId}`);
-    
-    setFormData((prevData) => {
-      console.log(`Pièces avant ajout: ${prevData.pieces.length}`);
-      const newData = { ...prevData };
-      
-      newData.pieces.push({
-        id: uniqueId,
-        nom: `Pièce ${newData.pieces.length + 1}`,
-        sols: { nature: "", etat: "", observations: "" },
-        murs: { nature: "", etat: "", observations: "" },
-        plafonds: { nature: "", etat: "", observations: "" },
-        plinthes: { nature: "", etat: "", observations: "" },
-        fenetres: { nature: "", etat: "", observations: "" },
-        portes: { nature: "", etat: "", observations: "" },
-        chauffage: { nature: "", etat: "", observations: "" },
-        prises: { nombre: "0", etat: "", observations: "" },
-        interrupteurs: { nombre: "0", etat: "", observations: "" },
-        equipements: [],
-        photos: [],
-        observations: "",
+    // Délai pour éviter les doubles appels en mode strict
+    setTimeout(() => {
+      // Ajouter la pièce une seule fois avec dé-doublonnage
+      setFormData((prevData) => {
+        console.log(`Pièces avant ajout: ${prevData.pieces.length}`);
+        
+        // Protection contre les doubles appels
+        const initialPieceCount = prevData.pieces.length;
+        const lastPieceAddTime = prevData.pieces.length > 0 
+          ? Number(prevData.pieces[prevData.pieces.length - 1]?.id?.split('_')[1] || 0) 
+          : 0;
+          
+        // Si la dernière pièce a été ajoutée il y a moins de 500ms, ne rien faire
+        if (Date.now() - lastPieceAddTime < 500) {
+          console.log("Double appel détecté, annulation");
+          setIsAddingRoom(false);
+          return prevData;
+        }
+        
+        const newData = { ...prevData };
+        
+        // Générer un ID unique pour la nouvelle pièce avec plus de précision
+        const timestamp = Date.now();
+        const randomSuffix = Math.floor(Math.random() * 10000);
+        const uniqueId = `piece_${timestamp}_${randomSuffix}`;
+        
+        console.log(`Nouvel ID généré: ${uniqueId}`);
+        
+        newData.pieces.push({
+          id: uniqueId,
+          nom: `Pièce ${newData.pieces.length + 1}`,
+          sols: { nature: "", etat: "", observations: "" },
+          murs: { nature: "", etat: "", observations: "" },
+          plafonds: { nature: "", etat: "", observations: "" },
+          plinthes: { nature: "", etat: "", observations: "" },
+          fenetres: { nature: "", etat: "", observations: "" },
+          portes: { nature: "", etat: "", observations: "" },
+          chauffage: { nature: "", etat: "", observations: "" },
+          prises: { nombre: "0", etat: "", observations: "" },
+          interrupteurs: { nombre: "0", etat: "", observations: "" },
+          equipements: [],
+          photos: [],
+          observations: "",
+        });
+        
+        console.log(`Pièces après ajout: ${newData.pieces.length}`);
+        
+        // Vérifier qu'une seule pièce a été ajoutée
+        if (newData.pieces.length !== initialPieceCount + 1) {
+          console.warn(`Anomalie détectée: ${newData.pieces.length - initialPieceCount} pièces ajoutées au lieu de 1`);
+        }
+        
+        // Réinitialiser l'état après l'ajout
+        setIsAddingRoom(false);
+        
+        return newData;
       });
       
-      console.log(`Pièces après ajout: ${newData.pieces.length}`);
-      return newData;
-    });
-    
-    // Réinitialiser l'état après un délai
-    setTimeout(() => {
-      isAddingRoomRef.current = false;
-      console.log("Flag isAddingRoom réinitialisé");
-    }, 500);
-    
-    console.log("handleAddRoom appelé - fin");
+      console.log("handleAddRoom appelé - fin");
+    }, 0); // délai minimal pour échapper au double rendu
   };
   
   // Gérer la suppression d'une pièce
@@ -770,26 +1129,93 @@ export function EtatDesLieuxForm({
     })
   }
   
+  // Ajouter un objet pour suivre les verrous d'ajout d'équipement par pièce
+  // const equipmentLocks = useRef<Record<string, boolean>>({});
+  
   // Gérer l'ajout d'un équipement à une pièce
   const handleAddEquipment = (pieceIndex: number) => {
-    setFormData((prevData) => {
-      const newData = { ...prevData }
-      newData.pieces[pieceIndex].equipements.push({
-        nom: "",
-        etat: "",
-        observations: "",
-      })
-      return newData
-    })
-  }
+    console.log("handleAddEquipment appelé - début", pieceIndex);
+    
+    // Vérifier si un ajout est déjà en cours pour cette pièce
+    if (isAddingEquipment[pieceIndex]) {
+      console.log(`Ajout d'équipement déjà en cours pour la pièce ${pieceIndex}, annulation`);
+      return;
+    }
+    
+    // Marquer l'ajout comme en cours pour cette pièce
+    setIsAddingEquipment(prev => ({
+      ...prev,
+      [pieceIndex]: true
+    }));
+    console.log(`Marquage de l'ajout d'équipement comme en cours pour la pièce ${pieceIndex}`);
+    
+    // Délai pour éviter les doubles appels en mode strict
+    setTimeout(() => {
+      // Ajouter l'équipement une seule fois avec dé-doublonnage
+      setFormData((prevData) => {
+        console.log(`Équipements avant ajout: ${prevData.pieces[pieceIndex].equipements.length}`);
+        
+        // Protection contre les doubles appels
+        const initialEquipCount = prevData.pieces[pieceIndex].equipements.length;
+        const lastEquipAddTime = initialEquipCount > 0 
+          ? Number(prevData.pieces[pieceIndex].equipements[initialEquipCount - 1]?.id?.split('_')[1] || 0) 
+          : 0;
+          
+        // Si le dernier équipement a été ajouté il y a moins de 500ms, ne rien faire
+        if (Date.now() - lastEquipAddTime < 500) {
+          console.log("Double appel détecté, annulation");
+          setIsAddingEquipment(prev => ({
+            ...prev,
+            [pieceIndex]: false
+          }));
+          return prevData;
+        }
+        
+        const newData = { ...prevData };
+        
+        // Générer un ID unique pour le nouvel équipement
+        const timestamp = Date.now();
+        const randomSuffix = Math.floor(Math.random() * 10000);
+        const uniqueId = `equip_${timestamp}_${randomSuffix}`;
+        
+        console.log(`Nouvel ID d'équipement généré: ${uniqueId}`);
+        
+        newData.pieces[pieceIndex].equipements.push({
+          id: uniqueId,
+          nom: "",
+          etat: "",
+          observations: "",
+        });
+        
+        console.log(`Équipements après ajout: ${newData.pieces[pieceIndex].equipements.length}`);
+        
+        // Vérifier qu'un seul équipement a été ajouté
+        if (newData.pieces[pieceIndex].equipements.length !== initialEquipCount + 1) {
+          console.warn(`Anomalie détectée: ${newData.pieces[pieceIndex].equipements.length - initialEquipCount} équipements ajoutés au lieu de 1`);
+        }
+        
+        // Réinitialiser l'état après l'ajout
+        setIsAddingEquipment(prev => ({
+          ...prev,
+          [pieceIndex]: false
+        }));
+        
+        return newData;
+      });
+      
+      console.log("handleAddEquipment appelé - fin");
+    }, 0); // délai minimal pour échapper au double rendu
+  };
   
   // Gérer la suppression d'un équipement
   const handleRemoveEquipment = (pieceIndex: number, equipmentIndex: number) => {
+    console.log(`handleRemoveEquipment appelé - pieceIndex: ${pieceIndex}, equipmentIndex: ${equipmentIndex}`);
     setFormData((prevData) => {
-      const newData = { ...prevData }
-      newData.pieces[pieceIndex].equipements.splice(equipmentIndex, 1)
-      return newData
-    })
+      const newData = { ...prevData };
+      newData.pieces[pieceIndex].equipements.splice(equipmentIndex, 1);
+      console.log(`Équipement supprimé, nombre restant: ${newData.pieces[pieceIndex].equipements.length}`);
+      return newData;
+    });
   }
   
   // Gérer l'ouverture/fermeture d'une section
@@ -1262,6 +1688,55 @@ export function EtatDesLieuxForm({
                         onChange={handleInputChange}
                         className="w-full text-base"
                         placeholder="Adresse email"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="locataire.adresse" className="text-base font-medium">
+                        Adresse
+                      </Label>
+                      <Input
+                        type="text"
+                        id="locataire.adresse"
+                        name="locataire.adresse"
+                        value={formData.locataire.adresse}
+                        onChange={handleInputChange}
+                        className="w-full text-base"
+                        placeholder="Adresse du locataire"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="locataire.codePostal" className="text-base font-medium">
+                        Code postal
+                      </Label>
+                      <Input
+                        type="text"
+                        id="locataire.codePostal"
+                        name="locataire.codePostal"
+                        value={formData.locataire.codePostal}
+                        onChange={handleInputChange}
+                        className="w-full text-base"
+                        placeholder="Code postal"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="locataire.ville" className="text-base font-medium">
+                        Ville
+                      </Label>
+                      <Input
+                        type="text"
+                        id="locataire.ville"
+                        name="locataire.ville"
+                        value={formData.locataire.ville}
+                        onChange={handleInputChange}
+                        className="w-full text-base"
+                        placeholder="Ville"
                       />
                     </div>
                   </div>
@@ -1769,13 +2244,13 @@ export function EtatDesLieuxForm({
                         />
                       </div>
                       
-                      <div className="space-y-2">
+                      <div className="space-y-2 mt-4">
                         <Label className="text-base font-medium">
                           Photos du compteur
                         </Label>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                           {formData.compteurs.electricite.photos.map((photo, index) => (
-                            <div key={`elec-photo-${index}`} className="relative">
+                            <div key={`electricite-photo-${index}`} className="relative">
                               <Image
                                 src={
                                   typeof photo === 'string' 
@@ -1783,17 +2258,9 @@ export function EtatDesLieuxForm({
                                     : ((photo as any)?.type === 'base64_metadata' || (photo as any)?.type === 'file_metadata') 
                                       ? ((photo as any)?.downloadUrl 
                                         ? (photo as any).downloadUrl 
-                                        : (photo as any)?.source 
-                                          ? `${(photo as any).source}...`
+                                        : (photo as any)?.preview 
+                                          ? (photo as any).preview
                                           : PLACEHOLDER_IMAGE)
-                                      : (photo && typeof photo === 'object')
-                                        ? ((photo as any)?.downloadUrl
-                                          ? (photo as any).downloadUrl
-                                          : (photo as any)?.url
-                                            ? (photo as any).url
-                                            : (photo as any)?.preview
-                                              ? (photo as any).preview
-                                              : PLACEHOLDER_IMAGE)
                                         : PLACEHOLDER_IMAGE
                                 }
                                 alt={`Photo ${index + 1}`}
@@ -1842,15 +2309,23 @@ export function EtatDesLieuxForm({
                               </button>
                             </div>
                           ))}
+                          {/* Bouton d'ajout de photo toujours visible */}
                           <div className="flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md w-full h-24">
-                            <button
-                              type="button"
-                              className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-gray-700"
-                              onClick={() => handlePhotoUpload('compteurs.electricite.photos')}
-                            >
+                            <label className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-gray-700 cursor-pointer">
                               <Camera className="h-8 w-8 mb-1" />
                               <span className="text-xs">Ajouter</span>
-                            </button>
+                              <input
+                                type="file"
+                                className="hidden"
+                                accept="image/*"
+                                multiple
+                                onChange={(e) => {
+                                  if (e.target.files && e.target.files.length > 0) {
+                                    handlePhotoUpload('compteurs.electricite.photos', e);
+                                  }
+                                }}
+                              />
+                            </label>
                           </div>
                         </div>
                       </div>
@@ -1937,7 +2412,7 @@ export function EtatDesLieuxForm({
                         />
                       </div>
                       
-                      <div className="space-y-2">
+                      <div className="space-y-2 mt-4">
                         <Label className="text-base font-medium">
                           Photos du compteur
                         </Label>
@@ -1951,10 +2426,10 @@ export function EtatDesLieuxForm({
                                     : ((photo as any)?.type === 'base64_metadata' || (photo as any)?.type === 'file_metadata') 
                                       ? ((photo as any)?.downloadUrl 
                                         ? (photo as any).downloadUrl 
-                                        : (photo as any)?.source 
-                                          ? `${(photo as any).source}...`
+                                        : (photo as any)?.preview 
+                                          ? (photo as any).preview
                                           : PLACEHOLDER_IMAGE)
-                                      : PLACEHOLDER_IMAGE
+                                        : PLACEHOLDER_IMAGE
                                 }
                                 alt={`Photo ${index + 1}`}
                                 width={120}
@@ -1963,10 +2438,30 @@ export function EtatDesLieuxForm({
                                 unoptimized={true}
                                 onError={(e) => {
                                   console.log(`Erreur de chargement pour la photo ${index} :`, photo);
-                                  if (typeof photo === 'object' && (photo as any)?.downloadUrl) {
-                                    console.log(`Tentative de rechargement avec l'URL directe: ${(photo as any).downloadUrl}`);
-                                    // Réessayer avec l'URL directe en cas d'échec
-                                    (e.target as HTMLImageElement).src = (photo as any).downloadUrl;
+                                  if (typeof photo === 'object' && photo !== null) {
+                                    // Essayer toutes les propriétés possibles qui pourraient contenir une URL
+                                    const possibleUrls = [
+                                      (photo as any).downloadUrl,
+                                      (photo as any).url,
+                                      (photo as any).fullUrl,
+                                      (photo as any).preview,
+                                      (photo as any).src,
+                                      (photo as any).path
+                                    ];
+                                    
+                                    // Trouver la première URL valide
+                                    const validUrl = possibleUrls.find(url => 
+                                      url && typeof url === 'string' && 
+                                      (url.startsWith('http') || url.startsWith('data:'))
+                                    );
+                                    
+                                    if (validUrl) {
+                                      console.log(`Tentative de rechargement avec URL alternative: ${validUrl.substring(0, 30)}...`);
+                                      (e.target as HTMLImageElement).src = validUrl;
+                                    } else {
+                                      console.log("Aucune URL valide trouvée dans l'objet photo");
+                                      (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
+                                    }
                                   } else {
                                     // Fallback sur une image par défaut
                                     (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
@@ -1982,15 +2477,23 @@ export function EtatDesLieuxForm({
                               </button>
                             </div>
                           ))}
+                          {/* Bouton d'ajout de photo toujours visible */}
                           <div className="flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md w-full h-24">
-                            <button
-                              type="button"
-                              className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-gray-700"
-                              onClick={() => handlePhotoUpload('compteurs.eau.photos')}
-                            >
+                            <label className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-gray-700 cursor-pointer">
                               <Camera className="h-8 w-8 mb-1" />
                               <span className="text-xs">Ajouter</span>
-                            </button>
+                              <input
+                                type="file"
+                                className="hidden"
+                                accept="image/*"
+                                multiple
+                                onChange={(e) => {
+                                  if (e.target.files && e.target.files.length > 0) {
+                                    handlePhotoUpload('compteurs.eau.photos', e);
+                                  }
+                                }}
+                              />
+                            </label>
                           </div>
                         </div>
                       </div>
@@ -2077,7 +2580,7 @@ export function EtatDesLieuxForm({
                         />
                       </div>
                       
-                      <div className="space-y-2">
+                      <div className="space-y-2 mt-4">
                         <Label className="text-base font-medium">
                           Photos du compteur
                         </Label>
@@ -2091,10 +2594,10 @@ export function EtatDesLieuxForm({
                                     : ((photo as any)?.type === 'base64_metadata' || (photo as any)?.type === 'file_metadata') 
                                       ? ((photo as any)?.downloadUrl 
                                         ? (photo as any).downloadUrl 
-                                        : (photo as any)?.source 
-                                          ? `${(photo as any).source}...`
+                                        : (photo as any)?.preview 
+                                          ? (photo as any).preview
                                           : PLACEHOLDER_IMAGE)
-                                      : PLACEHOLDER_IMAGE
+                                        : PLACEHOLDER_IMAGE
                                 }
                                 alt={`Photo ${index + 1}`}
                                 width={120}
@@ -2103,10 +2606,30 @@ export function EtatDesLieuxForm({
                                 unoptimized={true}
                                 onError={(e) => {
                                   console.log(`Erreur de chargement pour la photo ${index} :`, photo);
-                                  if (typeof photo === 'object' && (photo as any)?.downloadUrl) {
-                                    console.log(`Tentative de rechargement avec l'URL directe: ${(photo as any).downloadUrl}`);
-                                    // Réessayer avec l'URL directe en cas d'échec
-                                    (e.target as HTMLImageElement).src = (photo as any).downloadUrl;
+                                  if (typeof photo === 'object' && photo !== null) {
+                                    // Essayer toutes les propriétés possibles qui pourraient contenir une URL
+                                    const possibleUrls = [
+                                      (photo as any).downloadUrl,
+                                      (photo as any).url,
+                                      (photo as any).fullUrl,
+                                      (photo as any).preview,
+                                      (photo as any).src,
+                                      (photo as any).path
+                                    ];
+                                    
+                                    // Trouver la première URL valide
+                                    const validUrl = possibleUrls.find(url => 
+                                      url && typeof url === 'string' && 
+                                      (url.startsWith('http') || url.startsWith('data:'))
+                                    );
+                                    
+                                    if (validUrl) {
+                                      console.log(`Tentative de rechargement avec URL alternative: ${validUrl.substring(0, 30)}...`);
+                                      (e.target as HTMLImageElement).src = validUrl;
+                                    } else {
+                                      console.log("Aucune URL valide trouvée dans l'objet photo");
+                                      (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
+                                    }
                                   } else {
                                     // Fallback sur une image par défaut
                                     (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
@@ -2122,15 +2645,23 @@ export function EtatDesLieuxForm({
                               </button>
                             </div>
                           ))}
+                          {/* Bouton d'ajout de photo toujours visible */}
                           <div className="flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md w-full h-24">
-                            <button
-                              type="button"
-                              className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-gray-700"
-                              onClick={() => handlePhotoUpload('compteurs.gaz.photos')}
-                            >
+                            <label className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-gray-700 cursor-pointer">
                               <Camera className="h-8 w-8 mb-1" />
                               <span className="text-xs">Ajouter</span>
-                            </button>
+                              <input
+                                type="file"
+                                className="hidden"
+                                accept="image/*"
+                                multiple
+                                onChange={(e) => {
+                                  if (e.target.files && e.target.files.length > 0) {
+                                    handlePhotoUpload('compteurs.gaz.photos', e);
+                                  }
+                                }}
+                              />
+                            </label>
                           </div>
                         </div>
                       </div>
@@ -3034,6 +3565,136 @@ export function EtatDesLieuxForm({
                         </div>
                       </div>
                       
+                      {/* Équipements personnalisés */}
+                      <div className="bg-white p-4 rounded-lg shadow-sm">
+                        <h3 className="text-base font-medium mb-3">Éléments personnalisés</h3>
+                        
+                        {piece.equipements.map((equipement, equipementIndex) => (
+                          <div key={equipement.id || equipementIndex} className="mb-4 p-3 border border-gray-200 rounded-md">
+                            <div className="flex justify-between items-center mb-2">
+                              <h4 className="text-sm font-medium">Élément {equipementIndex + 1}</h4>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveEquipment(pieceIndex, equipementIndex)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            
+                            <div className="space-y-4">
+                              <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.equipements.${equipementIndex}.nom`} className="text-sm font-medium">
+                                  Nom de l'équipement
+                                </Label>
+                                <Input
+                                  type="text"
+                                  id={`pieces.${pieceIndex}.equipements.${equipementIndex}.nom`}
+                                  name={`pieces.${pieceIndex}.equipements.${equipementIndex}.nom`}
+                                  value={equipement.nom}
+                                  onChange={(e) => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].equipements[equipementIndex].nom = e.target.value;
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                  className="w-full text-sm"
+                                  placeholder="Ex: Climatisation, Placard, Étagère..."
+                                />
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.equipements.${equipementIndex}.etat`} className="text-sm font-medium">
+                                  État
+                                </Label>
+                                <div className="flex gap-2 mt-1">
+                                  <Button
+                                    type="button"
+                                    className={`flex-1 ${equipement.etat === "Très bon état" ? "bg-green-600" : "bg-gray-200 text-gray-800"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      newPieces[pieceIndex].equipements[equipementIndex].etat = "Très bon état";
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Très bon état
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className={`flex-1 ${equipement.etat === "Bon état" ? "bg-blue-600" : "bg-gray-200 text-gray-800"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      newPieces[pieceIndex].equipements[equipementIndex].etat = "Bon état";
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Bon état
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className={`flex-1 ${equipement.etat === "État d'usage" ? "bg-orange-600" : "bg-gray-200 text-gray-800"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      newPieces[pieceIndex].equipements[equipementIndex].etat = "État d'usage";
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    État d'usage
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className={`flex-1 ${equipement.etat === "Mauvais état" ? "bg-red-600" : "bg-gray-200 text-gray-800"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      newPieces[pieceIndex].equipements[equipementIndex].etat = "Mauvais état";
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Mauvais état
+                                  </Button>
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.equipements.${equipementIndex}.observations`} className="text-sm font-medium">
+                                  Observations
+                                </Label>
+                                <Textarea
+                                  id={`pieces.${pieceIndex}.equipements.${equipementIndex}.observations`}
+                                  name={`pieces.${pieceIndex}.equipements.${equipementIndex}.observations`}
+                                  value={equipement.observations}
+                                  onChange={(e) => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].equipements[equipementIndex].observations = e.target.value;
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                  className="w-full text-sm"
+                                  placeholder="Observations sur l'état de l'équipement"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        <Button
+                          type="button"
+                          onClick={(e) => {
+                            // Empêcher la propagation de l'événement
+                            e.preventDefault();
+                            e.stopPropagation();
+                            
+                            // Appeler directement la fonction d'ajout sans désactiver le bouton
+                            // La fonction handleAddEquipment a maintenant son propre mécanisme de verrouillage
+                            handleAddEquipment(pieceIndex);
+                          }}
+                          className="w-full mt-2"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Ajouter un élément
+                        </Button>
+                      </div>
+                      
                       {/* Observations générales de la pièce */}
                       <div className="bg-white p-4 rounded-lg shadow-sm">
                         <h3 className="text-base font-medium mb-3">Observations générales</h3>
@@ -3097,6 +3758,7 @@ export function EtatDesLieuxForm({
                               </button>
                             </div>
                           ))}
+                          {/* Bouton d'ajout de photo toujours visible */}
                           <div className="flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md w-full h-24">
                             <label className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-gray-700 cursor-pointer">
                               <Camera className="h-8 w-8 mb-1" />
@@ -3128,19 +3790,9 @@ export function EtatDesLieuxForm({
                     e.preventDefault();
                     e.stopPropagation();
                     
-                    // Désactiver temporairement le bouton pour éviter les doubles clics
-                    const button = e.currentTarget;
-                    button.disabled = true;
-                    console.log("Bouton 'Ajouter une pièce' cliqué - désactivation temporaire");
-                    
-                    // Appeler la fonction d'ajout
+                    // Appeler directement la fonction d'ajout sans désactiver le bouton
+                    // La fonction handleAddRoom a maintenant son propre mécanisme de verrouillage
                     handleAddRoom();
-                    
-                    // Réactiver le bouton après un court délai
-                    setTimeout(() => {
-                      button.disabled = false;
-                      console.log("Bouton 'Ajouter une pièce' réactivé");
-                    }, 1000);
                   }}
                   className="w-full"
                 >

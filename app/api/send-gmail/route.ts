@@ -479,10 +479,11 @@ export async function POST(request: NextRequest) {
               const alreadyContactedData = await alreadyContactedResponse.json();
               console.log('Données de vérification d\'email déjà contacté:', alreadyContactedData);
 
-              if (alreadyContactedData.alreadyContacted) {
-                console.log('Email déjà contacté pour cette campagne, envoi ignoré');
+              // Vérifier explicitement si alreadyContacted est true
+              if (alreadyContactedData.alreadyContacted === true) {
+                console.log(`Email ${recipient.email} déjà contacté pour cette campagne (trouvé dans: ${alreadyContactedData.foundInCollection || 'structure inconnue'}), envoi ignoré`);
                 failedCount++;
-                errors.push(`${recipient.email}: Email déjà contacté pour cette campagne`);
+                errors.push(`${recipient.email}: Email déjà contacté pour cette campagne (${alreadyContactedData.details || 'raison non spécifiée'})`);
                 
                 // Ajouter l'email à la sous-collection 'emails' avec le statut 'failed'
                 try {
@@ -503,7 +504,7 @@ export async function POST(request: NextRequest) {
                   
                   console.log(`Email ${recipient.email} ajouté à la liste des emails non délivrés (déjà contacté)`);
                 } catch (error) {
-                  console.error('Erreur lors de l\'ajout de l\'email à la liste des non délivrés:', error);
+                  console.error('Erreur lors de l\'ajout de l'email à la liste des non délivrés:', error);
                 }
                 
                 continue;
@@ -741,4 +742,4 @@ ${processedHtml}`;
       error: `Erreur lors du traitement de la requête: ${error.message}`,
     }, { status: 500 });
   }
-} 
+}

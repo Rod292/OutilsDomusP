@@ -1961,7 +1961,7 @@ export default function NewsletterEditorVisual() {
               backgroundColor: '#e50019',
               textColor: '#ffffff',
               emailTo: 'contact@arthurloydbretagne.fr',
-              emailSubject: 'Demande d\'information PEM SUD',
+              emailSubject: 'Demande d\'information',
               emailBody: '',
               width: '80%'
             }

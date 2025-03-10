@@ -288,7 +288,7 @@ export function preprocessFormData(formData: any): any {
       piece.etat = {};
     }
     
-    console.log(`Traitement de la pièce ${index}: ${piece.nom || 'Sans nom'}`);
+    console.log(`Traitement de la pièce ${index + 1}: ${piece.nom || 'Sans nom'}`);
     console.log(`Structure de l'objet etat:`, Object.keys(piece.etat));
     
     try {
@@ -473,11 +473,18 @@ function prepareDocDefinition(processedData: any, logoBase64: string = '') {
     
     // Pied de page
     footer: (currentPage: number) => {
+      // Obtenir la date actuelle au format JJ/MM/AAAA
+      const today = new Date();
+      const day = String(today.getDate()).padStart(2, '0');
+      const month = String(today.getMonth() + 1).padStart(2, '0'); // Les mois commencent à 0
+      const year = today.getFullYear();
+      const formattedDate = `${day}/${month}/${year}`;
+      
       return {
         margin: [40, 10, 40, 10],
         columns: [
           {
-            text: '© Arthur Loyd Bretagne - Document généré le 27/02/2025',
+            text: `© Arthur Loyd Bretagne - Document généré le ${formattedDate}`,
             fontSize: 8,
             color: COLORS.secondary,
             alignment: 'left'
@@ -690,7 +697,7 @@ function prepareDocDefinition(processedData: any, logoBase64: string = '') {
             ol: [
               { 
                 text: [
-                  'RELEVÉS DES COMPTEURS',
+                  'INFORMATIONS SUR LE CONTRAT',
                   { text: ' .................................................. ', color: COLORS.border },
                   { text: '3', alignment: 'right' }
                 ],
@@ -698,7 +705,7 @@ function prepareDocDefinition(processedData: any, logoBase64: string = '') {
               },
               { 
                 text: [
-                  'PIÈCES ET ÉQUIPEMENTS',
+                  'ÉLÉMENTS REMIS AU LOCATAIRE',
                   { text: ' .................................................. ', color: COLORS.border },
                   { text: '4', alignment: 'right' }
                 ],
@@ -706,9 +713,17 @@ function prepareDocDefinition(processedData: any, logoBase64: string = '') {
               },
               { 
                 text: [
-                  'ÉTAT DES INSTALLATIONS',
+                  'RELEVÉS DES COMPTEURS',
                   { text: ' .................................................. ', color: COLORS.border },
-                  { text: '8', alignment: 'right' }
+                  { text: '5', alignment: 'right' }
+                ],
+                margin: [0, 5, 0, 5]
+              },
+              { 
+                text: [
+                  'PIÈCES ET ÉQUIPEMENTS',
+                  { text: ' .................................................. ', color: COLORS.border },
+                  { text: '6', alignment: 'right' }
                 ],
                 margin: [0, 5, 0, 5]
               },
@@ -734,11 +749,63 @@ function prepareDocDefinition(processedData: any, logoBase64: string = '') {
         pageBreak: 'after'
       },
       
+      // Informations sur le contrat
+      {
+        stack: [
+          {
+            text: '1. INFORMATIONS SUR LE CONTRAT',
+            style: 'header',
+            margin: [0, 10, 0, 15]
+          },
+          {
+            canvas: [
+              {
+                type: 'rect',
+                x: 0,
+                y: 0,
+                w: 515,
+                h: 2,
+                color: COLORS.primary
+              }
+            ],
+            margin: [0, 0, 0, 10]
+          },
+          createContratSection(processedData.contrat),
+        ],
+        pageBreak: 'after'
+      },
+      
+      // Éléments remis au locataire
+      {
+        stack: [
+          {
+            text: '2. ÉLÉMENTS REMIS AU LOCATAIRE',
+            style: 'header',
+            margin: [0, 10, 0, 15]
+          },
+          {
+            canvas: [
+              {
+                type: 'rect',
+                x: 0,
+                y: 0,
+                w: 515,
+                h: 2,
+                color: COLORS.primary
+              }
+            ],
+            margin: [0, 0, 0, 10]
+          },
+          createElementsRemisSection(processedData.elements),
+        ],
+        pageBreak: 'after'
+      },
+      
       // Relevés des compteurs
       {
         stack: [
           {
-            text: '1. RELEVÉS DES COMPTEURS',
+            text: '3. RELEVÉS DES COMPTEURS',
             style: 'header',
             margin: [0, 10, 0, 15]
           },
@@ -782,7 +849,7 @@ function prepareDocDefinition(processedData: any, logoBase64: string = '') {
       {
         stack: [
           {
-            text: '2. PIÈCES ET ÉQUIPEMENTS',
+            text: '4. PIÈCES ET ÉQUIPEMENTS',
             style: 'header',
             margin: [0, 10, 0, 15]
           },
@@ -1009,8 +1076,8 @@ function createCompteurSection(titre: string, compteur: Compteur) {
     });
     
     // Créer une grille de photos avec 2 photos par ligne
-    const photoRows = [];
-    let currentRow = [];
+    const photoRows: any[] = [];
+    let currentRow: any[] = [];
     
     for (let i = 0; i < compteur.photos.length; i++) {
       currentRow.push(safeImage(compteur.photos[i]));
@@ -1085,7 +1152,7 @@ function generateRoomTables(pieces: any[] = []) {
     
     // Titre de la pièce
     tables.push({
-      text: `2.${index + 1} ${piece.nom || `Pièce ${index + 1}`}`,
+      text: `4.${index + 1} ${piece.nom || `Pièce ${index + 1}`}`,
       style: 'h2',
       margin: [0, 10, 0, 5]
     });
@@ -1165,6 +1232,32 @@ function generateRoomTables(pieces: any[] = []) {
       ]);
     });
     
+    // Ajouter les équipements supplémentaires s'ils existent
+    if (piece.equipements && Array.isArray(piece.equipements) && piece.equipements.length > 0) {
+      console.log(`Ajout de ${piece.equipements.length} équipements supplémentaires au tableau`);
+      
+      piece.equipements.forEach((equipement: any) => {
+        if (equipement && equipement.nom) {
+          const etatValue = equipement.etat || 'Non renseigné';
+          const observationsValue = equipement.observations || '-';
+          
+          // Utilisation de any pour contourner les limitations de typage
+          const cellWithColor: any = { 
+            text: etatValue, 
+            style: 'tableRow', 
+            color: getEtatColor(equipement.etat || 'non_renseigne')
+          };
+          
+          tableBody.push([
+            { text: equipement.nom, style: 'tableCellLabel' },
+            { text: 'Non renseigné', style: 'tableRow' },
+            cellWithColor,
+            { text: observationsValue, style: 'tableRow' }
+          ]);
+        }
+      });
+    }
+    
     tables.push({
       table: {
         widths: ['15%', '25%', '20%', '40%'],
@@ -1218,8 +1311,8 @@ function generateRoomTables(pieces: any[] = []) {
       });
       
       // Créer une grille de photos avec 2 photos par ligne
-      const photoRows = [];
-      let currentRow = [];
+      const photoRows: any[] = [];
+      let currentRow: any[] = [];
       
       for (let i = 0; i < piece.photos.length; i++) {
         currentRow.push(safeImage(piece.photos[i]));
@@ -1228,7 +1321,7 @@ function generateRoomTables(pieces: any[] = []) {
         if (currentRow.length === 2 || i === piece.photos.length - 1) {
           // Si la dernière ligne n'a qu'une photo, ajouter un espace vide pour l'alignement
           if (currentRow.length === 1) {
-            currentRow.push({ text: '', width: 200 });
+            currentRow.push({ text: '', width: 170, margin: [5, 10, 5, 10] });
           }
           
           photoRows.push({
@@ -1272,6 +1365,22 @@ async function processImages(formData: any) {
     
     // Pour chaque photo, essayer de la traiter
     console.log(`Traitement de ${photos.length} photos`);
+    console.log("Types des photos:", photos.map(p => typeof p));
+    console.log("Valeurs des photos:", photos.map(p => {
+      if (typeof p === 'string') {
+        return p.substring(0, 30) + '...';
+      } else if (typeof p === 'object' && p !== null) {
+        return Object.keys(p);
+      } else {
+        return String(p);
+      }
+    }));
+    
+    // Si aucune photo n'est présente, retourner un tableau vide
+    if (photos.length === 0) {
+      console.warn("Aucune photo dans le tableau, retournant un tableau vide");
+      return [];
+    }
     
     // Créer un Set pour stocker les photos déjà ajoutées et éviter les doublons
     const addedPhotos = new Set();
@@ -1280,39 +1389,100 @@ async function processImages(formData: any) {
       try {
         const photo = photos[i];
         if (!photo) {
-          console.warn(`Photo ${i} est vide, utilisation du logo de remplacement`);
-          result.push(currentLogo);
+          console.warn(`Photo ${i} est vide, ignorée`);
           continue;
         }
         
-        // Si c'est une chaîne qui commence par data:, c'est une image en base64
+        // Cas 1: Photo est une chaîne base64
         if (typeof photo === 'string' && photo.startsWith('data:')) {
-          // Vérifier si l'image base64 est valide
-          if (isValidBase64Image(photo)) {
+          // Vérification moins stricte pour les images base64
+          if (photo.includes(';base64,')) {
             // Vérifier si cette photo a déjà été ajoutée (éviter les doublons)
-            // Utiliser une version tronquée pour la comparaison afin d'économiser la mémoire
             const photoSignature = photo.substring(0, 100) + photo.length;
             if (!addedPhotos.has(photoSignature)) {
               addedPhotos.add(photoSignature);
               result.push(photo);
-              console.log(`Photo ${i} ajoutée avec succès`);
+              console.log(`Photo ${i} (base64) ajoutée avec succès`);
             } else {
               console.warn(`Photo ${i} ignorée car c'est un doublon`);
             }
           } else {
-            console.warn(`Photo ${i} est une image base64 invalide, utilisation du logo de remplacement`);
-            result.push(currentLogo);
+            console.warn(`Photo ${i} est une image base64 invalide, ignorée`);
           }
-        } 
-        // Pour les autres types (URLs, fichiers), utiliser le logo par défaut pour simplifier
+        }
+        // Cas 2: Photo est un objet avec une URL ou une propriété downloadUrl
+        else if (typeof photo === 'object' && photo !== null) {
+          console.log(`Photo ${i} est un objet:`, Object.keys(photo));
+          // Essayer de trouver une URL valide dans l'objet
+          const possibleUrlProps = ['url', 'src', 'downloadUrl', 'source', 'path', 'preview'];
+          let foundUrl = null;
+          
+          for (const prop of possibleUrlProps) {
+            if (photo[prop] && typeof photo[prop] === 'string') {
+              foundUrl = photo[prop];
+              console.log(`URL trouvée dans la propriété ${prop}: ${photo[prop].substring(0, 30)}...`);
+              break;
+            }
+          }
+          
+          if (foundUrl) {
+            try {
+              // Si c'est déjà une base64, l'utiliser directement
+              if (foundUrl.startsWith('data:')) {
+                const photoSignature = foundUrl.substring(0, 100) + foundUrl.length;
+                if (!addedPhotos.has(photoSignature)) {
+                  addedPhotos.add(photoSignature);
+                  result.push(foundUrl);
+                  console.log(`Photo ${i} (objet avec base64) ajoutée avec succès`);
+                } else {
+                  console.warn(`Photo ${i} (objet avec base64) ignorée car c'est un doublon`);
+                }
+              } 
+              // Sinon, essayer de charger l'URL comme une image
+              else if (foundUrl.startsWith('http') || foundUrl.startsWith('blob:')) {
+                try {
+                  console.log(`Tentative de chargement de l'URL: ${foundUrl}`);
+                  const base64Data = await loadImageAsBase64(foundUrl);
+                  const photoSignature = base64Data.substring(0, 100) + base64Data.length;
+                  if (!addedPhotos.has(photoSignature)) {
+                    addedPhotos.add(photoSignature);
+                    result.push(base64Data);
+                    console.log(`Photo ${i} (URL chargée) ajoutée avec succès`);
+                  } else {
+                    console.warn(`Photo ${i} (URL chargée) ignorée car c'est un doublon`);
+                  }
+                } catch (urlError) {
+                  console.error(`Erreur lors du chargement de l'URL ${foundUrl}:`, urlError);
+                  // Ne pas ajouter de logo de remplacement, simplement ignorer cette photo
+                }
+              } else {
+                console.warn(`URL non reconnue pour la photo ${i}: ${foundUrl}`);
+                // Ne pas ajouter de logo de remplacement, simplement ignorer cette photo
+              }
+            } catch (objError) {
+              console.error(`Erreur lors du traitement de l'objet photo ${i}:`, objError);
+              // Ne pas ajouter de logo de remplacement, simplement ignorer cette photo
+            }
+          } else {
+            console.warn(`Photo ${i} est un objet sans URL valide, ignorée`);
+            // Ne pas ajouter de logo de remplacement, simplement ignorer cette photo
+          }
+        }
+        // Cas 3: Autres types (non reconnus)
         else {
-          console.warn(`Photo ${i} n'est pas une image base64, utilisation du logo de remplacement`);
-          result.push(currentLogo);
+          console.warn(`Photo ${i} n'est pas reconnue (type: ${typeof photo}), ignorée`);
+          // Ne pas ajouter de logo de remplacement, simplement ignorer cette photo
         }
       } catch (error) {
         console.error(`Erreur lors du traitement de la photo ${i}:`, error);
-        result.push(currentLogo);
+        // Ne pas ajouter de logo de remplacement, simplement ignorer cette photo
       }
+    }
+    
+    // S'assurer qu'il y a au moins une photo
+    if (result.length === 0) {
+      console.warn("Aucune photo valide trouvée, le tableau reste vide");
+      // Ne pas ajouter de logo par défaut, retourner un tableau vide
     }
     
     console.log(`Nombre final de photos après élimination des doublons: ${result.length}`);
@@ -1371,7 +1541,7 @@ function isValidBase64Image(base64String: string): boolean {
   }
   
   // Vérifier si c'est une chaîne base64 avec un en-tête d'image valide
-  if (!base64String.startsWith('data:image/')) {
+  if (!base64String.startsWith('data:image/') && !base64String.startsWith('data:application/octet-stream')) {
     return false;
   }
   
@@ -1380,9 +1550,17 @@ function isValidBase64Image(base64String: string): boolean {
     return false;
   }
   
-  // Vérifier que la longueur minimale est respectée
+  // Extraire la partie base64
   const base64Data = base64String.split(';base64,')[1];
-  if (!base64Data || base64Data.length < 100) {
+  
+  // Vérifier que la partie base64 existe et n'est pas trop courte
+  if (!base64Data || base64Data.length < 10) {
+    return false;
+  }
+  
+  // Vérifier que la chaîne base64 contient uniquement des caractères valides
+  const base64Regex = /^[A-Za-z0-9+/=]+$/;
+  if (!base64Regex.test(base64Data)) {
     return false;
   }
   
@@ -1397,15 +1575,10 @@ function safeImage(imageSource: any) {
     // Récupérer le logo chargé ou utiliser le logo de secours
     const currentLogo = (global as any).logoBase64 || FALLBACK_LOGO;
     
-    // Si l'image est vide ou non définie, utiliser le logo externe
+    // Si l'image est vide ou non définie, retourner null pour ne pas afficher d'image
     if (!imageSource) {
-      console.warn("Image source vide, utilisation du logo principal");
-      return {
-        image: currentLogo,
-        width: 170, // Réduction de la largeur de 180 à 170
-        margin: [5, 10, 5, 10], 
-        fit: [170, 130] // Réduction des dimensions maximales
-      };
+      console.warn("Image source vide, aucune image ne sera affichée");
+      return null;
     }
     
     // Si c'est une chaîne commençant par data: (base64)
@@ -1464,23 +1637,13 @@ function safeImage(imageSource: any) {
       }
     }
     
-    // Dans tous les autres cas, utiliser le logo principal
-    console.warn("Utilisation du logo principal pour:", 
+    // Dans tous les autres cas, retourner null pour ne pas afficher d'image
+    console.warn("Type d'image non reconnu, aucune image ne sera affichée:", 
                 typeof imageSource === 'string' ? imageSource : typeof imageSource);
-    return {
-      image: currentLogo,
-      width: 170, // Réduction de la largeur de 180 à 170
-      margin: [5, 10, 5, 10],
-      fit: [170, 130] // Réduction des dimensions maximales
-    };
+    return null;
   } catch (error) {
-    console.error("Erreur lors de la sécurisation de l'image:", error);
-    return {
-      image: (global as any).logoBase64 || FALLBACK_LOGO,
-      width: 170, // Réduction de la largeur de 180 à 170
-      margin: [5, 10, 5, 10],
-      fit: [170, 130] // Réduction des dimensions maximales
-    };
+    console.error("Erreur lors du traitement de l'image:", error);
+    return null;
   }
 }
 
@@ -1505,4 +1668,273 @@ function safeObjectValues(obj: any): any[] {
     }
     return values;
   }
+}
+
+// Fonction pour créer la section contrat
+function createContratSection(contrat: any) {
+  if (!contrat) return { text: "Aucune information sur le contrat disponible", style: 'text' };
+  
+  return {
+    stack: [
+      {
+        style: 'table',
+        table: {
+          widths: ['40%', '60%'],
+          headerRows: 0,
+          body: [
+            [
+              { text: 'Date de signature', style: 'tableCellLabel' },
+              { text: formatDate(contrat.dateSignature) || 'Non spécifié', style: 'tableRow' }
+            ],
+            [
+              { text: 'Date d\'entrée', style: 'tableCellLabel' },
+              { text: formatDate(contrat.dateEntree) || 'Non spécifié', style: 'tableRow' }
+            ],
+            [
+              { text: 'Date de sortie', style: 'tableCellLabel' },
+              { text: formatDate(contrat.dateSortie) || 'Non spécifié', style: 'tableRow' }
+            ],
+            [
+              { text: 'Durée du contrat', style: 'tableCellLabel' },
+              { text: contrat.dureeContrat || 'Non spécifié', style: 'tableRow' }
+            ],
+            [
+              { text: 'Montant du loyer', style: 'tableCellLabel' },
+              { text: contrat.montantLoyer || 'Non spécifié', style: 'tableRow' }
+            ],
+            [
+              { text: 'Montant des charges', style: 'tableCellLabel' },
+              { text: contrat.montantCharges || 'Non spécifié', style: 'tableRow' }
+            ],
+            [
+              { text: 'Montant du dépôt de garantie', style: 'tableCellLabel' },
+              { text: contrat.montantDepotGarantie || 'Non spécifié', style: 'tableRow' }
+            ],
+            [
+              { text: 'Type d\'activité', style: 'tableCellLabel' },
+              { text: contrat.typeActivite || 'Non spécifié', style: 'tableRow' }
+            ]
+          ]
+        },
+        layout: {
+          fillColor: function(rowIndex: number) {
+            return (rowIndex % 2 === 0) ? '#F9F9F9' : null;
+          }
+        }
+      }
+    ]
+  };
+}
+
+// Fonction pour créer la section éléments remis
+function createElementsRemisSection(elements: any) {
+  if (!elements) return { text: "Aucune information sur les éléments remis disponible", style: 'text' };
+  
+  const stack: any[] = [];
+  
+  // Section clés
+  if (elements.cles) {
+    stack.push({ text: 'Clés', style: 'subheader', margin: [0, 10, 0, 5] });
+    stack.push({
+      style: 'table',
+      table: {
+        widths: ['40%', '60%'],
+        headerRows: 0,
+        body: [
+          [
+            { text: 'Nombre de clés', style: 'tableCellLabel' },
+            { text: elements.cles.nombre || '0', style: 'tableRow' }
+          ],
+          [
+            { text: 'Détail', style: 'tableCellLabel' },
+            { text: elements.cles.detail || 'Non spécifié', style: 'tableRow' }
+          ]
+        ]
+      },
+      layout: {
+        fillColor: function(rowIndex: number) {
+          return (rowIndex % 2 === 0) ? '#F9F9F9' : null;
+        }
+      }
+    });
+  }
+  
+  // Section badges
+  if (elements.badges) {
+    stack.push({ text: 'Badges/cartes d\'accès', style: 'subheader', margin: [0, 15, 0, 5] });
+    stack.push({
+      style: 'table',
+      table: {
+        widths: ['40%', '60%'],
+        headerRows: 0,
+        body: [
+          [
+            { text: 'Nombre de badges', style: 'tableCellLabel' },
+            { text: elements.badges.nombre || '0', style: 'tableRow' }
+          ],
+          [
+            { text: 'Détail', style: 'tableCellLabel' },
+            { text: elements.badges.detail || 'Non spécifié', style: 'tableRow' }
+          ]
+        ]
+      },
+      layout: {
+        fillColor: function(rowIndex: number) {
+          return (rowIndex % 2 === 0) ? '#F9F9F9' : null;
+        }
+      }
+    });
+  }
+  
+  // Section télécommandes
+  if (elements.telecommandes) {
+    stack.push({ text: 'Télécommandes', style: 'subheader', margin: [0, 15, 0, 5] });
+    stack.push({
+      style: 'table',
+      table: {
+        widths: ['40%', '60%'],
+        headerRows: 0,
+        body: [
+          [
+            { text: 'Nombre de télécommandes', style: 'tableCellLabel' },
+            { text: elements.telecommandes.nombre || '0', style: 'tableRow' }
+          ],
+          [
+            { text: 'Détail', style: 'tableCellLabel' },
+            { text: elements.telecommandes.detail || 'Non spécifié', style: 'tableRow' }
+          ]
+        ]
+      },
+      layout: {
+        fillColor: function(rowIndex: number) {
+          return (rowIndex % 2 === 0) ? '#F9F9F9' : null;
+        }
+      }
+    });
+  }
+  
+  // Section documents
+  if (elements.documents) {
+    stack.push({ text: 'Documents remis', style: 'subheader', margin: [0, 15, 0, 5] });
+    stack.push({
+      style: 'table',
+      table: {
+        widths: ['70%', '30%'],
+        headerRows: 0,
+        body: [
+          [
+            { text: 'Diagnostics techniques', style: 'tableCellLabel' },
+            { text: elements.documents.diagnostics ? 'Oui' : 'Non', style: 'tableRow' }
+          ],
+          [
+            { text: 'Plans des locaux', style: 'tableCellLabel' },
+            { text: elements.documents.planLocaux ? 'Oui' : 'Non', style: 'tableRow' }
+          ],
+          [
+            { text: 'Règlement d\'immeuble', style: 'tableCellLabel' },
+            { text: elements.documents.reglementImmeuble ? 'Oui' : 'Non', style: 'tableRow' }
+          ],
+          [
+            { text: 'Notice de maintenance', style: 'tableCellLabel' },
+            { text: elements.documents.noticeMaintenance ? 'Oui' : 'Non', style: 'tableRow' }
+          ]
+        ]
+      },
+      layout: {
+        fillColor: function(rowIndex: number) {
+          return (rowIndex % 2 === 0) ? '#F9F9F9' : null;
+        }
+      }
+    });
+  }
+  
+  // Autres éléments
+  if (elements.autresElements) {
+    stack.push({ text: 'Autres éléments', style: 'subheader', margin: [0, 15, 0, 5] });
+    stack.push({ text: elements.autresElements, style: 'text', margin: [0, 5, 0, 0] });
+  }
+  
+  return { stack };
+}
+
+// Fonction pour créer une table de photos
+function createPhotosTable(photos: any[], title: string = "Photos") {
+  const tables = [];
+  
+  // Vérifier si le tableau de photos est vide
+  if (!photos || photos.length === 0) {
+    console.log(`Aucune photo à afficher pour: ${title}`);
+    return [{
+      text: "Aucune photo disponible",
+      style: "photosInfo",
+      margin: [0, 5, 0, 15]
+    }];
+  }
+  
+  // Ajouter le titre
+  tables.push({
+    text: title,
+    style: "photosTitle",
+    margin: [0, 10, 0, 5]
+  });
+  
+  // Déterminer le nombre de photos par ligne en fonction du nombre total de photos
+  // Si peu de photos (<= 4), afficher 2 par ligne pour les rendre plus grandes
+  // Sinon afficher 3 par ligne
+  const photosPerRow = photos.length <= 4 ? 2 : 3;
+  console.log(`Affichage des photos: ${photos.length} photos, ${photosPerRow} par ligne`);
+  
+  // Taille des photos en fonction du nombre par ligne
+  const photoWidth = photosPerRow === 2 ? 240 : 160; // Largeur réduite pour 3 photos par ligne
+  
+  // Créer des lignes de photos
+  const photoRows: any[] = [];
+  let currentRow: any[] = [];
+  
+  photos.forEach((photo, index) => {
+    // Traiter l'image pour s'assurer qu'elle est sûre pour PDFMake
+    const safeImageObj = safeImage(photo);
+    
+    // Si l'image est valide, l'ajouter à la ligne courante
+    if (safeImageObj) {
+      // Ajuster la taille de l'image en fonction du nombre par ligne
+      safeImageObj.width = photoWidth;
+      
+      currentRow.push(safeImageObj);
+      
+      // Si nous avons atteint le nombre de photos par ligne ou si c'est la dernière photo, ajouter la ligne
+      if (currentRow.length === photosPerRow || index === photos.length - 1) {
+        // Si la ligne n'est pas complète, ajouter des espaces vides
+        while (currentRow.length < photosPerRow) {
+          currentRow.push({ text: "", width: photoWidth, margin: [5, 10, 5, 10] });
+        }
+        
+        // Ajouter la ligne au tableau
+        photoRows.push({
+          columns: currentRow,
+          columnGap: 10,
+          margin: [0, 5, 0, 5]
+        });
+        
+        // Réinitialiser la ligne courante
+        currentRow = [];
+      }
+    }
+  });
+  
+  // Si aucune photo valide n'a été ajoutée
+  if (photoRows.length === 0) {
+    tables.push({
+      text: "Aucune photo valide disponible",
+      style: "photosInfo",
+      margin: [0, 5, 0, 15]
+    });
+  } else {
+    tables.push({
+      stack: photoRows,
+      margin: [0, 0, 0, 20]
+    });
+  }
+  
+  return tables;
 }
