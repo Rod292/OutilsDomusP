@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAuthState } from "react-firebase-hooks/auth"
+// Remplacer l'import direct par une vérification conditionnelle
+// import { useAuthState } from "react-firebase-hooks/auth"
 import { auth, db } from "@/app/lib/firebase"
 import { NavigationTabs } from "@/app/components/navigation-tabs"
 import { Header } from "@/app/components/header"
@@ -40,7 +41,10 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
   const [editingReportId, setEditingReportId] = useState<string | null>(null)
   const [recentReports, setRecentReports] = useState<any[]>([])
   const router = useRouter()
-  const [user] = useAuthState(auth)
+  
+  // Remplacer useAuthState par une gestion manuelle de l'état utilisateur
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
   const consultantName = params.name.replace("-", " ")
 
@@ -49,16 +53,19 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
     router.push("/")
   }
 
+  // Effet pour vérifier l'authentification
   useEffect(() => {
-    // Vérifier que auth n'est pas null
     if (!auth) {
       console.error("La référence à auth est null")
       router.push("/")
       return
     }
 
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (!user) {
+    const unsubscribe = auth.onAuthStateChanged((authUser) => {
+      setLoading(false)
+      setUser(authUser)
+      
+      if (!authUser) {
         router.push("/")
       } else {
         fetchRecentReports()
@@ -523,7 +530,7 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      <ProgressBar progress={progress} />
+      <ProgressBar value={progress} />
       <NavigationTabs activeTab={activeTab} onTabChange={handleTabChange} />
       
       {/* Contenu principal avec un léger zoom pour optimiser l'espace */}
