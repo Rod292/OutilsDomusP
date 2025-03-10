@@ -1287,8 +1287,11 @@ export function EtatDesLieuxForm({
   // Mettre à jour la progression quand les données changent
   useEffect(() => {
     calculateProgress()
-    onProgressUpdate?.(formData)
-  }, [formData, onProgressUpdate])
+    if (onProgressUpdate) {
+      const progressValue = typeof progress === 'number' ? progress : 0;
+      onProgressUpdate(progressValue);
+    }
+  }, [formData, onProgressUpdate, progress])
   
   // Rendu du formulaire
   return (

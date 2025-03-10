@@ -530,7 +530,7 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      <ProgressBar value={progress} />
+      <ProgressBar value={typeof progress === 'number' ? progress : 0} />
       <NavigationTabs activeTab={activeTab} onTabChange={handleTabChange} />
       
       {/* Contenu principal avec un léger zoom pour optimiser l'espace */}
