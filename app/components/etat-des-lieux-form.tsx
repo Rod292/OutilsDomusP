@@ -2747,10 +2747,10 @@ export function EtatDesLieuxForm({
                             <Label htmlFor={`pieces.${pieceIndex}.sols.etat`} className="text-sm font-medium">
                               État
                             </Label>
-                            <div className="flex gap-2 mt-1">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
                               <Button
                                 type="button"
-                                className={`flex-1 ${piece.sols.etat === "Très bon état" ? "bg-green-600" : "bg-gray-200 text-gray-800"}`}
+                                className={`text-xs sm:text-sm px-1 sm:px-2 h-auto py-2 ${piece.sols.etat === "Très bon état" ? "bg-green-600" : "bg-gray-200 text-gray-800"}`}
                                 onClick={() => {
                                   const newPieces = [...formData.pieces];
                                   newPieces[pieceIndex].sols.etat = "Très bon état";
@@ -2761,7 +2761,7 @@ export function EtatDesLieuxForm({
                               </Button>
                               <Button
                                 type="button"
-                                className={`flex-1 ${piece.sols.etat === "Bon état" ? "bg-blue-600" : "bg-gray-200 text-gray-800"}`}
+                                className={`text-xs sm:text-sm px-1 sm:px-2 h-auto py-2 ${piece.sols.etat === "Bon état" ? "bg-blue-600" : "bg-gray-200 text-gray-800"}`}
                                 onClick={() => {
                                   const newPieces = [...formData.pieces];
                                   newPieces[pieceIndex].sols.etat = "Bon état";
@@ -2772,7 +2772,7 @@ export function EtatDesLieuxForm({
                               </Button>
                               <Button
                                 type="button"
-                                className={`flex-1 ${piece.sols.etat === "État d'usage" ? "bg-orange-600" : "bg-gray-200 text-gray-800"}`}
+                                className={`text-xs sm:text-sm px-1 sm:px-2 h-auto py-2 ${piece.sols.etat === "État d'usage" ? "bg-orange-600" : "bg-gray-200 text-gray-800"}`}
                                 onClick={() => {
                                   const newPieces = [...formData.pieces];
                                   newPieces[pieceIndex].sols.etat = "État d'usage";
@@ -2783,7 +2783,7 @@ export function EtatDesLieuxForm({
                               </Button>
                               <Button
                                 type="button"
-                                className={`flex-1 ${piece.sols.etat === "Mauvais état" ? "bg-red-600" : "bg-gray-200 text-gray-800"}`}
+                                className={`text-xs sm:text-sm px-1 sm:px-2 h-auto py-2 ${piece.sols.etat === "Mauvais état" ? "bg-red-600" : "bg-gray-200 text-gray-800"}`}
                                 onClick={() => {
                                   const newPieces = [...formData.pieces];
                                   newPieces[pieceIndex].sols.etat = "Mauvais état";
@@ -2842,10 +2842,10 @@ export function EtatDesLieuxForm({
                             <Label htmlFor={`pieces.${pieceIndex}.murs.etat`} className="text-sm font-medium">
                               État
                             </Label>
-                            <div className="flex gap-2 mt-1">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
                               <Button
                                 type="button"
-                                className={`flex-1 ${piece.murs.etat === "Très bon état" ? "bg-green-600" : "bg-gray-200 text-gray-800"}`}
+                                className={`text-xs sm:text-sm px-1 sm:px-2 h-auto py-2 ${piece.murs.etat === "Très bon état" ? "bg-green-600" : "bg-gray-200 text-gray-800"}`}
                                 onClick={() => {
                                   const newPieces = [...formData.pieces];
                                   newPieces[pieceIndex].murs.etat = "Très bon état";
@@ -2856,7 +2856,7 @@ export function EtatDesLieuxForm({
                               </Button>
                               <Button
                                 type="button"
-                                className={`flex-1 ${piece.murs.etat === "Bon état" ? "bg-blue-600" : "bg-gray-200 text-gray-800"}`}
+                                className={`text-xs sm:text-sm px-1 sm:px-2 h-auto py-2 ${piece.murs.etat === "Bon état" ? "bg-blue-600" : "bg-gray-200 text-gray-800"}`}
                                 onClick={() => {
                                   const newPieces = [...formData.pieces];
                                   newPieces[pieceIndex].murs.etat = "Bon état";
@@ -2867,7 +2867,7 @@ export function EtatDesLieuxForm({
                               </Button>
                               <Button
                                 type="button"
-                                className={`flex-1 ${piece.murs.etat === "État d'usage" ? "bg-orange-600" : "bg-gray-200 text-gray-800"}`}
+                                className={`text-xs sm:text-sm px-1 sm:px-2 h-auto py-2 ${piece.murs.etat === "État d'usage" ? "bg-orange-600" : "bg-gray-200 text-gray-800"}`}
                                 onClick={() => {
                                   const newPieces = [...formData.pieces];
                                   newPieces[pieceIndex].murs.etat = "État d'usage";
@@ -2878,7 +2878,7 @@ export function EtatDesLieuxForm({
                               </Button>
                               <Button
                                 type="button"
-                                className={`flex-1 ${piece.murs.etat === "Mauvais état" ? "bg-red-600" : "bg-gray-200 text-gray-800"}`}
+                                className={`text-xs sm:text-sm px-1 sm:px-2 h-auto py-2 ${piece.murs.etat === "Mauvais état" ? "bg-red-600" : "bg-gray-200 text-gray-800"}`}
                                 onClick={() => {
                                   const newPieces = [...formData.pieces];
                                   newPieces[pieceIndex].murs.etat = "Mauvais état";
@@ -2937,10 +2937,10 @@ export function EtatDesLieuxForm({
                             <Label htmlFor={`pieces.${pieceIndex}.plafonds.etat`} className="text-sm font-medium">
                               État
                             </Label>
-                            <div className="flex gap-2 mt-1">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
                               <Button
                                 type="button"
-                                className={`flex-1 ${piece.plafonds.etat === "Très bon état" ? "bg-green-600" : "bg-gray-200 text-gray-800"}`}
+                                className={`text-xs sm:text-sm px-1 sm:px-2 h-auto py-2 ${piece.plafonds.etat === "Très bon état" ? "bg-green-600" : "bg-gray-200 text-gray-800"}`}
                                 onClick={() => {
                                   const newPieces = [...formData.pieces];
                                   newPieces[pieceIndex].plafonds.etat = "Très bon état";
@@ -2951,7 +2951,7 @@ export function EtatDesLieuxForm({
                               </Button>
                               <Button
                                 type="button"
-                                className={`flex-1 ${piece.plafonds.etat === "Bon état" ? "bg-blue-600" : "bg-gray-200 text-gray-800"}`}
+                                className={`text-xs sm:text-sm px-1 sm:px-2 h-auto py-2 ${piece.plafonds.etat === "Bon état" ? "bg-blue-600" : "bg-gray-200 text-gray-800"}`}
                                 onClick={() => {
                                   const newPieces = [...formData.pieces];
                                   newPieces[pieceIndex].plafonds.etat = "Bon état";
@@ -2962,7 +2962,7 @@ export function EtatDesLieuxForm({
                               </Button>
                               <Button
                                 type="button"
-                                className={`flex-1 ${piece.plafonds.etat === "État d'usage" ? "bg-orange-600" : "bg-gray-200 text-gray-800"}`}
+                                className={`text-xs sm:text-sm px-1 sm:px-2 h-auto py-2 ${piece.plafonds.etat === "État d'usage" ? "bg-orange-600" : "bg-gray-200 text-gray-800"}`}
                                 onClick={() => {
                                   const newPieces = [...formData.pieces];
                                   newPieces[pieceIndex].plafonds.etat = "État d'usage";
@@ -2973,7 +2973,7 @@ export function EtatDesLieuxForm({
                               </Button>
                               <Button
                                 type="button"
-                                className={`flex-1 ${piece.plafonds.etat === "Mauvais état" ? "bg-red-600" : "bg-gray-200 text-gray-800"}`}
+                                className={`text-xs sm:text-sm px-1 sm:px-2 h-auto py-2 ${piece.plafonds.etat === "Mauvais état" ? "bg-red-600" : "bg-gray-200 text-gray-800"}`}
                                 onClick={() => {
                                   const newPieces = [...formData.pieces];
                                   newPieces[pieceIndex].plafonds.etat = "Mauvais état";

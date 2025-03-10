@@ -9,39 +9,39 @@ interface NavigationTabsProps {
 
 export function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) {
   return (
-    <div className="flex gap-3 px-6 py-3 bg-white border-b shadow-sm">
+    <div className="flex overflow-x-auto no-scrollbar gap-2 px-3 sm:px-6 py-2 bg-white border-b shadow-sm">
       <button
         onClick={() => onTabChange("form")}
-        className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+        className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
           activeTab === "form" 
             ? "bg-[#DC0032] text-white shadow-sm" 
             : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
         }`}
       >
-        <FileText size={16} />
+        <FileText size={14} />
         <span>Formulaire</span>
       </button>
       <button
         onClick={() => onTabChange("preview")}
-        className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+        className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
           activeTab === "preview" 
             ? "bg-[#DC0032] text-white shadow-sm" 
             : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
         }`}
       >
-        <Eye size={16} />
+        <Eye size={14} />
         <span>Aperçu</span>
       </button>
       <button
         onClick={() => onTabChange("recent")}
-        className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+        className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
           activeTab === "recent" 
             ? "bg-[#DC0032] text-white shadow-sm" 
             : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
         }`}
       >
-        <Clock size={16} />
-        <span>États des lieux récents</span>
+        <Clock size={14} />
+        <span>Récents</span>
       </button>
     </div>
   )
