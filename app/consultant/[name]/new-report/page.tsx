@@ -517,7 +517,7 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <div className="fixed inset-x-0 top-0 z-50">
         <Header />
         <ProgressBar value={progress} />
@@ -535,21 +535,21 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
           }}
         />
       </div>
-      <main className="container mx-auto px-4 py-6 mt-[144px]">
+      <main className="container mx-auto px-4 sm:px-6 py-8 mt-[144px]">
         {activeTab === "form" ? (
           <>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">
+            <div className="mb-8">
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
                 {editingReportId ? "Modifier l'état des lieux" : formData ? "Dupliquer l'état des lieux" : "Nouvel état des lieux"}
               </h2>
               {editingReportId && (
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground mt-1 bg-blue-50 border border-blue-100 rounded-lg px-4 py-2 inline-block">
                   Vous modifiez un état des lieux existant. Les modifications seront enregistrées dans le rapport
                   original.
                 </p>
               )}
               {formData && !editingReportId && (
-                <p className="text-sm text-muted-foreground mt-1 text-amber-600 font-medium">
+                <p className="text-sm text-amber-700 mt-1 bg-amber-50 border border-amber-100 rounded-lg px-4 py-2 inline-block">
                   Vous créez une copie d'un état des lieux existant. Un nouveau rapport sera généré lors de l'enregistrement.
                 </p>
               )}
@@ -571,27 +571,35 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
             }}
           />
         ) : activeTab === "preview" ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Générez un rapport pour voir l'aperçu ici</p>
+          <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-200">
+            <p className="text-gray-500 font-medium">Générez un rapport pour voir l'aperçu ici</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">États des lieux récents</h2>
+            
             {recentReports.length > 0 ? (
               recentReports.map((report) => (
-                <Card key={report.id} className="hover:bg-gray-50">
-                  <CardHeader className="flex flex-col space-y-0 pb-2">
+                <Card key={report.id} className="hover:bg-gray-50 transition-colors duration-200 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                  <CardHeader className="flex flex-col space-y-0 pb-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                      <CardTitle className="text-sm font-medium">{report.title}</CardTitle>
-                      <CardDescription>{new Date(report.date).toLocaleDateString()}</CardDescription>
+                      <CardTitle className="text-lg font-semibold text-gray-900">{report.title}</CardTitle>
+                      <CardDescription className="text-sm font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-md mt-2 sm:mt-0">
+                        {new Date(report.date).toLocaleDateString('fr-FR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        })}
+                      </CardDescription>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+                  <CardContent className="pt-4">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(report)}
-                        className="w-full sm:w-auto"
+                        className="w-full sm:w-auto bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 hover:text-gray-900 transition-colors rounded-lg"
                       >
                         <Edit className="mr-2 h-4 w-4" />
                         Modifier
@@ -600,7 +608,7 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
                         variant="outline"
                         size="sm"
                         onClick={() => handleDuplicate(report)}
-                        className="w-full sm:w-auto"
+                        className="w-full sm:w-auto bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 hover:text-gray-900 transition-colors rounded-lg"
                       >
                         <Copy className="mr-2 h-4 w-4" />
                         Dupliquer
@@ -609,16 +617,16 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
                         variant="outline"
                         size="sm"
                         onClick={() => handleDownloadPDF(report)}
-                        className="w-full sm:w-auto"
+                        className="w-full sm:w-auto bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 hover:text-gray-900 transition-colors rounded-lg"
                       >
                         <Download className="mr-2 h-4 w-4" />
                         Télécharger PDF
                       </Button>
                       <Button
-                        variant="destructive"
+                        variant="outline"
                         size="sm"
                         onClick={() => handleDelete(report.id)}
-                        className="w-full sm:w-auto"
+                        className="w-full sm:w-auto bg-white hover:bg-red-50 border border-gray-200 text-red-600 hover:text-red-700 hover:border-red-200 transition-colors rounded-lg"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
                         Supprimer
@@ -628,7 +636,15 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
                 </Card>
               ))
             ) : (
-              <p className="text-muted-foreground text-center py-12">Aucun état des lieux récent</p>
+              <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-200">
+                <p className="text-gray-500 font-medium">Aucun état des lieux récent</p>
+                <Button 
+                  onClick={() => setActiveTab("form")}
+                  className="mt-4 bg-[#DC0032] hover:bg-[#DC0032]/90 text-white font-medium rounded-lg"
+                >
+                  Créer un nouvel état des lieux
+                </Button>
+              </div>
             )}
           </div>
         )}
