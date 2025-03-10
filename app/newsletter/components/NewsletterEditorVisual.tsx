@@ -8,8 +8,6 @@ import SendEmailForm from './SendEmailForm';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { toast } from 'react-hot-toast';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-// Ajouter l'import pour react-beautiful-dnd
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import EmojiPicker from './EmojiPicker';
 
 // Types pour nos templates de newsletter
@@ -98,6 +96,7 @@ export default function NewsletterEditorVisual() {
   const [user, setUser] = useState<User | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [showAddSectionModal, setShowAddSectionModal] = useState(false);
+  const [isUpdated, setIsUpdated] = useState(false); // État pour suivre si une mise à jour a été effectuée
   
   // Référence pour l'élément de prévisualisation
   const previewRef = useRef<HTMLDivElement>(null);
@@ -234,23 +233,24 @@ export default function NewsletterEditorVisual() {
         emailVerified: auth.currentUser?.emailVerified
       });
       
+      // Charger les templates depuis la collection newsletter_templates
       const templatesCollection = collection(db, 'newsletter_templates');
-      console.log("Collection Firestore ciblée:", {
+      console.log("Collection Firestore ciblée (1):", {
         collectionPath: templatesCollection.path,
         databaseInstance: !!db
       });
       
       const templatesSnapshot = await getDocs(templatesCollection);
-      console.log("Résultat de la requête Firestore:", {
+      console.log("Résultat de la requête Firestore (newsletter_templates):", {
         success: !!templatesSnapshot,
         numberOfDocs: templatesSnapshot.size,
         empty: templatesSnapshot.empty,
         metadata: templatesSnapshot.metadata
       });
       
-      const templates = templatesSnapshot.docs.map(doc => {
+      const templates1 = templatesSnapshot.docs.map(doc => {
         const data = doc.data();
-        console.log("Document template chargé:", {
+        console.log("Document template chargé (newsletter_templates):", {
           id: doc.id,
           name: data.name,
           sectionsCount: data.sections?.length,
@@ -266,7 +266,44 @@ export default function NewsletterEditorVisual() {
         };
       }) as NewsletterTemplate[];
       
-      setSavedTemplates(templates);
+      // Charger les templates depuis la collection newsletterTemplates
+      const templatesCollection2 = collection(db, 'newsletterTemplates');
+      console.log("Collection Firestore ciblée (2):", {
+        collectionPath: templatesCollection2.path,
+        databaseInstance: !!db
+      });
+      
+      const templatesSnapshot2 = await getDocs(templatesCollection2);
+      console.log("Résultat de la requête Firestore (newsletterTemplates):", {
+        success: !!templatesSnapshot2,
+        numberOfDocs: templatesSnapshot2.size,
+        empty: templatesSnapshot2.empty,
+        metadata: templatesSnapshot2.metadata
+      });
+      
+      const templates2 = templatesSnapshot2.docs.map(doc => {
+        const data = doc.data();
+        console.log("Document template chargé (newsletterTemplates):", {
+          id: doc.id,
+          name: data.name,
+          sectionsCount: data.sections?.length,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt
+        });
+        return {
+          id: doc.id,
+          name: data.name,
+          sections: data.sections,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date()
+        };
+      }) as NewsletterTemplate[];
+      
+      // Fusionner les templates des deux collections
+      const allTemplates = [...templates1, ...templates2];
+      console.log("Nombre total de templates chargés:", allTemplates.length);
+      
+      setSavedTemplates(allTemplates);
     } catch (error: any) {
       console.error('Erreur détaillée lors du chargement des templates:', {
         name: error.name,
@@ -282,6 +319,7 @@ export default function NewsletterEditorVisual() {
     try {
       setIsLoading(true);
       console.log("Début de la sauvegarde du template");
+      console.log("Collection utilisée pour la sauvegarde:", 'newsletterTemplates');
       console.log("État actuel de l'authentification:", {
         authChecked,
         userExists: !!user,
@@ -536,7 +574,7 @@ export default function NewsletterEditorVisual() {
       };
 
       console.log("Tentative de sauvegarde dans Firestore", {
-        collection: "newsletter_templates",
+        collection: "newsletterTemplates",
         templateData: {
           ...templateData,
           sectionsCount: templateData.sections.length
@@ -544,7 +582,7 @@ export default function NewsletterEditorVisual() {
       });
 
       try {
-        const docRef = await addDoc(collection(db, "newsletter_templates"), templateData);
+        const docRef = await addDoc(collection(db, "newsletterTemplates"), templateData);
         console.log("Template sauvegardé avec succès, ID:", docRef.id);
         setIsLoading(false);
         toast.success("Template sauvegardé avec succès!");
@@ -575,13 +613,33 @@ export default function NewsletterEditorVisual() {
 
   const loadTemplate = async (templateId: string) => {
     try {
-      const templateDoc = await getDoc(doc(db, 'newsletter_templates', templateId));
+      console.log("Chargement du template avec ID:", templateId);
+      
+      // Essayer d'abord dans la collection newsletterTemplates
+      const templateDoc = await getDoc(doc(db, 'newsletterTemplates', templateId));
+      
       if (templateDoc.exists()) {
+        console.log("Template trouvé dans la collection 'newsletterTemplates'");
         const templateData = templateDoc.data();
         setSections(templateData.sections);
+        return;
       }
+      
+      // Si non trouvé, essayer dans la collection newsletter_templates
+      const altTemplateDoc = await getDoc(doc(db, 'newsletter_templates', templateId));
+      
+      if (altTemplateDoc.exists()) {
+        console.log("Template trouvé dans la collection 'newsletter_templates'");
+        const templateData = altTemplateDoc.data();
+        setSections(templateData.sections);
+        return;
+      }
+      
+      console.error("Template non trouvé dans aucune collection");
+      toast.error("Template non trouvé");
     } catch (error) {
       console.error('Erreur lors du chargement du template:', error);
+      toast.error("Erreur lors du chargement du template");
     }
   };
 
@@ -1620,7 +1678,9 @@ export default function NewsletterEditorVisual() {
       }
 
       setIsLoading(true);
+      setIsUpdated(false); // Réinitialiser l'état de mise à jour
       console.log("Début de la mise à jour du template", selectedTemplate);
+      console.log("Collection utilisée:", 'newsletterTemplates');
 
       // Vérifier l'état de l'authentification
       const auth = getAuth();
@@ -1664,6 +1724,12 @@ export default function NewsletterEditorVisual() {
         setIsLoading(false);
         return;
       }
+
+      console.log("Template à mettre à jour:", {
+        id: templateToUpdate.id,
+        name: templateToUpdate.name,
+        sectionsCount: templateToUpdate.sections?.length
+      });
 
       // Créer une copie profonde des sections pour les modifier
       const sectionsToSave = JSON.parse(JSON.stringify(sections));
@@ -1725,9 +1791,65 @@ export default function NewsletterEditorVisual() {
       console.log("Sections à sauvegarder:", sectionsToSave);
 
       try {
-        // Mettre à jour le template dans Firestore
+        // Vérifier si le document existe avant de le mettre à jour
         const templateRef = doc(db, 'newsletterTemplates', selectedTemplate);
+        const templateDoc = await getDoc(templateRef);
         
+        console.log("Vérification du document:", {
+          exists: templateDoc.exists(),
+          id: templateDoc.id,
+          path: templateRef.path
+        });
+        
+        if (!templateDoc.exists()) {
+          console.error("Le document n'existe pas dans la collection 'newsletterTemplates'");
+          
+          // Vérifier dans l'autre collection
+          const altTemplateRef = doc(db, 'newsletter_templates', selectedTemplate);
+          const altTemplateDoc = await getDoc(altTemplateRef);
+          
+          console.log("Vérification dans la collection alternative:", {
+            exists: altTemplateDoc.exists(),
+            id: altTemplateDoc.id,
+            path: altTemplateRef.path
+          });
+          
+          if (altTemplateDoc.exists()) {
+            console.log("Le document existe dans la collection 'newsletter_templates', utilisation de cette collection à la place");
+            
+            // Utiliser la collection alternative
+            const updateData = {
+              sections: sectionsToSave,
+              updatedAt: new Date()
+            };
+            
+            await updateDoc(altTemplateRef, updateData);
+            console.log("Template mis à jour avec succès dans la collection 'newsletter_templates'");
+            
+            // Mettre à jour l'état local
+            const updatedTemplates = savedTemplates.map(t => {
+              if (t.id === selectedTemplate) {
+                return {
+                  ...t,
+                  sections: sectionsToSave,
+                  updatedAt: new Date()
+                };
+              }
+              return t;
+            });
+            
+            setSavedTemplates(updatedTemplates);
+            toast.success(`Le template "${templateToUpdate.name}" a été mis à jour avec succès`);
+            return;
+          } else {
+            console.error("Le document n'existe dans aucune collection");
+            toast.error("Le template n'existe pas dans la base de données");
+            setIsLoading(false);
+            return;
+          }
+        }
+        
+        // Mettre à jour le template dans Firestore
         // Utiliser new Date() au lieu de serverTimestamp() pour éviter les problèmes de compatibilité
         const updateData = {
           sections: sectionsToSave,
@@ -1753,10 +1875,35 @@ export default function NewsletterEditorVisual() {
         });
         
         setSavedTemplates(updatedTemplates);
-        toast.success(`Le template "${templateToUpdate.name}" a été mis à jour avec succès`);
+        
+        // Afficher un message de succès et activer l'animation
+        toast.success(`Le template "${templateToUpdate.name}" a été mis à jour avec succès`, {
+          duration: 4000,
+          icon: '✅',
+          style: {
+            background: '#10B981',
+            color: '#fff',
+            fontWeight: 'bold',
+          },
+        });
+        
+        setIsUpdated(true); // Activer l'animation
+        
+        // Désactiver l'animation après 3 secondes
+        setTimeout(() => {
+          setIsUpdated(false);
+        }, 3000);
       } catch (error) {
         console.error('Erreur détaillée lors de la mise à jour du template:', error);
-        toast.error("Une erreur est survenue lors de la mise à jour du template");
+        toast.error("Une erreur est survenue lors de la mise à jour du template", {
+          duration: 4000,
+          icon: '❌',
+          style: {
+            background: '#EF4444',
+            color: '#fff',
+            fontWeight: 'bold',
+          },
+        });
       }
     } catch (error) {
       console.error('Erreur lors de la mise à jour du template:', error);
@@ -2176,12 +2323,21 @@ export default function NewsletterEditorVisual() {
   const moveSectionUp = (sectionId: string) => {
     saveScrollPosition();
     const sectionIndex = sections.findIndex(s => s.id === sectionId);
-    if (sectionIndex <= 0 || sections[sectionIndex].type === 'header') return; // Ne pas déplacer l'en-tête
-
+    if (sectionIndex <= 0) return;
+    
+    // Trouver la section précédente qui n'est pas un en-tête
+    let prevIndex = sectionIndex - 1;
+    while (prevIndex >= 0 && sections[prevIndex].type === 'header') {
+      prevIndex--;
+    }
+    
+    // Si on n'a pas trouvé de section valide, ne rien faire
+    if (prevIndex < 0) return;
+    
     const newSections = [...sections];
     const temp = newSections[sectionIndex];
-    newSections[sectionIndex] = newSections[sectionIndex - 1];
-    newSections[sectionIndex - 1] = temp;
+    newSections[sectionIndex] = newSections[prevIndex];
+    newSections[prevIndex] = temp;
     
     setSections(newSections);
     
@@ -2195,12 +2351,21 @@ export default function NewsletterEditorVisual() {
   const moveSectionDown = (sectionId: string) => {
     saveScrollPosition();
     const sectionIndex = sections.findIndex(s => s.id === sectionId);
-    if (sectionIndex === -1 || sectionIndex >= sections.length - 1 || sections[sectionIndex].type === 'footer') return; // Ne pas déplacer le pied de page
-
+    if (sectionIndex === -1 || sectionIndex >= sections.length - 1) return;
+    
+    // Trouver la section suivante qui n'est pas un pied de page
+    let nextIndex = sectionIndex + 1;
+    while (nextIndex < sections.length && sections[nextIndex].type === 'footer') {
+      nextIndex++;
+    }
+    
+    // Si on n'a pas trouvé de section valide, ne rien faire
+    if (nextIndex >= sections.length) return;
+    
     const newSections = [...sections];
     const temp = newSections[sectionIndex];
-    newSections[sectionIndex] = newSections[sectionIndex + 1];
-    newSections[sectionIndex + 1] = temp;
+    newSections[sectionIndex] = newSections[nextIndex];
+    newSections[nextIndex] = temp;
     
     setSections(newSections);
     
@@ -2270,44 +2435,6 @@ export default function NewsletterEditorVisual() {
     );
   };
 
-  // Fonction pour réorganiser les sections par drag and drop
-  const handleDragEnd = (result: any) => {
-    saveScrollPosition();
-    // Si on n'a pas déposé dans une zone valide, ne rien faire
-    if (!result.destination) return;
-    
-    // Si la source et la destination sont identiques, ne rien faire
-    if (
-      result.destination.droppableId === result.source.droppableId &&
-      result.destination.index === result.source.index
-    ) {
-      return;
-    }
-    
-    // Ne pas permettre de déplacer l'en-tête ou le pied de page
-    const sourceIndex = result.source.index;
-    if (sections[sourceIndex].type === 'header' || sections[sourceIndex].type === 'footer') {
-      return;
-    }
-    
-    // Créer une copie des sections
-    const newSections = Array.from(sections);
-    
-    // Retirer la section de sa position originale
-    const [removed] = newSections.splice(result.source.index, 1);
-    
-    // Ajouter la section à sa nouvelle position
-    newSections.splice(result.destination.index, 0, removed);
-    
-    // Mettre à jour l'état
-    setSections(newSections);
-    
-    // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
-    requestAnimationFrame(() => {
-      setTimeout(restoreScrollPosition, 10);
-    });
-  };
-
   // Effet pour restaurer la position de défilement après chaque mise à jour des sections
   useEffect(() => {
     // Restaurer la position de défilement après le rendu
@@ -2364,8 +2491,8 @@ export default function NewsletterEditorVisual() {
         <div className="bg-gray-50 p-4 rounded-lg shadow-md">
           {mode === 'edit' && (
             <>
-              <div className="mb-4 flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Sections</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Sections de la newsletter</h2>
                 <button
                   onClick={() => setShowAddSectionModal(true)}
                   className="px-4 py-2 bg-[#DC0032] text-white rounded-md flex items-center"
@@ -2374,423 +2501,468 @@ export default function NewsletterEditorVisual() {
                 </button>
               </div>
 
-              <DragDropContext onDragEnd={handleDragEnd}>
-                <Droppable droppableId="newsletter-sections">
-                  {(provided) => (
-                    <div 
-                      className="space-y-4"
-                      {...provided.droppableProps}
-                      ref={provided.innerRef}
+              {/* Remplacer DragDropContext par une div simple */}
+              <div className="space-y-4">
+                {getEditableSections(sections).map((section, index) => {
+                  // Trouver l'index réel de la section dans le tableau complet
+                  const realIndex = sections.findIndex(s => s.id === section.id);
+                  // Déterminer si c'est la première section éditable (après l'en-tête)
+                  const isFirstEditable = sections.filter(s => s.type !== 'header').findIndex(s => s.id === section.id) === 0;
+                  // Déterminer si c'est la dernière section éditable (avant le pied de page)
+                  const isLastEditable = sections.filter(s => s.type !== 'footer').findIndex(s => s.id === section.id) === sections.filter(s => s.type !== 'footer').length - 1;
+                  
+                  return (
+                    <div
+                      key={section.id}
+                      className="bg-white p-4 rounded-lg shadow"
                     >
-                      {getEditableSections(sections).map((section, index) => (
-                        <Draggable 
-                          key={section.id} 
-                          draggableId={section.id} 
-                          index={index}
-                          isDragDisabled={section.type === 'header' || section.type === 'footer'}
-                        >
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              className={`bg-white p-4 rounded-lg shadow ${snapshot.isDragging ? 'opacity-70' : ''}`}
-                            >
-                              <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-lg font-semibold capitalize flex items-center">
-                                  {section.type !== 'header' && section.type !== 'footer' && (
-                                    <span className="mr-2 cursor-grab">≡</span>
-                                  )}
-                                  {section.type === 'header' && 'En-tête'}
-                      {section.type === 'headline' && 'Titre principal'}
-                      {section.type === 'content' && 'Contenu principal'}
-                      {section.type === 'photos' && 'Photos du projet'}
-                      {section.type === 'characteristics' && 'Caractéristiques'}
-                      {section.type === 'location' && 'Localisation'}
-                      {section.type === 'availability' && 'Disponibilité'}
-                      {section.type === 'button' && 'Bouton d\'action'}
-                      {section.type === 'surface' && 'Surface'}
-                                  {section.type === 'footer' && 'Pied de page'}
-                    </h3>
-                                <div className="flex space-x-2">
-                                  <button
-                                    onClick={() => toggleSectionCollapse(section.id)}
-                                    className="p-1 text-gray-500 hover:bg-gray-100 rounded"
-                                    title={section.isCollapsed ? "Développer" : "Réduire"}
-                                  >
-                                    {section.isCollapsed ? "👁️" : "👁️‍🗨️"}
-                                  </button>
-                                  {/* Ne pas afficher les boutons de déplacement et suppression pour l'en-tête et le pied de page */}
-                                  {section.type !== 'header' && section.type !== 'footer' && (
-                                    <>
-                                      <button
-                                        onClick={() => moveSectionUp(section.id)}
-                                        className="p-1 text-gray-500 hover:bg-gray-100 rounded"
-                                        title="Déplacer vers le haut"
-                                      >
-                                        ⬆️
-                                      </button>
-                                      <button
-                                        onClick={() => moveSectionDown(section.id)}
-                                        className="p-1 text-gray-500 hover:bg-gray-100 rounded"
-                                        title="Déplacer vers le bas"
-                                      >
-                                        ⬇️
-                                      </button>
-                                      <button
-                                        onClick={() => deleteSection(section.id)}
-                                        className="p-1 text-red-500 hover:bg-red-100 rounded"
-                                        title="Supprimer la section"
-                                      >
-                                        🗑️
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Champ pour personnaliser le titre de la section */}
-                              {!section.isCollapsed && section.type !== 'header' && section.type !== 'footer' && 
-                               section.type !== 'headline' && section.type !== 'content' && section.type !== 'photos' && section.type !== 'characteristics' && section.type !== 'location' && section.type !== 'availability' && section.type !== 'button' && section.type !== 'surface' && (
-                                <div className="mb-4">
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Titre affiché de la section
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={section.customTitle || ""}
-                                    onChange={(e) => updateSection(section.id, {
-                                      ...section,
-                                      customTitle: e.target.value
-                                    })}
-                                    placeholder={
-                                      section.type === 'custom' ? 'Section personnalisée' : ''
-                                    }
-                                    className="w-full p-2 border rounded"
-                                  />
-                                </div>
-                              )}
-
-                              {!section.isCollapsed && (
-                                <>
-                    {section.type === 'header' && (
-                                    <div className="flex flex-col gap-4">
-                                      <div className="flex items-center gap-4 mb-4">
-                                        <div className="w-32">
-                        <img 
-                          src={section.content.logo} 
-                          alt="Logo" 
-                                            className="w-full h-auto"
-                                          />
-                                        </div>
-                                        <div>
-                                          <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={(e) => handleImageUpload(e, 'header', 'logo')}
-                                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                          />
-                                          <p className="text-sm text-gray-500 mt-1">Logo de l'entreprise</p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {section.type === 'footer' && (
-                                    <div className="flex flex-col gap-4">
-                                      <div className="border-t pt-4 mt-4">
-                                        <h4 className="font-medium text-gray-700 mb-2">Liens sociaux</h4>
-                                        <div className="space-y-2">
-                                          {section.content.socialLinks?.map((link, index) => (
-                                            <div key={index} className="flex space-x-2 items-center">
-                                              <input
-                                                type="text"
-                                                placeholder="Plateforme (ex: LinkedIn)"
-                                                value={link.platform}
-                                                onChange={(e) => updateSocialLink(index, 'platform', e.target.value)}
-                                                className="flex-1 p-2 border rounded"
-                                              />
-                                              <input
-                                                type="text"
-                                                placeholder="URL"
-                                                value={link.url}
-                                                onChange={(e) => updateSocialLink(index, 'url', e.target.value)}
-                                                className="flex-1 p-2 border rounded"
-                                              />
-                                              <button
-                                                onClick={() => deleteSocialLink(index)}
-                                                className="p-1 text-red-500 hover:bg-red-100 rounded"
-                                              >
-                                                🗑️
-                                              </button>
-                                            </div>
-                                          ))}
-                                          <button
-                                            onClick={addSocialLink}
-                                            className="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm"
-                                          >
-                                            + Ajouter un lien social
-                                          </button>
-                                        </div>
-                                      </div>
-                      </div>
-                    )}
-
-                    {section.type === 'headline' && (
-                      <div className="flex flex-col gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Titre principal
-                          </label>
-                          <input
-                            type="text"
-                            value={section.content.title}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: { ...section.content, title: e.target.value }
-                            })}
-                            className="w-full p-2 border rounded"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {section.type === 'content' && (
-                      <div className="flex flex-col gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Titre de la section
-                          </label>
-                          <input
-                            type="text"
-                            value={section.content.title || ''}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: { ...section.content, title: e.target.value }
-                            })}
-                            className="w-full p-2 border rounded"
-                            placeholder="Titre de la section"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Message d'accueil
-                          </label>
-                          <div className="mb-1">
-                            <span className="text-xs text-gray-500">
-                              Utilisez les tags suivants pour personnaliser : {'{nom}'}, {'{prenom}'}, {'{civilite}'}
-                            </span>
-                          </div>
-                          <input
-                            type="text"
-                            value={section.content.greeting}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: { ...section.content, greeting: e.target.value }
-                            })}
-                            className="w-full p-2 border rounded"
-                            placeholder="Ex: Bonjour {civilite} {nom},"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex justify-between items-center mb-1">
-                            <label className="block text-sm font-medium text-gray-700">
-                              Paragraphes
-                            </label>
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold capitalize flex items-center">
+                          <div className="flex space-x-2 mr-2">
                             <button
-                              onClick={() => addParagraph(section.id)}
-                              className="text-blue-600 text-sm hover:underline"
+                              onClick={() => moveSectionUp(section.id)}
+                              disabled={isFirstEditable}
+                              className="text-gray-500 hover:text-gray-700 disabled:opacity-30"
+                              title="Déplacer vers le haut"
                             >
-                              + Ajouter un paragraphe
+                              ↑
+                            </button>
+                            <button
+                              onClick={() => moveSectionDown(section.id)}
+                              disabled={isLastEditable}
+                              className="text-gray-500 hover:text-gray-700 disabled:opacity-30"
+                              title="Déplacer vers le bas"
+                            >
+                              ↓
                             </button>
                           </div>
-                          {section.content.paragraphs?.map((paragraph, index) => (
-                            <div key={index} className="mb-4 relative border rounded-lg p-2">
-                              <div className="flex gap-2 mb-2 border-b pb-2">
-                                <button
-                                  onClick={() => {
-                                    const newParagraphs = [...(section.content.paragraphs || [])];
-                                    newParagraphs[index] = `<strong>${newParagraphs[index].replace(/<\/?strong>/g, '')}</strong>`;
-                                    updateSection(section.id, {
-                                      ...section,
-                                      content: { ...section.content, paragraphs: newParagraphs }
-                                    });
-                                  }}
-                                  className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 font-bold"
-                                  title="Mettre en gras"
-                                >
-                                  B
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    const newParagraphs = [...(section.content.paragraphs || [])];
-                                    newParagraphs[index] = `<em>${newParagraphs[index].replace(/<\/?em>/g, '')}</em>`;
-                                    updateSection(section.id, {
-                                      ...section,
-                                      content: { ...section.content, paragraphs: newParagraphs }
-                                    });
-                                  }}
-                                  className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 italic"
-                                  title="Mettre en italique"
-                                >
-                                  I
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    const newParagraphs = [...(section.content.paragraphs || [])];
-                                    newParagraphs[index] = `<u>${newParagraphs[index].replace(/<\/?u>/g, '')}</u>`;
-                                    updateSection(section.id, {
-                                      ...section,
-                                      content: { ...section.content, paragraphs: newParagraphs }
-                                    });
-                                  }}
-                                  className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 underline"
-                                  title="Souligner"
-                                >
-                                  U
-                                </button>
-                                <div className="relative">
-                                  <button
-                                    onClick={(e) => {
-                                      const target = e.currentTarget;
-                                      const colorPicker = target.nextElementSibling as HTMLInputElement;
-                                      if (colorPicker) colorPicker.click();
-                                    }}
-                                    className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 flex items-center"
-                                    title="Changer la couleur"
-                                  >
-                                    <span className="mr-1">A</span>
-                                    <div className="w-3 h-3 bg-black rounded-full"></div>
-                                  </button>
-                                  <input 
-                                    type="color" 
-                                    className="hidden"
-                                    onChange={(e) => {
-                                      const color = e.target.value;
-                                      const newParagraphs = [...(section.content.paragraphs || [])];
-                                      // Remplacer la couleur existante ou ajouter une nouvelle
-                                      if (newParagraphs[index].includes('color:')) {
-                                        newParagraphs[index] = newParagraphs[index].replace(/color:[^;"]+(;|")/, `color:${color}$1`);
-                                      } else {
-                                        newParagraphs[index] = `<span style="color:${color}">${newParagraphs[index].replace(/<\/?span[^>]*>/g, '')}</span>`;
-                                      }
-                                      updateSection(section.id, {
-                                        ...section,
-                                        content: { ...section.content, paragraphs: newParagraphs }
-                                      });
-                                    }}
-                                  />
-                                </div>
-                                <select
-                                  className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 text-sm"
-                                  onChange={(e) => {
-                                    const fontFamily = e.target.value;
-                                    const newParagraphs = [...(section.content.paragraphs || [])];
-                                    // Remplacer la police existante ou ajouter une nouvelle
-                                    if (newParagraphs[index].includes('font-family:')) {
-                                      newParagraphs[index] = newParagraphs[index].replace(/font-family:[^;"]+(;|")/, `font-family:${fontFamily}$1`);
-                                    } else {
-                                      newParagraphs[index] = `<span style="font-family:${fontFamily}">${newParagraphs[index].replace(/<\/?span[^>]*>/g, '')}</span>`;
-                                    }
-                                    updateSection(section.id, {
-                                      ...section,
-                                      content: { ...section.content, paragraphs: newParagraphs }
-                                    });
-                                  }}
-                                  title="Changer la police"
-                                >
-                                  <option value="inherit">Police</option>
-                                  <option value="'Montserrat', sans-serif">Montserrat</option>
-                                  <option value="'Arial', sans-serif">Arial</option>
-                                  <option value="'Georgia', serif">Georgia</option>
-                                  <option value="'Courier New', monospace">Courier</option>
-                                </select>
-                                <select
-                                  className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 text-sm"
-                                  onChange={(e) => {
-                                    const fontSize = e.target.value;
-                                    const newParagraphs = [...(section.content.paragraphs || [])];
-                                    // Remplacer la taille existante ou ajouter une nouvelle
-                                    if (newParagraphs[index].includes('font-size:')) {
-                                      newParagraphs[index] = newParagraphs[index].replace(/font-size:[^;"]+(;|")/, `font-size:${fontSize}$1`);
-                                    } else {
-                                      newParagraphs[index] = `<span style="font-size:${fontSize}">${newParagraphs[index].replace(/<\/?span[^>]*>/g, '')}</span>`;
-                                    }
-                                    updateSection(section.id, {
-                                      ...section,
-                                      content: { ...section.content, paragraphs: newParagraphs }
-                                    });
-                                  }}
-                                  title="Changer la taille"
-                                >
-                                  <option value="inherit">Taille</option>
-                                  <option value="12px">Petit</option>
-                                  <option value="16px">Normal</option>
-                                  <option value="20px">Grand</option>
-                                  <option value="24px">Très grand</option>
-                                </select>
-                              </div>
-                              <textarea
-                                value={paragraph.replace(/<[^>]+>/g, '')}
-                                onChange={(e) => {
-                                  const newParagraphs = [...(section.content.paragraphs || [])];
-                                  // Préserver le formatage existant
-                                  const existingFormatting = newParagraphs[index].match(/<([^>]+)>.*<\/\1>/);
-                                  if (existingFormatting) {
-                                    const tag = existingFormatting[1];
-                                    newParagraphs[index] = `<${tag}>${e.target.value}</${tag}>`;
-                                  } else {
-                                    newParagraphs[index] = e.target.value;
-                                  }
-                                  updateSection(section.id, {
-                                    ...section,
-                                    content: { ...section.content, paragraphs: newParagraphs }
-                                  });
-                                }}
-                                className="w-full p-2 border rounded min-h-[100px] pr-8"
-                              />
-                              <button
-                                onClick={() => deleteParagraph(section.id, index)}
-                                className="absolute top-2 right-2 text-red-500 hover:bg-red-100 p-1 rounded"
-                                title="Supprimer ce paragraphe"
-                              >
-                                🗑️
-                              </button>
-                            </div>
-                          ))}
+                          {section.customTitle || section.type}
+                        </h3>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => deleteSection(section.id)}
+                            className="text-red-500 hover:bg-red-100 p-1 rounded"
+                            title="Supprimer cette section"
+                          >
+                            🗑️
+                          </button>
+                          <button
+                            onClick={() => toggleSectionCollapse(section.id)}
+                            className="text-gray-500 hover:bg-gray-100 p-1 rounded"
+                            title={section.isCollapsed ? "Développer cette section" : "Réduire cette section"}
+                          >
+                            {section.isCollapsed ? '🔽' : '🔼'}
+                          </button>
                         </div>
                       </div>
-                    )}
 
-                    {section.type === 'photos' && (
-                                    <div>
-                                      <div className="flex justify-between items-center mb-2">
-                                        <button
-                                          onClick={() => addPhoto(section.id)}
-                                          className="text-blue-600 text-sm hover:underline"
-                                        >
-                                          + Ajouter une photo
-                                        </button>
-                                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {section.content.photos?.map((photo, index) => (
-                                          <div key={index} className="flex flex-col gap-2 relative">
-                            <div className="relative group">
-                              <img
-                                src={photo.url}
-                                alt={photo.caption}
-                                className="w-full h-48 object-cover rounded"
-                              />
-                              <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <label className="cursor-pointer px-3 py-2 bg-white text-gray-800 rounded-md font-medium hover:bg-gray-100">
-                                  Remplacer l'image
+                      {/* Contenu de la section (affiché uniquement si la section n'est pas réduite) */}
+                      {!section.isCollapsed && (
+                        <>
+                          {section.type === 'header' && (
+                            <div className="flex flex-col gap-4">
+                              <div className="flex items-center gap-4 mb-4">
+                                <div className="w-32">
+                                  <img 
+                                    src={section.content.logo} 
+                                    alt="Logo" 
+                                    className="w-full h-auto"
+                                  />
+                                </div>
+                                <div>
                                   <input
                                     type="file"
                                     accept="image/*"
-                                    className="hidden"
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0];
-                                      if (file) {
+                                    onChange={(e) => handleImageUpload(e, 'header', 'logo')}
+                                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                  />
+                                  <p className="text-sm text-gray-500 mt-1">Logo de l'entreprise</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {section.type === 'footer' && (
+                            <div className="flex flex-col gap-4">
+                              <div className="border-t pt-4 mt-4">
+                                <h4 className="font-medium text-gray-700 mb-2">Liens sociaux</h4>
+                                <div className="space-y-2">
+                                  {section.content.socialLinks?.map((link, index) => (
+                                    <div key={index} className="flex space-x-2 items-center">
+                                      <input
+                                        type="text"
+                                        placeholder="Plateforme (ex: LinkedIn)"
+                                        value={link.platform}
+                                        onChange={(e) => updateSocialLink(index, 'platform', e.target.value)}
+                                        className="flex-1 p-2 border rounded"
+                                      />
+                                      <input
+                                        type="text"
+                                        placeholder="URL"
+                                        value={link.url}
+                                        onChange={(e) => updateSocialLink(index, 'url', e.target.value)}
+                                        className="flex-1 p-2 border rounded"
+                                      />
+                                      <button
+                                        onClick={() => deleteSocialLink(index)}
+                                        className="p-1 text-red-500 hover:bg-red-100 rounded"
+                                      >
+                                        🗑️
+                                      </button>
+                                    </div>
+                                  ))}
+                                  <button
+                                    onClick={addSocialLink}
+                                    className="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm"
+                                  >
+                                    + Ajouter un lien social
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {section.type === 'headline' && (
+                            <div className="flex flex-col gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Titre principal
+                                </label>
+                                <input
+                                  type="text"
+                                  value={section.content.title}
+                                  onChange={(e) => updateSection(section.id, {
+                                    ...section,
+                                    content: { ...section.content, title: e.target.value }
+                                  })}
+                                  className="w-full p-2 border rounded"
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {section.type === 'content' && (
+                            <div className="flex flex-col gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Titre de la section
+                                </label>
+                                <input
+                                  type="text"
+                                  value={section.content.title || ''}
+                                  onChange={(e) => updateSection(section.id, {
+                                    ...section,
+                                    content: { ...section.content, title: e.target.value }
+                                  })}
+                                  className="w-full p-2 border rounded"
+                                  placeholder="Titre de la section"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Message d'accueil
+                                </label>
+                                <div className="mb-1">
+                                  <span className="text-xs text-gray-500">
+                                    Utilisez les tags suivants pour personnaliser : {'{nom}'}, {'{prenom}'}, {'{civilite}'}
+                                  </span>
+                                </div>
+                                <input
+                                  type="text"
+                                  value={section.content.greeting}
+                                  onChange={(e) => updateSection(section.id, {
+                                    ...section,
+                                    content: { ...section.content, greeting: e.target.value }
+                                  })}
+                                  className="w-full p-2 border rounded"
+                                  placeholder="Ex: Bonjour {civilite} {nom},"
+                                />
+                              </div>
+                              <div>
+                                <div className="flex justify-between items-center mb-1">
+                                  <label className="block text-sm font-medium text-gray-700">
+                                    Paragraphes
+                                  </label>
+                                  <button
+                                    onClick={() => addParagraph(section.id)}
+                                    className="text-blue-600 text-sm hover:underline"
+                                  >
+                                    + Ajouter un paragraphe
+                                  </button>
+                                </div>
+                                {section.content.paragraphs?.map((paragraph, index) => (
+                                  <div key={index} className="mb-4 relative border rounded-lg p-2">
+                                    <div className="flex gap-2 mb-2 border-b pb-2">
+                                      <button
+                                        onClick={() => {
+                                          const newParagraphs = [...(section.content.paragraphs || [])];
+                                          newParagraphs[index] = `<strong>${newParagraphs[index].replace(/<\/?strong>/g, '')}</strong>`;
+                                          updateSection(section.id, {
+                                            ...section,
+                                            content: { ...section.content, paragraphs: newParagraphs }
+                                          });
+                                        }}
+                                        className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 font-bold"
+                                        title="Mettre en gras"
+                                      >
+                                        B
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          const newParagraphs = [...(section.content.paragraphs || [])];
+                                          newParagraphs[index] = `<em>${newParagraphs[index].replace(/<\/?em>/g, '')}</em>`;
+                                          updateSection(section.id, {
+                                            ...section,
+                                            content: { ...section.content, paragraphs: newParagraphs }
+                                          });
+                                        }}
+                                        className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 italic"
+                                        title="Mettre en italique"
+                                      >
+                                        I
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          const newParagraphs = [...(section.content.paragraphs || [])];
+                                          newParagraphs[index] = `<u>${newParagraphs[index].replace(/<\/?u>/g, '')}</u>`;
+                                          updateSection(section.id, {
+                                            ...section,
+                                            content: { ...section.content, paragraphs: newParagraphs }
+                                          });
+                                        }}
+                                        className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 underline"
+                                        title="Souligner"
+                                      >
+                                        U
+                                      </button>
+                                      <div className="relative">
+                                        <button
+                                          onClick={(e) => {
+                                            const target = e.currentTarget;
+                                            const colorPicker = target.nextElementSibling as HTMLInputElement;
+                                            if (colorPicker) colorPicker.click();
+                                          }}
+                                          className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 flex items-center"
+                                          title="Changer la couleur"
+                                        >
+                                          <span className="mr-1">A</span>
+                                          <div className="w-3 h-3 bg-black rounded-full"></div>
+                                        </button>
+                                        <input 
+                                          type="color" 
+                                          className="hidden"
+                                          onChange={(e) => {
+                                            const color = e.target.value;
+                                            const newParagraphs = [...(section.content.paragraphs || [])];
+                                            // Remplacer la couleur existante ou ajouter une nouvelle
+                                            if (newParagraphs[index].includes('color:')) {
+                                              newParagraphs[index] = newParagraphs[index].replace(/color:[^;"]+(;|")/, `color:${color}$1`);
+                                            } else {
+                                              newParagraphs[index] = `<span style="color:${color}">${newParagraphs[index].replace(/<\/?span[^>]*>/g, '')}</span>`;
+                                            }
+                                            updateSection(section.id, {
+                                              ...section,
+                                              content: { ...section.content, paragraphs: newParagraphs }
+                                            });
+                                          }}
+                                        />
+                                      </div>
+                                      <select
+                                        className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 text-sm"
+                                        onChange={(e) => {
+                                          const fontFamily = e.target.value;
+                                          const newParagraphs = [...(section.content.paragraphs || [])];
+                                          // Remplacer la police existante ou ajouter une nouvelle
+                                          if (newParagraphs[index].includes('font-family:')) {
+                                            newParagraphs[index] = newParagraphs[index].replace(/font-family:[^;"]+(;|")/, `font-family:${fontFamily}$1`);
+                                          } else {
+                                            newParagraphs[index] = `<span style="font-family:${fontFamily}">${newParagraphs[index].replace(/<\/?span[^>]*>/g, '')}</span>`;
+                                          }
+                                          updateSection(section.id, {
+                                            ...section,
+                                            content: { ...section.content, paragraphs: newParagraphs }
+                                          });
+                                        }}
+                                        title="Changer la police"
+                                      >
+                                        <option value="inherit">Police</option>
+                                        <option value="'Montserrat', sans-serif">Montserrat</option>
+                                        <option value="'Arial', sans-serif">Arial</option>
+                                        <option value="'Georgia', serif">Georgia</option>
+                                        <option value="'Courier New', monospace">Courier</option>
+                                      </select>
+                                      <select
+                                        className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 text-sm"
+                                        onChange={(e) => {
+                                          const fontSize = e.target.value;
+                                          const newParagraphs = [...(section.content.paragraphs || [])];
+                                          // Remplacer la taille existante ou ajouter une nouvelle
+                                          if (newParagraphs[index].includes('font-size:')) {
+                                            newParagraphs[index] = newParagraphs[index].replace(/font-size:[^;"]+(;|")/, `font-size:${fontSize}$1`);
+                                          } else {
+                                            newParagraphs[index] = `<span style="font-size:${fontSize}">${newParagraphs[index].replace(/<\/?span[^>]*>/g, '')}</span>`;
+                                          }
+                                          updateSection(section.id, {
+                                            ...section,
+                                            content: { ...section.content, paragraphs: newParagraphs }
+                                          });
+                                        }}
+                                        title="Changer la taille"
+                                       >
+                                        <option value="inherit">Taille</option>
+                                        <option value="12px">Petit</option>
+                                        <option value="16px">Normal</option>
+                                        <option value="20px">Grand</option>
+                                        <option value="24px">Très grand</option>
+                                      </select>
+                                      
+                                      {/* Groupe de boutons d'alignement */}
+                                      <div className="flex items-center ml-2">
+                                        <div className="border-l h-6 mr-2"></div>
+                                        <div className="flex space-x-1">
+                                          <button
+                                            onClick={() => {
+                                              const newParagraphs = [...(section.content.paragraphs || [])];
+                                              // Supprimer tous les alignements existants
+                                              let cleanText = newParagraphs[index].replace(/<div style="text-align: (left|center|right|justify);">(.*?)<\/div>/g, '$2');
+                                              // Ajouter l'alignement à gauche
+                                              newParagraphs[index] = `<div style="text-align: left;">${cleanText}</div>`;
+                                              updateSection(section.id, {
+                                                ...section,
+                                                content: { ...section.content, paragraphs: newParagraphs }
+                                              });
+                                            }}
+                                            className="p-1 bg-gray-100 rounded hover:bg-gray-200"
+                                            title="Aligner à gauche"
+                                          >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                              <path d="M2 12.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm0-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/>
+                                            </svg>
+                                          </button>
+                                          
+                                          <button
+                                            onClick={() => {
+                                              const newParagraphs = [...(section.content.paragraphs || [])];
+                                              // Supprimer tous les alignements existants
+                                              let cleanText = newParagraphs[index].replace(/<div style="text-align: (left|center|right|justify);">(.*?)<\/div>/g, '$2');
+                                              // Ajouter l'alignement au centre
+                                              newParagraphs[index] = `<div style="text-align: center;">${cleanText}</div>`;
+                                              updateSection(section.id, {
+                                                ...section,
+                                                content: { ...section.content, paragraphs: newParagraphs }
+                                              });
+                                            }}
+                                            className="p-1 bg-gray-100 rounded hover:bg-gray-200"
+                                            title="Centrer"
+                                          >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                              <path d="M4 12.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/>
+                                            </svg>
+                                          </button>
+                                          
+                                          <button
+                                            onClick={() => {
+                                              const newParagraphs = [...(section.content.paragraphs || [])];
+                                              // Supprimer tous les alignements existants
+                                              let cleanText = newParagraphs[index].replace(/<div style="text-align: (left|center|right|justify);">(.*?)<\/div>/g, '$2');
+                                              // Ajouter l'alignement à droite
+                                              newParagraphs[index] = `<div style="text-align: right;">${cleanText}</div>`;
+                                              updateSection(section.id, {
+                                                ...section,
+                                                content: { ...section.content, paragraphs: newParagraphs }
+                                              });
+                                            }}
+                                            className="p-1 bg-gray-100 rounded hover:bg-gray-200"
+                                            title="Aligner à droite"
+                                          >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                              <path d="M6 12.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-4-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm4-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-4-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/>
+                                            </svg>
+                                          </button>
+                                          
+                                          <button
+                                            onClick={() => {
+                                              const newParagraphs = [...(section.content.paragraphs || [])];
+                                              // Supprimer tous les alignements existants
+                                              let cleanText = newParagraphs[index].replace(/<div style="text-align: (left|center|right|justify);">(.*?)<\/div>/g, '$2');
+                                              // Ajouter l'alignement justifié
+                                              newParagraphs[index] = `<div style="text-align: justify;">${cleanText}</div>`;
+                                              updateSection(section.id, {
+                                                ...section,
+                                                content: { ...section.content, paragraphs: newParagraphs }
+                                              });
+                                            }}
+                                            className="p-1 bg-gray-100 rounded hover:bg-gray-200"
+                                            title="Justifier"
+                                          >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                              <path d="M2 12.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/>
+                                            </svg>
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <textarea
+                                      value={paragraph.replace(/<[^>]+>/g, '')}
+                                      onChange={(e) => {
+                                        const newParagraphs = [...(section.content.paragraphs || [])];
+                                        // Préserver le formatage existant
+                                        const existingFormatting = newParagraphs[index].match(/<([^>]+)>.*<\/\1>/);
+                                        if (existingFormatting) {
+                                          const tag = existingFormatting[1];
+                                          newParagraphs[index] = `<${tag}>${e.target.value}</${tag}>`;
+                                        } else {
+                                          newParagraphs[index] = e.target.value;
+                                        }
+                                        updateSection(section.id, {
+                                          ...section,
+                                          content: { ...section.content, paragraphs: newParagraphs }
+                                        });
+                                      }}
+                                      className="w-full p-2 border rounded min-h-[100px] pr-8"
+                                    />
+                                    <button
+                                      onClick={() => deleteParagraph(section.id, index)}
+                                      className="absolute top-2 right-2 text-red-500 hover:bg-red-100 p-1 rounded"
+                                      title="Supprimer ce paragraphe"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {section.type === 'photos' && (
+                            <div>
+                              <div className="flex justify-between items-center mb-2">
+                                <button
+                                  onClick={() => addPhoto(section.id)}
+                                  className="text-blue-600 text-sm hover:underline"
+                                >
+                                  + Ajouter une photo
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {section.content.photos?.map((photo, index) => (
+                                  <div key={index} className="flex flex-col gap-2 relative">
+                                    <div className="relative group">
+                                      <img
+                                        src={photo.url}
+                                        alt={photo.caption}
+                                        className="w-full h-48 object-cover rounded"
+                                      />
+                                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <label className="cursor-pointer px-3 py-2 bg-white text-gray-800 rounded-md font-medium hover:bg-gray-100">
+                                          Remplacer l'image
+                                          <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                              const file = e.target.files?.[0];
+                                              if (file) {
                                                         // Créer une URL temporaire pour afficher l'image
                                                         const tempUrl = URL.createObjectURL(file);
                                                         
@@ -2814,792 +2986,787 @@ export default function NewsletterEditorVisual() {
                                                           console.error('Erreur lors de l\'upload de l\'image:', error);
                                                           toast.error('Erreur lors de l\'upload de l\'image');
                                                         });
-                                      }
-                                    }}
-                                  />
-                                </label>
+                                              }
+                                            }}
+                                          />
+                                        </label>
+                                      </div>
+                                    </div>
+                                    <div className="relative">
+                                      <textarea
+                                        value={photo.caption}
+                                        onChange={(e) => {
+                                          const newPhotos = [...(section.content.photos || [])];
+                                          newPhotos[index] = { ...photo, caption: e.target.value };
+                                          updateSection(section.id, {
+                                            ...section,
+                                            content: { ...section.content, photos: newPhotos }
+                                          });
+                                        }}
+                                        className="w-full p-2 border rounded"
+                                        placeholder="Légende de la photo"
+                                        rows={3}
+                                      />
+                                      <button
+                                        onClick={() => deletePhoto(section.id, index)}
+                                        className="absolute top-2 right-2 text-red-500 hover:bg-red-100 p-1 rounded"
+                                        title="Supprimer cette photo"
+                                      >
+                                        🗑️
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
                             </div>
-                                            <div className="relative">
-                            <textarea
-                              value={photo.caption}
-                              onChange={(e) => {
-                                const newPhotos = [...(section.content.photos || [])];
-                                newPhotos[index] = { ...photo, caption: e.target.value };
-                                updateSection(section.id, {
-                                  ...section,
-                                  content: { ...section.content, photos: newPhotos }
-                                });
-                              }}
-                              className="w-full p-2 border rounded"
-                              placeholder="Légende de la photo"
-                              rows={3}
-                            />
-                                              <button
-                                                onClick={() => deletePhoto(section.id, index)}
-                                                className="absolute top-2 right-2 text-red-500 hover:bg-red-100 p-1 rounded"
-                                                title="Supprimer cette photo"
-                                              >
-                                                🗑️
-                                              </button>
-                                            </div>
-                          </div>
-                        ))}
-                                      </div>
-                      </div>
-                    )}
+                          )}
 
-                    {section.type === 'characteristics' && (
-                                    <div className="flex flex-col gap-4">
-                                      <div className="space-y-4">
-                                        {section.content.characteristics?.map((characteristic, index) => (
-                                          <div key={index} className="border p-3 rounded-lg">
-                                            <div className="flex justify-between items-center mb-2">
-                                              <h4 className="font-medium">Caractéristique {index + 1}</h4>
-                                              <button
-                                                onClick={() => deleteCharacteristic(section.id, index)}
-                                                className="text-red-600 hover:text-red-800"
-                                              >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                                                </svg>
-                                              </button>
+                          {section.type === 'characteristics' && (
+                            <div className="flex flex-col gap-4">
+                              <div className="space-y-4">
+                                {section.content.characteristics?.map((characteristic, index) => (
+                                  <div key={index} className="border p-3 rounded-lg">
+                                    <div className="flex justify-between items-center mb-2">
+                                      <h4 className="font-medium">Caractéristique {index + 1}</h4>
+                                      <button
+                                        onClick={() => deleteCharacteristic(section.id, index)}
+                                        className="text-red-600 hover:text-red-800"
+                                      >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                          <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-3">
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Icône ou Image
+                                        </label>
+                                        <div className="flex flex-col gap-2">
+                                          <div className="flex items-center gap-3">
+                                            <div className="text-3xl">
+                                              {characteristic.icon}
                                             </div>
-                                            <div className="grid grid-cols-1 gap-3">
-                                              <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                  Icône ou Image
-                                                </label>
-                                                <div className="flex flex-col gap-2">
-                                                  <div className="flex items-center gap-3">
-                                                    <div className="text-3xl">
-                                                      {characteristic.icon}
-                                                    </div>
-                                                    <EmojiPicker 
-                                                      currentEmoji={characteristic.icon} 
-                                                      onEmojiSelect={(emoji: string) => {
-                                                        const newCharacteristics = [...(section.content.characteristics || [])];
-                                                        newCharacteristics[index] = {
-                                                          ...newCharacteristics[index],
-                                                          icon: emoji
+                                            <EmojiPicker 
+                                              currentEmoji={characteristic.icon} 
+                                              onEmojiSelect={(emoji: string) => {
+                                                const newCharacteristics = [...(section.content.characteristics || [])];
+                                                newCharacteristics[index] = {
+                                                  ...newCharacteristics[index],
+                                                  icon: emoji
+                                                };
+                                                updateSection(section.id, {
+                                                  ...section,
+                                                  content: {
+                                                    ...section.content,
+                                                    characteristics: newCharacteristics
+                                                  }
+                                                });
+                                              }}
+                                            />
+                                          </div>
+                                          <div className="flex flex-col gap-2 mt-2">
+                                            <label className="block text-sm font-medium text-gray-700">
+                                              Ou utiliser une image
+                                            </label>
+                                            <div className="flex items-center gap-2">
+                                              {characteristic.imageUrl && (
+                                                <div className="relative w-12 h-12 border rounded overflow-hidden">
+                                                  <img 
+                                                    src={characteristic.imageUrl} 
+                                                    alt="Icône" 
+                                                    className="w-full h-full object-contain"
+                                                  />
+                                                </div>
+                                              )}
+                                              <label className="cursor-pointer px-3 py-2 bg-blue-50 text-blue-700 rounded-md text-sm hover:bg-blue-100">
+                                                {characteristic.imageUrl ? 'Changer l\'image' : 'Ajouter une image'}
+                                                <input
+                                                  type="file"
+                                                  accept="image/png,image/jpeg,image/gif"
+                                                  className="hidden"
+                                                  onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                      // Créer une URL temporaire pour afficher l'image
+                                                      const tempUrl = URL.createObjectURL(file);
+                                                      
+                                                      // Mettre à jour l'état avec l'URL temporaire
+                                                      const newCharacteristics = [...(section.content.characteristics || [])];
+                                                      newCharacteristics[index] = { 
+                                                        ...newCharacteristics[index], 
+                                                        imageUrl: tempUrl 
+                                                      };
+                                                      updateSection(section.id, {
+                                                        ...section,
+                                                        content: { 
+                                                          ...section.content, 
+                                                          characteristics: newCharacteristics 
+                                                        }
+                                                      });
+                                                      
+                                                      // Uploader l'image vers Firebase Storage
+                                                      uploadImage(file, `newsletter-characteristics/${file.name}`).then(url => {
+                                                        const updatedCharacteristics = [...(section.content.characteristics || [])];
+                                                        updatedCharacteristics[index] = { 
+                                                          ...updatedCharacteristics[index], 
+                                                          imageUrl: url 
                                                         };
                                                         updateSection(section.id, {
                                                           ...section,
-                                                          content: {
-                                                            ...section.content,
-                                                            characteristics: newCharacteristics
+                                                          content: { 
+                                                            ...section.content, 
+                                                            characteristics: updatedCharacteristics 
                                                           }
                                                         });
-                                                      }}
-                                                    />
-                                                  </div>
-                                                  <div className="flex flex-col gap-2 mt-2">
-                                                    <label className="block text-sm font-medium text-gray-700">
-                                                      Ou utiliser une image
-                                                    </label>
-                                                    <div className="flex items-center gap-2">
-                                                      {characteristic.imageUrl && (
-                                                        <div className="relative w-12 h-12 border rounded overflow-hidden">
-                                                          <img 
-                                                            src={characteristic.imageUrl} 
-                                                            alt="Icône" 
-                                                            className="w-full h-full object-contain"
-                                                          />
-                                                        </div>
-                                                      )}
-                                                      <label className="cursor-pointer px-3 py-2 bg-blue-50 text-blue-700 rounded-md text-sm hover:bg-blue-100">
-                                                        {characteristic.imageUrl ? 'Changer l\'image' : 'Ajouter une image'}
-                                                        <input
-                                                          type="file"
-                                                          accept="image/png,image/jpeg,image/gif"
-                                                          className="hidden"
-                                                          onChange={(e) => {
-                                                            const file = e.target.files?.[0];
-                                                            if (file) {
-                                                              // Créer une URL temporaire pour afficher l'image
-                                                              const tempUrl = URL.createObjectURL(file);
-                                                              
-                                                              // Mettre à jour l'état avec l'URL temporaire
-                                                              const newCharacteristics = [...(section.content.characteristics || [])];
-                                                              newCharacteristics[index] = { 
-                                                                ...newCharacteristics[index], 
-                                                                imageUrl: tempUrl 
-                                                              };
-                                                              updateSection(section.id, {
-                                                                ...section,
-                                                                content: { 
-                                                                  ...section.content, 
-                                                                  characteristics: newCharacteristics 
-                                                                }
-                                                              });
-                                                              
-                                                              // Uploader l'image vers Firebase Storage
-                                                              uploadImage(file, `newsletter-characteristics/${file.name}`).then(url => {
-                                                                const updatedCharacteristics = [...(section.content.characteristics || [])];
-                                                                updatedCharacteristics[index] = { 
-                                                                  ...updatedCharacteristics[index], 
-                                                                  imageUrl: url 
-                                                                };
-                                                                updateSection(section.id, {
-                                                                  ...section,
-                                                                  content: { 
-                                                                    ...section.content, 
-                                                                    characteristics: updatedCharacteristics 
-                                                                  }
-                                                                });
-                                                              }).catch(error => {
-                                                                console.error('Erreur lors de l\'upload de l\'image:', error);
-                                                                toast.error('Erreur lors de l\'upload de l\'image');
-                                                              });
-                                                            }
-                                                          }}
-                                                        />
-                                                      </label>
-                                                      {characteristic.imageUrl && (
-                                                        <button
-                                                          onClick={() => {
-                                                            const newCharacteristics = [...(section.content.characteristics || [])];
-                                                            newCharacteristics[index] = {
-                                                              ...newCharacteristics[index],
-                                                              imageUrl: ''
-                                                            };
-                                                            updateSection(section.id, {
-                                                              ...section,
-                                                              content: {
-                                                                ...section.content,
-                                                                characteristics: newCharacteristics
-                                                              }
-                                                            });
-                                                          }}
-                                                          className="px-2 py-1 text-red-600 text-sm hover:text-red-800"
-                                                          title="Supprimer l'image"
-                                                        >
-                                                          Supprimer
-                                                        </button>
-                                                      )}
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              </div>
-                                              <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                  Titre
-                                                </label>
-                              <input
-                                type="text"
-                                                  value={characteristic.title}
-                                onChange={(e) => {
+                                                      }).catch(error => {
+                                                        console.error('Erreur lors de l\'upload de l\'image:', error);
+                                                        toast.error('Erreur lors de l\'upload de l\'image');
+                                                      });
+                                                    }
+                                                  }}
+                                                />
+                                              </label>
+                                              {characteristic.imageUrl && (
+                                                <button
+                                                  onClick={() => {
                                                     const newCharacteristics = [...(section.content.characteristics || [])];
                                                     newCharacteristics[index] = {
                                                       ...newCharacteristics[index],
-                                                      title: e.target.value
+                                                      imageUrl: ''
                                                     };
-                                  updateSection(section.id, {
-                                    ...section,
+                                                    updateSection(section.id, {
+                                                      ...section,
                                                       content: {
                                                         ...section.content,
                                                         characteristics: newCharacteristics
                                                       }
-                                  });
-                                }}
-                                                  className="w-full p-2 border rounded"
-                              />
-                            </div>
-                                              <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                  Valeur
-                                                </label>
-                            <input
-                              type="text"
-                                                  value={characteristic.value}
-                              onChange={(e) => {
-                                                    const newCharacteristics = [...(section.content.characteristics || [])];
-                                                    newCharacteristics[index] = {
-                                                      ...newCharacteristics[index],
-                                                      value: e.target.value
-                                                    };
-                                updateSection(section.id, {
-                                  ...section,
-                                                      content: {
-                                                        ...section.content,
-                                                        characteristics: newCharacteristics
-                                                      }
-                                });
-                              }}
-                              className="w-full p-2 border rounded"
-                            />
-                                              </div>
+                                                    });
+                                                  }}
+                                                  className="px-2 py-1 text-red-600 text-sm hover:text-red-800"
+                                                  title="Supprimer l'image"
+                                                >
+                                                  Supprimer
+                                                </button>
+                                              )}
                                             </div>
-                          </div>
-                        ))}
-                                      </div>
-                                      <button
-                                        onClick={() => addCharacteristic(section.id)}
-                                        className="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm"
-                                      >
-                                        + Ajouter une caractéristique
-                                      </button>
-                      </div>
-                    )}
-
-                    {section.type === 'location' && (
-                                    <div>
-                                      <div className="flex flex-col gap-4 mb-4">
-                                        <div>
-                                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Adresse
-                                          </label>
-                                          <input
-                                            type="text"
-                                            value={section.content.address || ''}
-                                            onChange={(e) => updateSection(section.id, {
-                                              ...section,
-                                              content: { ...section.content, address: e.target.value }
-                                            })}
-                                            className="w-full p-2 border rounded"
-                                            placeholder="Adresse du bien"
-                                          />
+                                          </div>
                                         </div>
                                       </div>
-                                      <div className="flex justify-between items-center mb-2">
-                                        <label className="block text-sm font-medium text-gray-700">
-                                          Localisation - Points forts
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Titre
                                         </label>
-                                        <button
-                                          onClick={() => addLocationFeature(section.id)}
-                                          className="text-blue-600 text-sm hover:underline"
-                                        >
-                                          + Ajouter un point fort
-                                        </button>
+                                        <input
+                                          type="text"
+                                          value={characteristic.title}
+                                          onChange={(e) => {
+                                            const newCharacteristics = [...(section.content.characteristics || [])];
+                                            newCharacteristics[index] = {
+                                              ...newCharacteristics[index],
+                                              title: e.target.value
+                                            };
+                                            updateSection(section.id, {
+                                              ...section,
+                                              content: {
+                                                ...section.content,
+                                                characteristics: newCharacteristics
+                                              }
+                                            });
+                                          }}
+                                          className="w-full p-2 border rounded"
+                                        />
                                       </div>
-                      <div className="flex flex-col gap-4">
-                        {section.content.locationFeatures?.map((feature, index) => (
-                                          <div key={index} className="relative">
-                            <input
-                              type="text"
-                              value={feature}
-                              onChange={(e) => {
-                                const newFeatures = [...(section.content.locationFeatures || [])];
-                                newFeatures[index] = e.target.value;
-                                updateSection(section.id, {
-                                  ...section,
-                                  content: { ...section.content, locationFeatures: newFeatures }
-                                });
-                              }}
-                                              className="w-full p-2 border rounded pr-8"
-                                            />
-                                            <button
-                                              onClick={() => deleteLocationFeature(section.id, index)}
-                                              className="absolute top-2 right-2 text-red-500 hover:bg-red-100 p-1 rounded"
-                                              title="Supprimer ce point fort"
-                                            >
-                                              🗑️
-                                            </button>
-                          </div>
-                        ))}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Valeur
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={characteristic.value}
+                                          onChange={(e) => {
+                                            const newCharacteristics = [...(section.content.characteristics || [])];
+                                            newCharacteristics[index] = {
+                                              ...newCharacteristics[index],
+                                              value: e.target.value
+                                            };
+                                            updateSection(section.id, {
+                                              ...section,
+                                              content: {
+                                                ...section.content,
+                                                characteristics: newCharacteristics
+                                              }
+                                            });
+                                          }}
+                                          className="w-full p-2 border rounded"
+                                        />
                                       </div>
-                      </div>
-                    )}
-
-                    {section.type === 'availability' && (
-                      <div className="flex flex-col gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Titre de la section
-                          </label>
-                          <input
-                            type="text"
-                            value={section.customTitle || 'Disponibilité'}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              customTitle: e.target.value
-                            })}
-                            className="w-full p-2 border rounded"
-                            placeholder="Disponibilité"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Libellé de la date
-                          </label>
-                          <input
-                            type="text"
-                            value={section.content.availability?.dateLabel || 'Date de disponibilité'}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: {
-                                ...section.content,
-                                availability: {
-                                  ...(section.content.availability || {}), 
-                                  dateLabel: e.target.value
-                                }
-                              }
-                            })}
-                            className="w-full p-2 border rounded"
-                            placeholder="Date de disponibilité"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Date
-                          </label>
-                          <input
-                            type="text"
-                            value={section.content.availability?.date || ''}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: {
-                                ...section.content,
-                                availability: {
-                                  ...(section.content.availability || {}), 
-                                  date: e.target.value
-                                }
-                              }
-                            })}
-                            className="w-full p-2 border rounded"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Libellé des détails
-                          </label>
-                          <input
-                            type="text"
-                            value={section.content.availability?.detailsLabel || 'Détails supplémentaires'}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: {
-                                ...section.content,
-                                availability: {
-                                  ...(section.content.availability || {}), 
-                                  detailsLabel: e.target.value
-                                }
-                              }
-                            })}
-                            className="w-full p-2 border rounded"
-                            placeholder="Détails supplémentaires"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Détails
-                          </label>
-                          <textarea
-                            value={section.content.availability?.details || ''}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: {
-                                ...section.content,
-                                availability: {
-                                  ...(section.content.availability || {}), 
-                                  details: e.target.value
-                                }
-                              }
-                            })}
-                            rows={3}
-                            className="w-full p-2 border rounded"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {section.type === 'custom' && (
-                      <div className="flex flex-col gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Icône
-                          </label>
-                          <div className="flex items-center gap-3">
-                            <div className="text-3xl">
-                              {section.content.custom?.icon || '✨'}
-                            </div>
-                            <EmojiPicker 
-                              currentEmoji={section.content.custom?.icon || '✨'} 
-                              onEmojiSelect={(emoji: string) => updateSection(section.id, {
-                                ...section,
-                                content: { 
-                                  ...section.content, 
-                                  custom: { 
-                                    ...(section.content.custom || {}), 
-                                    icon: emoji 
-                                  } 
-                                }
-                              })}
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Contenu
-                          </label>
-                          <textarea
-                            value={section.content.custom?.content || ''}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: { 
-                                ...section.content, 
-                                custom: { 
-                                  ...(section.content.custom || {}), 
-                                  content: e.target.value 
-                                } 
-                              }
-                            })}
-                            rows={4}
-                            className="w-full p-2 border rounded"
-                            placeholder="Contenu de la section"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {section.type === 'surface' && (
-                      <div className="flex flex-col gap-4">
-                        <div className="grid grid-cols-1 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Icône
-                            </label>
-                            <div className="flex items-center gap-3">
-                              <div className="text-3xl">
-                                {section.content.surfaceIcon || '📏'}
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                              <EmojiPicker 
-                                currentEmoji={section.content.surfaceIcon || '📏'} 
-                                onEmojiSelect={(emoji: string) => {
-                                  updateSection(section.id, {
-                                    ...section,
-                                    content: { ...section.content, surfaceIcon: emoji }
-                                  });
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4 mt-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Valeur de la surface
-                            </label>
-                            <input
-                              type="text"
-                              value={section.content.surfaceValue || ''}
-                              onChange={(e) => updateSection(section.id, {
-                                ...section,
-                                content: { ...section.content, surfaceValue: e.target.value }
-                              })}
-                              className="w-full p-2 border rounded"
-                              placeholder="150"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Unité
-                            </label>
-                            <input
-                              type="text"
-                              value={section.content.surfaceUnit || ''}
-                              onChange={(e) => updateSection(section.id, {
-                                ...section,
-                                content: { ...section.content, surfaceUnit: e.target.value }
-                              })}
-                              className="w-full p-2 border rounded"
-                              placeholder="m²"
-                            />
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4 mt-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Couleur de fond
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="color"
-                                value={section.content.surfaceBackgroundColor || '#f3f4f6'}
-                                onChange={(e) => updateSection(section.id, {
-                                  ...section,
-                                  content: { ...section.content, surfaceBackgroundColor: e.target.value }
-                                })}
-                                className="w-10 h-10 p-1 border rounded"
-                              />
-                              <input
-                                type="text"
-                                value={section.content.surfaceBackgroundColor || '#f3f4f6'}
-                                onChange={(e) => updateSection(section.id, {
-                                  ...section,
-                                  content: { ...section.content, surfaceBackgroundColor: e.target.value }
-                                })}
-                                className="flex-1 p-2 border rounded"
-                                placeholder="#f3f4f6"
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Couleur du texte
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="color"
-                                value={section.content.surfaceTextColor || '#111827'}
-                                onChange={(e) => updateSection(section.id, {
-                                  ...section,
-                                  content: { ...section.content, surfaceTextColor: e.target.value }
-                                })}
-                                className="w-10 h-10 p-1 border rounded"
-                              />
-                              <input
-                                type="text"
-                                value={section.content.surfaceTextColor || '#111827'}
-                                onChange={(e) => updateSection(section.id, {
-                                  ...section,
-                                  content: { ...section.content, surfaceTextColor: e.target.value }
-                                })}
-                                className="flex-1 p-2 border rounded"
-                                placeholder="#111827"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="mt-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Description (optionnelle)
-                          </label>
-                          <textarea
-                            value={section.content.surfaceDescription || ''}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: { ...section.content, surfaceDescription: e.target.value }
-                            })}
-                            className="w-full p-2 border rounded"
-                            placeholder="Description supplémentaire"
-                            rows={3}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {section.type === 'footer' && (
-                      <div className="flex flex-col gap-4">
-                        <div className="border-t pt-4 mt-4">
-                          <h4 className="font-medium text-gray-700 mb-2">Liens sociaux</h4>
-                          <div className="space-y-2">
-                            {section.content.socialLinks?.map((link, index) => (
-                              <div key={index} className="flex space-x-2 items-center">
-                                <input
-                                  type="text"
-                                  placeholder="Plateforme (ex: LinkedIn)"
-                                  value={link.platform}
-                                  onChange={(e) => updateSocialLink(index, 'platform', e.target.value)}
-                                  className="flex-1 p-2 border rounded"
-                                />
-                                <input
-                                  type="text"
-                                  placeholder="URL"
-                                  value={link.url}
-                                  onChange={(e) => updateSocialLink(index, 'url', e.target.value)}
-                                  className="flex-1 p-2 border rounded"
-                                />
-                                <button
-                                  onClick={() => deleteSocialLink(index)}
-                                  className="p-1 text-red-500 hover:bg-red-100 rounded"
-                                >
-                                  🗑️
-                                </button>
-                              </div>
-                            ))}
-                            <button
-                              onClick={addSocialLink}
-                              className="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm"
-                            >
-                              + Ajouter un lien social
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {section.type === 'button' && (
-                      <div className="flex flex-col gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Texte du bouton
-                          </label>
-                          <input
-                            type="text"
-                            value={section.content.button?.text || ''}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: {
-                                ...section.content,
-                                button: {
-                                  ...(section.content.button || {}),
-                                  text: e.target.value
-                                }
-                              }
-                            })}
-                            className="w-full p-2 border rounded"
-                            placeholder="DEMANDER PLUS D'INFORMATIONS"
-                          />
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Couleur de fond
-                            </label>
-                            <input
-                              type="color"
-                              value={section.content.button?.backgroundColor || '#e50019'}
-                              onChange={(e) => updateSection(section.id, {
-                                ...section,
-                                content: {
-                                  ...section.content,
-                                  button: {
-                                    ...(section.content.button || {}),
-                                    backgroundColor: e.target.value
-                                  }
-                                }
-                              })}
-                              className="w-full p-1 border rounded h-10"
-                            />
-                          </div>
-                          
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Couleur du texte
-                            </label>
-                            <input
-                              type="color"
-                              value={section.content.button?.textColor || '#ffffff'}
-                              onChange={(e) => updateSection(section.id, {
-                                ...section,
-                                content: {
-                                  ...section.content,
-                                  button: {
-                                    ...(section.content.button || {}),
-                                    textColor: e.target.value
-                                  }
-                                }
-                              })}
-                              className="w-full p-1 border rounded h-10"
-                            />
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Adresse email de destination
-                          </label>
-                          <input
-                            type="email"
-                            value={section.content.button?.emailTo || ''}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: {
-                                ...section.content,
-                                button: {
-                                  ...(section.content.button || {}),
-                                  emailTo: e.target.value
-                                }
-                              }
-                            })}
-                            className="w-full p-2 border rounded"
-                            placeholder="contact@arthurloydbretagne.fr"
-                          />
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Objet de l'email
-                          </label>
-                          <input
-                            type="text"
-                            value={section.content.button?.emailSubject || ''}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: {
-                                ...section.content,
-                                button: {
-                                  ...(section.content.button || {}),
-                                  emailSubject: e.target.value
-                                }
-                              }
-                            })}
-                            className="w-full p-2 border rounded"
-                            placeholder="Demande d'information PEM SUD"
-                          />
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Corps de l'email (optionnel)
-                          </label>
-                          <textarea
-                            value={section.content.button?.emailBody || ''}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: {
-                                ...section.content,
-                                button: {
-                                  ...(section.content.button || {}),
-                                  emailBody: e.target.value
-                                }
-                              }
-                            })}
-                            className="w-full p-2 border rounded"
-                            rows={3}
-                            placeholder="Bonjour, je souhaite obtenir plus d'informations..."
-                          />
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Largeur du bouton
-                          </label>
-                          <input
-                            type="text"
-                            value={section.content.button?.width || '80%'}
-                            onChange={(e) => updateSection(section.id, {
-                              ...section,
-                              content: {
-                                ...section.content,
-                                button: {
-                                  ...(section.content.button || {}),
-                                  width: e.target.value
-                                }
-                              }
-                            })}
-                            className="w-full p-2 border rounded"
-                            placeholder="80%"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Exemple: 80%, 300px, etc.
-                          </p>
-                        </div>
-                        
-                        <div className="mt-2 p-3 bg-gray-50 rounded-md">
-                          <p className="text-sm text-gray-600">
-                            Ce bouton créera un lien "mailto:" qui ouvrira le client email du destinataire avec l'adresse, l'objet et le corps pré-remplis.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                                </>
-                              )}
+                              <button
+                                onClick={() => addCharacteristic(section.id)}
+                                className="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm"
+                              >
+                                + Ajouter une caractéristique
+                              </button>
                             </div>
                           )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
+
+                          {section.type === 'location' && (
+                            <div>
+                              <div className="flex flex-col gap-4 mb-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Adresse
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={section.content.address || ''}
+                                    onChange={(e) => updateSection(section.id, {
+                                      ...section,
+                                      content: { ...section.content, address: e.target.value }
+                                    })}
+                                    className="w-full p-2 border rounded"
+                                    placeholder="Adresse du bien"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex justify-between items-center mb-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Localisation - Points forts
+                                </label>
+                                <button
+                                  onClick={() => addLocationFeature(section.id)}
+                                  className="text-blue-600 text-sm hover:underline"
+                                >
+                                  + Ajouter un point fort
+                                </button>
+                              </div>
+                              <div className="flex flex-col gap-4">
+                                {section.content.locationFeatures?.map((feature, index) => (
+                                  <div key={index} className="relative">
+                                    <input
+                                      type="text"
+                                      value={feature}
+                                      onChange={(e) => {
+                                        const newFeatures = [...(section.content.locationFeatures || [])];
+                                        newFeatures[index] = e.target.value;
+                                        updateSection(section.id, {
+                                          ...section,
+                                          content: { ...section.content, locationFeatures: newFeatures }
+                                        });
+                                      }}
+                                      className="w-full p-2 border rounded pr-8"
+                                    />
+                                    <button
+                                      onClick={() => deleteLocationFeature(section.id, index)}
+                                      className="absolute top-2 right-2 text-red-500 hover:bg-red-100 p-1 rounded"
+                                      title="Supprimer ce point fort"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {section.type === 'availability' && (
+                            <div className="flex flex-col gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Titre de la section
+                                </label>
+                                <input
+                                  type="text"
+                                  value={section.customTitle || 'Disponibilité'}
+                                  onChange={(e) => updateSection(section.id, {
+                                    ...section,
+                                    customTitle: e.target.value
+                                  })}
+                                  className="w-full p-2 border rounded"
+                                  placeholder="Disponibilité"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Libellé de la date
+                                </label>
+                                <input
+                                  type="text"
+                                  value={section.content.availability?.dateLabel || 'Date de disponibilité'}
+                                  onChange={(e) => updateSection(section.id, {
+                                    ...section,
+                                    content: {
+                                      ...section.content,
+                                      availability: {
+                                        ...(section.content.availability || {}), 
+                                        dateLabel: e.target.value
+                                      }
+                                    }
+                                  })}
+                                  className="w-full p-2 border rounded"
+                                  placeholder="Date de disponibilité"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Date
+                                </label>
+                                <input
+                                  type="text"
+                                  value={section.content.availability?.date || ''}
+                                  onChange={(e) => updateSection(section.id, {
+                                    ...section,
+                                    content: {
+                                      ...section.content,
+                                      availability: {
+                                        ...(section.content.availability || {}), 
+                                        date: e.target.value
+                                      }
+                                    }
+                                  })}
+                                  className="w-full p-2 border rounded"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Libellé des détails
+                                </label>
+                                <input
+                                  type="text"
+                                  value={section.content.availability?.detailsLabel || 'Détails supplémentaires'}
+                                  onChange={(e) => updateSection(section.id, {
+                                    ...section,
+                                    content: {
+                                      ...section.content,
+                                      availability: {
+                                        ...(section.content.availability || {}), 
+                                        detailsLabel: e.target.value
+                                      }
+                                    }
+                                  })}
+                                  className="w-full p-2 border rounded"
+                                  placeholder="Détails supplémentaires"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Détails
+                                </label>
+                                <textarea
+                                  value={section.content.availability?.details || ''}
+                                  onChange={(e) => updateSection(section.id, {
+                                    ...section,
+                                    content: {
+                                      ...section.content,
+                                      availability: {
+                                        ...(section.content.availability || {}), 
+                                        details: e.target.value
+                                      }
+                                    }
+                                  })}
+                                  rows={3}
+                                  className="w-full p-2 border rounded"
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {section.type === 'custom' && (
+                            <div className="flex flex-col gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Icône
+                                </label>
+                                <div className="flex items-center gap-3">
+                                  <div className="text-3xl">
+                                    {section.content.custom?.icon || '✨'}
+                                  </div>
+                                  <EmojiPicker 
+                                    currentEmoji={section.content.custom?.icon || '✨'} 
+                                    onEmojiSelect={(emoji: string) => updateSection(section.id, {
+                                      ...section,
+                                      content: { 
+                                        ...section.content, 
+                                        custom: { 
+                                          ...(section.content.custom || {}), 
+                                          icon: emoji 
+                                        } 
+                                      }
+                                    })}
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Contenu
+                                </label>
+                                <textarea
+                                  value={section.content.custom?.content || ''}
+                                  onChange={(e) => updateSection(section.id, {
+                                    ...section,
+                                    content: { 
+                                      ...section.content, 
+                                      custom: { 
+                                        ...(section.content.custom || {}), 
+                                        content: e.target.value 
+                                      } 
+                                    }
+                                  })}
+                                  rows={4}
+                                  className="w-full p-2 border rounded"
+                                  placeholder="Contenu de la section"
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {section.type === 'surface' && (
+                            <div className="flex flex-col gap-4">
+                              <div className="grid grid-cols-1 gap-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Icône
+                                  </label>
+                                  <div className="flex items-center gap-3">
+                                    <div className="text-3xl">
+                                      {section.content.surfaceIcon || '📏'}
+                                    </div>
+                                    <EmojiPicker 
+                                      currentEmoji={section.content.surfaceIcon || '📏'} 
+                                      onEmojiSelect={(emoji: string) => {
+                                        updateSection(section.id, {
+                                          ...section,
+                                          content: { ...section.content, surfaceIcon: emoji }
+                                        });
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-4 mt-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Valeur de la surface
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={section.content.surfaceValue || ''}
+                                    onChange={(e) => updateSection(section.id, {
+                                      ...section,
+                                      content: { ...section.content, surfaceValue: e.target.value }
+                                    })}
+                                    className="w-full p-2 border rounded"
+                                    placeholder="150"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Unité
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={section.content.surfaceUnit || ''}
+                                    onChange={(e) => updateSection(section.id, {
+                                      ...section,
+                                      content: { ...section.content, surfaceUnit: e.target.value }
+                                    })}
+                                    className="w-full p-2 border rounded"
+                                    placeholder="m²"
+                                  />
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-4 mt-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Couleur de fond
+                                  </label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="color"
+                                      value={section.content.surfaceBackgroundColor || '#f3f4f6'}
+                                      onChange={(e) => updateSection(section.id, {
+                                        ...section,
+                                        content: { ...section.content, surfaceBackgroundColor: e.target.value }
+                                      })}
+                                      className="w-10 h-10 p-1 border rounded"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={section.content.surfaceBackgroundColor || '#f3f4f6'}
+                                      onChange={(e) => updateSection(section.id, {
+                                        ...section,
+                                        content: { ...section.content, surfaceBackgroundColor: e.target.value }
+                                      })}
+                                      className="flex-1 p-2 border rounded"
+                                      placeholder="#f3f4f6"
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Couleur du texte
+                                  </label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="color"
+                                      value={section.content.surfaceTextColor || '#111827'}
+                                      onChange={(e) => updateSection(section.id, {
+                                        ...section,
+                                        content: { ...section.content, surfaceTextColor: e.target.value }
+                                      })}
+                                      className="w-10 h-10 p-1 border rounded"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={section.content.surfaceTextColor || '#111827'}
+                                      onChange={(e) => updateSection(section.id, {
+                                        ...section,
+                                        content: { ...section.content, surfaceTextColor: e.target.value }
+                                      })}
+                                      className="flex-1 p-2 border rounded"
+                                      placeholder="#111827"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="mt-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Description (optionnelle)
+                                </label>
+                                <textarea
+                                  value={section.content.surfaceDescription || ''}
+                                  onChange={(e) => updateSection(section.id, {
+                                    ...section,
+                                    content: { ...section.content, surfaceDescription: e.target.value }
+                                  })}
+                                  className="w-full p-2 border rounded"
+                                  placeholder="Description supplémentaire"
+                                  rows={3}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {section.type === 'footer' && (
+                            <div className="flex flex-col gap-4">
+                              <div className="border-t pt-4 mt-4">
+                                <h4 className="font-medium text-gray-700 mb-2">Liens sociaux</h4>
+                                <div className="space-y-2">
+                                  {section.content.socialLinks?.map((link, index) => (
+                                    <div key={index} className="flex space-x-2 items-center">
+                                      <input
+                                        type="text"
+                                        placeholder="Plateforme (ex: LinkedIn)"
+                                        value={link.platform}
+                                        onChange={(e) => updateSocialLink(index, 'platform', e.target.value)}
+                                        className="flex-1 p-2 border rounded"
+                                      />
+                                      <input
+                                        type="text"
+                                        placeholder="URL"
+                                        value={link.url}
+                                        onChange={(e) => updateSocialLink(index, 'url', e.target.value)}
+                                        className="flex-1 p-2 border rounded"
+                                      />
+                                      <button
+                                        onClick={() => deleteSocialLink(index)}
+                                        className="p-1 text-red-500 hover:bg-red-100 rounded"
+                                      >
+                                        🗑️
+                                      </button>
+                                    </div>
+                                  ))}
+                                  <button
+                                    onClick={addSocialLink}
+                                    className="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm"
+                                  >
+                                    + Ajouter un lien social
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {section.type === 'button' && (
+                            <div className="flex flex-col gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Texte du bouton
+                                </label>
+                                <input
+                                  type="text"
+                                  value={section.content.button?.text || ''}
+                                  onChange={(e) => updateSection(section.id, {
+                                    ...section,
+                                    content: {
+                                      ...section.content,
+                                      button: {
+                                        ...(section.content.button || {}),
+                                        text: e.target.value
+                                      }
+                                    }
+                                  })}
+                                  className="w-full p-2 border rounded"
+                                  placeholder="DEMANDER PLUS D'INFORMATIONS"
+                                />
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Couleur de fond
+                                  </label>
+                                  <input
+                                    type="color"
+                                    value={section.content.button?.backgroundColor || '#e50019'}
+                                    onChange={(e) => updateSection(section.id, {
+                                      ...section,
+                                      content: {
+                                        ...section.content,
+                                        button: {
+                                          ...(section.content.button || {}),
+                                          backgroundColor: e.target.value
+                                        }
+                                      }
+                                    })}
+                                    className="w-full p-1 border rounded h-10"
+                                  />
+                                </div>
+                                
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Couleur du texte
+                                  </label>
+                                  <input
+                                    type="color"
+                                    value={section.content.button?.textColor || '#ffffff'}
+                                    onChange={(e) => updateSection(section.id, {
+                                      ...section,
+                                      content: {
+                                        ...section.content,
+                                        button: {
+                                          ...(section.content.button || {}),
+                                          textColor: e.target.value
+                                        }
+                                      }
+                                    })}
+                                    className="w-full p-1 border rounded h-10"
+                                  />
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Adresse email de destination
+                                </label>
+                                <input
+                                  type="email"
+                                  value={section.content.button?.emailTo || ''}
+                                  onChange={(e) => updateSection(section.id, {
+                                    ...section,
+                                    content: {
+                                      ...section.content,
+                                      button: {
+                                        ...(section.content.button || {}),
+                                        emailTo: e.target.value
+                                      }
+                                    }
+                                  })}
+                                  className="w-full p-2 border rounded"
+                                  placeholder="contact@arthurloydbretagne.fr"
+                                />
+                              </div>
+                              
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Objet de l'email
+                                </label>
+                                <input
+                                  type="text"
+                                  value={section.content.button?.emailSubject || ''}
+                                  onChange={(e) => updateSection(section.id, {
+                                    ...section,
+                                    content: {
+                                      ...section.content,
+                                      button: {
+                                        ...(section.content.button || {}),
+                                        emailSubject: e.target.value
+                                      }
+                                    }
+                                  })}
+                                  className="w-full p-2 border rounded"
+                                  placeholder="Demande d'information PEM SUD"
+                                />
+                              </div>
+                              
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Corps de l'email (optionnel)
+                                </label>
+                                <textarea
+                                  value={section.content.button?.emailBody || ''}
+                                  onChange={(e) => updateSection(section.id, {
+                                    ...section,
+                                    content: {
+                                      ...section.content,
+                                      button: {
+                                        ...(section.content.button || {}),
+                                        emailBody: e.target.value
+                                      }
+                                    }
+                                  })}
+                                  className="w-full p-2 border rounded"
+                                  rows={3}
+                                  placeholder="Bonjour, je souhaite obtenir plus d'informations..."
+                                />
+                              </div>
+                              
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Largeur du bouton
+                                </label>
+                                <input
+                                  type="text"
+                                  value={section.content.button?.width || '80%'}
+                                  onChange={(e) => updateSection(section.id, {
+                                    ...section,
+                                    content: {
+                                      ...section.content,
+                                      button: {
+                                        ...(section.content.button || {}),
+                                        width: e.target.value
+                                      }
+                                    }
+                                  })}
+                                  className="w-full p-2 border rounded"
+                                  placeholder="80%"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Exemple: 80%, 300px, etc.
+                                </p>
+                              </div>
+                              
+                              <div className="mt-2 p-3 bg-gray-50 rounded-md">
+                                <p className="text-sm text-gray-600">
+                                  Ce bouton créera un lien "mailto:" qui ouvrira le client email du destinataire avec l'adresse, l'objet et le corps pré-remplis.
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-                  )}
-                </Droppable>
-              </DragDropContext>
 
               <div className="mt-6">
                 <div className="flex space-x-4">
@@ -3651,9 +3818,26 @@ export default function NewsletterEditorVisual() {
                     {selectedTemplate && selectedTemplate !== 'default' && selectedTemplate !== '5X9t9uYaJWLH9FoCmxdx' && (
                       <button
                         onClick={handleUpdateTemplate}
-                        className="w-full px-4 py-2 bg-yellow-600 text-white rounded-md"
+                        className={`w-full px-4 py-2 text-white rounded-md transition-all duration-300 ${
+                          isUpdated 
+                            ? 'bg-green-500 scale-105 shadow-lg' 
+                            : 'bg-yellow-600 hover:bg-yellow-700'
+                        }`}
+                        disabled={isLoading}
                       >
-                        Mettre à jour le template sélectionné
+                        {isLoading ? (
+                          <span className="flex items-center justify-center">
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Mise à jour en cours...
+                          </span>
+                        ) : (
+                          <>
+                            {isUpdated ? '✓ Template mis à jour !' : 'Mettre à jour le template sélectionné'}
+                          </>
+                        )}
                       </button>
                     )}
                   </div>

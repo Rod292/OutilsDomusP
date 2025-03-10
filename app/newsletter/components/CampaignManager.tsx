@@ -28,10 +28,10 @@ export default function CampaignManager({ onSelectCampaign, selectedCampaignId }
       const data = await getAllCampaigns();
       setCampaigns(data);
       
-      // Si aucune campagne n'est sélectionnée et qu'il y a des campagnes disponibles, sélectionner la première
-      if (!selectedCampaignId && data.length > 0) {
-        onSelectCampaign(data[0].id!);
-      }
+      // Suppression de la sélection automatique de la première campagne
+      // if (!selectedCampaignId && data.length > 0) {
+      //   onSelectCampaign(data[0].id!);
+      // }
     } catch (error) {
       console.error('Erreur lors du chargement des campagnes:', error);
     } finally {
