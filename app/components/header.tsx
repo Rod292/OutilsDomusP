@@ -72,9 +72,9 @@ export function Header() {
   const showBackButton = pathname !== "/"
 
   return (
-    <header className="bg-[#DC0032] shadow-md z-10">
+    <header className="bg-[#DC0032] shadow-md z-10 pt-safe">
       <div className="container mx-auto px-2 sm:px-4">
-        <div className="flex items-center justify-between h-12 sm:h-14">
+        <div className="flex items-center justify-between h-12 sm:h-14 mt-2 md:mt-0">
           <div className="flex items-center">
             {showBackButton && (
               <button
