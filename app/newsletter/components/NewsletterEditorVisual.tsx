@@ -1644,24 +1644,50 @@ export default function NewsletterEditorVisual() {
           return;
         }
         
-        // Vérifier si le template existe
-        const templateRef = doc(db, 'newsletterTemplates', templateId);
-        const templateSnap = await getDoc(templateRef);
+        // Essayer de supprimer dans les deux collections
+        let templateDeleted = false;
         
-        if (!templateSnap.exists()) {
-          console.error("Erreur : Template non trouvé");
+        // 1. Essayer de supprimer dans la collection 'newsletterTemplates'
+        try {
+          const templateRef1 = doc(db, 'newsletterTemplates', templateId);
+          const templateSnap1 = await getDoc(templateRef1);
+          
+          if (templateSnap1.exists()) {
+            await deleteDoc(templateRef1);
+            console.log("Template supprimé avec succès dans la collection 'newsletterTemplates'");
+            templateDeleted = true;
+          }
+        } catch (error) {
+          console.error("Erreur lors de la suppression dans 'newsletterTemplates':", error);
+        }
+        
+        // 2. Essayer de supprimer dans la collection 'newsletter_templates'
+        try {
+          const templateRef2 = doc(db, 'newsletter_templates', templateId);
+          const templateSnap2 = await getDoc(templateRef2);
+          
+          if (templateSnap2.exists()) {
+            await deleteDoc(templateRef2);
+            console.log("Template supprimé avec succès dans la collection 'newsletter_templates'");
+            templateDeleted = true;
+          }
+        } catch (error) {
+          console.error("Erreur lors de la suppression dans 'newsletter_templates':", error);
+        }
+        
+        if (!templateDeleted) {
+          console.error("Erreur : Template non trouvé dans aucune collection");
           toast.error("Le template que vous essayez de supprimer n'existe pas");
           return;
         }
-        
-        // Supprimer le template
-        await deleteDoc(templateRef);
-        console.log("Template supprimé avec succès dans Firestore");
         
         // Mettre à jour l'état local
         setSavedTemplates(prevTemplates => prevTemplates.filter(t => t.id !== templateId));
         setSelectedTemplate('default');
         toast.success("Template supprimé avec succès");
+        
+        // Recharger la liste des templates pour s'assurer qu'elle est à jour
+        await loadSavedTemplates();
       } catch (error) {
         console.error('Erreur détaillée lors de la suppression du template:', error);
         toast.error("Une erreur est survenue lors de la suppression du template");
