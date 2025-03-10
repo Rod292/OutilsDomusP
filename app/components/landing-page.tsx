@@ -154,7 +154,7 @@ export const LandingPage: React.FC = () => {
               className="drop-shadow-sm"
             />
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-[#2D2D2D] mb-3">État des Lieux</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-[#2D2D2D] mb-3">Bonjour !</h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             {user ? "Sélectionnez votre profil pour accéder à vos outils" : "Connectez-vous pour accéder à vos états des lieux"}
           </p>
