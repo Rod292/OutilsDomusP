@@ -1288,8 +1288,7 @@ export function EtatDesLieuxForm({
   useEffect(() => {
     calculateProgress()
     if (onProgressUpdate) {
-      const progressValue = typeof progress === 'number' ? progress : 0;
-      onProgressUpdate(progressValue);
+      onProgressUpdate(progress || 0);
     }
   }, [formData, onProgressUpdate, progress])
   
