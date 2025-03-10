@@ -504,7 +504,7 @@ export async function POST(request: NextRequest) {
                   
                   console.log(`Email ${recipient.email} ajouté à la liste des emails non délivrés (déjà contacté)`);
                 } catch (error) {
-                  console.error('Erreur lors de l\'ajout de l'email à la liste des non délivrés:', error);
+                  console.error("Erreur lors de l'ajout de l'email à la liste des non délivrés:", error);
                 }
                 
                 continue;
