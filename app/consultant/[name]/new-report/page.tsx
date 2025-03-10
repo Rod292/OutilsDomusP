@@ -1,18 +1,16 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-// Remplacer l'import direct par une vérification conditionnelle
-// import { useAuthState } from "react-firebase-hooks/auth"
-import { auth, db } from "@/app/lib/firebase"
-import { NavigationTabs } from "@/app/components/navigation-tabs"
 import { Header } from "@/app/components/header"
 import { ProgressBar } from "@/app/components/progress-bar"
+import { NavigationTabs } from "@/app/components/navigation-tabs"
 import { EtatDesLieuxForm } from "@/app/components/etat-des-lieux-form"
 import { RapportPreview } from "@/app/components/rapport-preview"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Trash2, Edit, Download, Copy } from "lucide-react"
+import { db, auth } from "@/app/lib/firebase"
 import { collection, query, where, getDocs, getDocsFromServer, addDoc, updateDoc, deleteDoc, doc, Firestore, orderBy, limit } from "firebase/firestore"
 import { FirebaseError } from "firebase/app"
 import { generateEtatDesLieuxPDF } from "@/app/utils/generateEtatDesLieuxPDF"
@@ -39,33 +37,21 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
   const [rapport, setRapport] = useState<string | null>(null)
   const [formData, setFormData] = useState(null)
   const [editingReportId, setEditingReportId] = useState<string | null>(null)
-  const [recentReports, setRecentReports] = useState<any[]>([])
+  const [recentReports, setRecentReports] = useState<RecentReport[]>([])
   const router = useRouter()
-  
-  // Remplacer useAuthState par une gestion manuelle de l'état utilisateur
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
 
   const consultantName = params.name.replace("-", " ")
 
-  // Ne pas vérifier auth.currentUser ici car auth pourrait ne pas être initialisé
-  // if (auth.currentUser === null) {
-  //   router.push("/")
-  // }
-
-  // Effet pour vérifier l'authentification
   useEffect(() => {
+    // Vérifier que auth n'est pas null
     if (!auth) {
       console.error("La référence à auth est null")
       router.push("/")
       return
     }
 
-    const unsubscribe = auth.onAuthStateChanged((authUser) => {
-      setLoading(false)
-      setUser(authUser)
-      
-      if (!authUser) {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (!user) {
         router.push("/")
       } else {
         fetchRecentReports()
@@ -77,8 +63,20 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
 
   const fetchRecentReports = async () => {
     // Vérifier que auth et db ne sont pas null
-    if (!auth || !db) {
-      console.error("La référence à auth ou db est null")
+    if (!auth) {
+      console.error("La référence à auth est null")
+      return
+    }
+
+    const user = auth.currentUser
+    if (!user) {
+      console.log("No user logged in, cannot fetch reports")
+      return
+    }
+
+    // Vérifier que db n'est pas null
+    if (!db) {
+      console.error("La référence à Firestore est null")
       return
     }
 
@@ -119,25 +117,12 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
       console.log("Nombre total de rapports après tri:", reports.length)
       setRecentReports(reports)
     } catch (error) {
-      console.error("Erreur lors de la récupération des rapports récents:", error)
+      if (error instanceof FirebaseError) {
+        console.error("Firebase error fetching reports:", error.code, error.message)
+      } else {
+        console.error("Error fetching reports:", error)
+      }
     }
-  }
-
-  const handleTabChange = (tab: "form" | "preview" | "recent") => {
-    if (tab === "form" && activeTab !== "form") {
-      setFormData(null)
-      setEditingReportId(null)
-    }
-    if (tab === "recent") {
-      fetchRecentReports()
-    }
-    setActiveTab(tab)
-  }
-
-  const handleEditReport = (report: any) => {
-    setFormData(report.data)
-    setEditingReportId(report.id)
-    setActiveTab("form")
   }
 
   const handleRapportGenerated = async (rapportHtml: string, data: any) => {
@@ -313,8 +298,12 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
     }
   }
 
-  const handleProgressUpdate = (value: number) => {
-    setProgress(value)
+  const handleProgressUpdate = (data: any) => {
+    if (!data) return setProgress(0)
+    const totalFields = countTotalFields(data)
+    const filledFields = countFilledFields(data)
+    const newProgress = Math.round((filledFields / totalFields) * 100)
+    setProgress(newProgress)
   }
 
   const handleDelete = async (id: string) => {
@@ -528,107 +517,133 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <ProgressBar value={typeof progress === 'number' ? progress : 0} />
-      <NavigationTabs activeTab={activeTab} onTabChange={handleTabChange} />
-      
-      {/* Contenu principal avec un léger zoom pour optimiser l'espace */}
-      <main className="mobile-zoom w-full px-0 sm:px-2 pt-4 pb-16">
-        {activeTab === "form" && (
-          <div className="max-w-full">
-            <h1 className="text-2xl font-bold mb-6 text-gray-800 px-1">Nouvel état des lieux</h1>
-            <div className="w-full">
-              <EtatDesLieuxForm
-                onRapportGenerated={handleRapportGenerated}
-                initialData={formData}
-                onProgressUpdate={handleProgressUpdate}
-                consultantName={consultantName}
-                editMode={!!editingReportId}
-              />
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+      <div className="fixed inset-x-0 top-0 z-50">
+        <Header />
+        <ProgressBar value={progress} />
+        <NavigationTabs
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            if (tab === "form" && activeTab !== "form") {
+              setFormData(null)
+              setEditingReportId(null)
+            }
+            if (tab === "recent") {
+              fetchRecentReports()
+            }
+            setActiveTab(tab)
+          }}
+        />
+      </div>
+      <main className="container mx-auto px-4 sm:px-6 py-8 pt-32 sm:pt-36 mt-4">
+        {activeTab === "form" ? (
+          <>
+            <div className="mb-6 sm:mb-8">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+                {editingReportId ? "Modifier l'état des lieux" : formData ? "Dupliquer l'état des lieux" : "Nouvel état des lieux"}
+              </h2>
+              {editingReportId && (
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1 bg-blue-50 border border-blue-100 rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 inline-block">
+                  Vous modifiez un état des lieux existant. Les modifications seront enregistrées dans le rapport
+                  original.
+                </p>
+              )}
+              {formData && !editingReportId && (
+                <p className="text-xs sm:text-sm text-amber-700 mt-1 bg-amber-50 border border-amber-100 rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 inline-block">
+                  Vous créez une copie d'un état des lieux existant. Un nouveau rapport sera généré lors de l'enregistrement.
+                </p>
+              )}
             </div>
+            <EtatDesLieuxForm
+              onRapportGenerated={handleRapportGenerated}
+              initialData={formData}
+              onProgressUpdate={handleProgressUpdate}
+              consultantName={consultantName}
+              editMode={!!editingReportId}
+            />
+          </>
+        ) : activeTab === "preview" && formData ? (
+          <RapportPreview 
+            formData={formData} 
+            onEdit={() => {
+              console.log("Retour à l'édition depuis l'aperçu");
+              setActiveTab("form");
+            }}
+          />
+        ) : activeTab === "preview" ? (
+          <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-200">
+            <p className="text-gray-500 font-medium">Générez un rapport pour voir l'aperçu ici</p>
           </div>
-        )}
-        
-        {activeTab === "preview" && (
-          <div className="max-w-full">
-            <h1 className="text-2xl font-bold mb-6 text-gray-800 px-1">Aperçu du rapport</h1>
-            {rapport ? (
-              <div key={JSON.stringify(formData)}>
-                <RapportPreview 
-                  formData={formData} 
-                />
-              </div>
-            ) : (
-              <div className="p-4 bg-white rounded-lg shadow text-center mx-1">
-                <p className="text-gray-500">Générez d'abord un rapport pour voir l'aperçu</p>
-              </div>
-            )}
-          </div>
-        )}
-        
-        {activeTab === "recent" && (
-          <div className="max-w-full">
-            {/* Plus d'espacement pour le titre des rapports récents */}
-            <h1 className="text-2xl font-bold mb-6 text-gray-800 mt-6 px-1">États des lieux récents</h1>
+        ) : (
+          <div className="space-y-6">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">États des lieux récents</h2>
             
             {recentReports.length > 0 ? (
-              <div className="space-y-4 px-1">
-                {recentReports.map((report) => (
-                  <Card key={report.id} className="overflow-hidden">
-                    <CardHeader className="p-4 pb-2">
-                      <CardTitle className="text-lg font-bold">{report.title}</CardTitle>
-                      <CardDescription>
-                        Créé le {new Date(report.date).toLocaleDateString("fr-FR")}
-                        {report.lastUpdated && ` - Modifié le ${new Date(report.lastUpdated).toLocaleDateString("fr-FR")}`}
+              recentReports.map((report) => (
+                <Card key={report.id} className="hover:bg-gray-50 transition-colors duration-200 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                  <CardHeader className="flex flex-col space-y-0 pb-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                      <CardTitle className="text-lg font-semibold text-gray-900">{report.title}</CardTitle>
+                      <CardDescription className="text-sm font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-md mt-2 sm:mt-0">
+                        {new Date(report.date).toLocaleDateString('fr-FR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        })}
                       </CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-0">
-                      <div className="flex flex-wrap gap-2 justify-end">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDownloadPDF(report)}
-                          className="flex items-center gap-1 text-xs"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Télécharger</span>
-                        </Button>
-                        <Button
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleDuplicate(report)}
-                          className="flex items-center gap-1 text-xs"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Dupliquer</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(report)}
-                          className="flex items-center gap-1 text-xs"
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Modifier</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(report.id)}
-                          className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Supprimer</span>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(report)}
+                        className="w-full sm:w-auto bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 hover:text-gray-900 transition-colors rounded-lg"
+                      >
+                        <Edit className="mr-2 h-4 w-4" />
+                        Modifier
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDuplicate(report)}
+                        className="w-full sm:w-auto bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 hover:text-gray-900 transition-colors rounded-lg"
+                      >
+                        <Copy className="mr-2 h-4 w-4" />
+                        Dupliquer
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadPDF(report)}
+                        className="w-full sm:w-auto bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 hover:text-gray-900 transition-colors rounded-lg"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Télécharger PDF
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(report.id)}
+                        className="w-full sm:w-auto bg-white hover:bg-red-50 border border-gray-200 text-red-600 hover:text-red-700 hover:border-red-200 transition-colors rounded-lg"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Supprimer
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
             ) : (
-              <div className="p-4 bg-white rounded-lg shadow text-center mx-1">
-                <p className="text-gray-500">Aucun état des lieux récent</p>
+              <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-200">
+                <p className="text-gray-500 font-medium">Aucun état des lieux récent</p>
+                <Button 
+                  onClick={() => setActiveTab("form")}
+                  className="mt-4 bg-[#DC0032] hover:bg-[#DC0032]/90 text-white font-medium rounded-lg"
+                >
+                  Créer un nouvel état des lieux
+                </Button>
               </div>
             )}
           </div>
