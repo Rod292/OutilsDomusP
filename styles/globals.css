@@ -27,6 +27,22 @@ body {
   .pr-safe {
     padding-right: env(safe-area-inset-right);
   }
+  
+  /* Mobile optimization */
+  .mobile-container {
+    @apply w-full px-1 mx-auto;
+    max-width: calc(100% - 8px);
+  }
+  
+  /* Masquer la scrollbar tout en conservant la fonctionnalité */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;     /* Firefox */
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari, Opera */
+  }
 }
 
 @layer base {
