@@ -3,21 +3,15 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthState } from "react-firebase-hooks/auth"
-import { auth } from "@/app/firebase/config"
-import Header from "@/app/components/header"
-import ProgressBar from "@/app/components/progress-bar"
-import EtatDesLieuxForm from "@/app/components/etat-des-lieux-form"
+import { auth, db } from "@/app/lib/firebase"
 import { NavigationTabs } from "@/app/components/navigation-tabs"
-import PdfPreview from "@/app/components/pdf-preview"
-import RecentReports from "@/app/components/recent-reports"
-import { Header as NewHeader } from "@/app/components/header"
-import { ProgressBar as NewProgressBar } from "@/app/components/progress-bar"
-import { EtatDesLieuxForm as NewEtatDesLieuxForm } from "@/app/components/etat-des-lieux-form"
+import { Header } from "@/app/components/header"
+import { ProgressBar } from "@/app/components/progress-bar"
+import { EtatDesLieuxForm } from "@/app/components/etat-des-lieux-form"
 import { RapportPreview } from "@/app/components/rapport-preview"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Trash2, Edit, Download, Copy } from "lucide-react"
-import { db } from "@/app/lib/firebase"
 import { collection, query, where, getDocs, getDocsFromServer, addDoc, updateDoc, deleteDoc, doc, Firestore, orderBy, limit } from "firebase/firestore"
 import { FirebaseError } from "firebase/app"
 import { generateEtatDesLieuxPDF } from "@/app/utils/generateEtatDesLieuxPDF"
@@ -528,8 +522,8 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <NewHeader />
-      <NewProgressBar progress={progress} />
+      <Header />
+      <ProgressBar progress={progress} />
       <NavigationTabs activeTab={activeTab} onTabChange={handleTabChange} />
       
       {/* Contenu principal avec un léger zoom pour optimiser l'espace */}
@@ -538,7 +532,7 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
           <div className="max-w-full">
             <h1 className="text-2xl font-bold mb-6 text-gray-800 px-1">Nouvel état des lieux</h1>
             <div className="w-full">
-              <NewEtatDesLieuxForm
+              <EtatDesLieuxForm
                 onRapportGenerated={handleRapportGenerated}
                 initialData={formData}
                 onProgressUpdate={handleProgressUpdate}
