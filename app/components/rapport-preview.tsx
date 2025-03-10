@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { generateEtatDesLieuxPDF } from "@/app/utils/generateEtatDesLieuxPDF"
 import { Download, Printer, FileText, ExternalLink, Check, AlertCircle, Edit } from "lucide-react"
 import { formatDate, getTypeBienLabel } from "@/app/utils/format-helpers"
+import React from "react"
 
 interface RapportPreviewProps {
   formData: any
@@ -15,13 +16,15 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
   const [loading, setLoading] = useState(true)
   const [generationSuccess, setGenerationSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [validFormData, setValidFormData] = useState<any>(null)
 
-  // Ajout de logs pour déboguer
+  // Ajout de logs pour déboguer et validation des données
   useEffect(() => {
     console.log("RapportPreview - Données reçues:", formData);
     
-    // Vérifier les propriétés principales
-    if (formData) {
+    // Vérifier que formData est un objet valide et non un objet React
+    if (formData && typeof formData === 'object' && !React.isValidElement(formData)) {
+      setValidFormData(formData);
       console.log("Propriétés de niveau supérieur:", Object.keys(formData));
       
       // Vérifier les pièces
@@ -57,6 +60,10 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
       } else {
         console.warn("Attention: La propriété compteurs est absente ou null");
       }
+    } else {
+      console.error("formData n'est pas un objet valide:", formData);
+      setError("Données de formulaire invalides");
+      setValidFormData(null);
     }
   }, [formData]);
 
@@ -68,17 +75,17 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
       setError(null)
       
       // Vérification de base des données
-      if (!formData) {
+      if (!validFormData) {
         throw new Error("Aucune donnée de formulaire disponible")
       }
       
       console.log("Données du formulaire pour la prévisualisation:", {
-        typeEtatDesLieux: formData.typeEtatDesLieux,
-        typeBien: formData.typeBien,
-        dateEtatDesLieux: formData.dateEtatDesLieux
+        typeEtatDesLieux: validFormData.typeEtatDesLieux,
+        typeBien: validFormData.typeBien,
+        dateEtatDesLieux: validFormData.dateEtatDesLieux
       })
       
-      await generateEtatDesLieuxPDF(formData, { openInNewTab: true })
+      await generateEtatDesLieuxPDF(validFormData, { openInNewTab: true })
       console.log("Prévisualisation du PDF générée avec succès")
       setGenerationSuccess(true)
     } catch (error) {
@@ -97,20 +104,20 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
       setError(null)
       
       // Vérification de base des données
-      if (!formData) {
+      if (!validFormData) {
         throw new Error("Aucune donnée de formulaire disponible")
       }
       
-      const filename = `etat-des-lieux-${formData.typeEtatDesLieux === 'entree' ? 'entree' : 'sortie'}-${new Date().toISOString().split('T')[0]}.pdf`
+      const filename = `etat-des-lieux-${validFormData.typeEtatDesLieux === 'entree' ? 'entree' : 'sortie'}-${new Date().toISOString().split('T')[0]}.pdf`
       console.log("Nom du fichier PDF:", filename)
       
       console.log("Données du formulaire pour le téléchargement:", {
-        typeEtatDesLieux: formData.typeEtatDesLieux,
-        typeBien: formData.typeBien,
-        dateEtatDesLieux: formData.dateEtatDesLieux
+        typeEtatDesLieux: validFormData.typeEtatDesLieux,
+        typeBien: validFormData.typeBien,
+        dateEtatDesLieux: validFormData.dateEtatDesLieux
       })
       
-      await generateEtatDesLieuxPDF(formData, {
+      await generateEtatDesLieuxPDF(validFormData, {
         filename: filename,
         openInNewTab: false
       })
@@ -149,9 +156,9 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
           {/* En-tête avec titre et boutons */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
             <div>
-              <h2 className="text-2xl font-bold text-primary">État des lieux {formData.typeEtatDesLieux === 'entree' ? "d'entrée" : "de sortie"}</h2>
+              <h2 className="text-2xl font-bold text-primary">État des lieux {validFormData?.typeEtatDesLieux === 'entree' ? "d'entrée" : "de sortie"}</h2>
               <p className="text-muted-foreground">
-                {formData.adresseBien ? formData.adresseBien : 'Adresse non spécifiée'}
+                {validFormData?.adresseBien ? validFormData.adresseBien : 'Adresse non spécifiée'}
               </p>
             </div>
             
@@ -198,18 +205,18 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
               {/* Page de garde simulée */}
               <div className="text-center mb-8">
                 <h3 className="text-xl font-bold text-primary">ÉTAT DES LIEUX</h3>
-                <p className="text-lg font-semibold">{formData.typeEtatDesLieux === 'entree' ? 'ENTRÉE' : 'SORTIE'}</p>
+                <p className="text-lg font-semibold">{validFormData?.typeEtatDesLieux === 'entree' ? 'ENTRÉE' : 'SORTIE'}</p>
                 <div className="w-32 h-1 bg-primary mx-auto my-4"></div>
                 
                 <div className="mt-6 inline-block text-left bg-gray-50 p-4 rounded-md">
                   <p className="font-semibold mb-1">Bien immobilier:</p>
-                  <p className="text-sm italic mb-3">{getTypeBienLabel(formData.typeBien)}</p>
+                  <p className="text-sm italic mb-3">{getTypeBienLabel(validFormData.typeBien)}</p>
                   
                   <p className="font-semibold mb-1">Adresse:</p>
-                  <p className="text-sm italic mb-3">{formData.adresseBien || ''}, {formData.codePostalBien || ''} {formData.villeBien || ''}</p>
+                  <p className="text-sm italic mb-3">{validFormData.adresseBien || ''}, {validFormData.codePostalBien || ''} {validFormData.villeBien || ''}</p>
                   
                   <p className="font-semibold mb-1">Date:</p>
-                  <p className="text-sm italic">{formatDate(formData.dateEtatDesLieux)}</p>
+                  <p className="text-sm italic">{formatDate(validFormData.dateEtatDesLieux)}</p>
                 </div>
               </div>
               
@@ -220,13 +227,13 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
                   <div className="flex flex-col md:flex-row gap-4">
                     <div className="flex-1">
                       <p className="font-semibold text-primary text-sm">Propriétaire:</p>
-                      <p className="text-sm">{formData.bailleur?.prenom || ''} {formData.bailleur?.nom || ''}</p>
-                      <p className="text-xs text-gray-500">{formData.bailleur?.adresse || ''}, {formData.bailleur?.codePostal || ''} {formData.bailleur?.ville || ''}</p>
+                      <p className="text-sm">{validFormData.bailleur?.prenom || ''} {validFormData.bailleur?.nom || ''}</p>
+                      <p className="text-xs text-gray-500">{validFormData.bailleur?.adresse || ''}, {validFormData.bailleur?.codePostal || ''} {validFormData.bailleur?.ville || ''}</p>
                     </div>
                     <div className="flex-1">
                       <p className="font-semibold text-primary text-sm">Locataire:</p>
-                      <p className="text-sm">{formData.locataire?.prenom || ''} {formData.locataire?.nom || ''}</p>
-                      <p className="text-xs text-gray-500">{formData.locataire?.adresse || ''}, {formData.locataire?.codePostal || ''} {formData.locataire?.ville || ''}</p>
+                      <p className="text-sm">{validFormData.locataire?.prenom || ''} {validFormData.locataire?.nom || ''}</p>
+                      <p className="text-xs text-gray-500">{validFormData.locataire?.adresse || ''}, {validFormData.locataire?.codePostal || ''} {validFormData.locataire?.ville || ''}</p>
                     </div>
                   </div>
                 </div>
@@ -264,7 +271,7 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
                 <h3 className="text-lg font-semibold text-primary mb-2">1. RELEVÉS DES COMPTEURS</h3>
                 <div className="h-1 w-full bg-primary mb-4"></div>
                 
-                {formData.compteurs?.electricite?.presence && (
+                {validFormData.compteurs?.electricite?.presence && (
                   <div className="mb-4">
                     <h4 className="font-medium text-primary">ÉLECTRICITÉ</h4>
                     <table className="w-full mt-2 border">
@@ -277,22 +284,22 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
                       <tbody>
                         <tr className="border-b">
                           <td className="py-1 px-2 text-xs font-medium bg-gray-50">Numéro du compteur</td>
-                          <td className="py-1 px-2 text-xs">{formData.compteurs.electricite.numero || 'Non renseigné'}</td>
+                          <td className="py-1 px-2 text-xs">{validFormData.compteurs.electricite.numero || 'Non renseigné'}</td>
                         </tr>
                         <tr className="border-b">
                           <td className="py-1 px-2 text-xs font-medium bg-gray-50">Relevé</td>
-                          <td className="py-1 px-2 text-xs">{formData.compteurs.electricite.releve || 'Non renseigné'}</td>
+                          <td className="py-1 px-2 text-xs">{validFormData.compteurs.electricite.releve || 'Non renseigné'}</td>
                         </tr>
                         <tr className="border-b">
                           <td className="py-1 px-2 text-xs font-medium bg-gray-50">Localisation</td>
-                          <td className="py-1 px-2 text-xs">{formData.compteurs.electricite.localisation || 'Non renseigné'}</td>
+                          <td className="py-1 px-2 text-xs">{validFormData.compteurs.electricite.localisation || 'Non renseigné'}</td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
                 )}
                 
-                {formData.compteurs?.eau?.presence && (
+                {validFormData.compteurs?.eau?.presence && (
                   <div className="mb-4">
                     <h4 className="font-medium text-primary">EAU</h4>
                     <table className="w-full mt-2 border">
@@ -305,11 +312,11 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
                       <tbody>
                         <tr className="border-b">
                           <td className="py-1 px-2 text-xs font-medium bg-gray-50">Numéro du compteur</td>
-                          <td className="py-1 px-2 text-xs">{formData.compteurs.eau.numero || 'Non renseigné'}</td>
+                          <td className="py-1 px-2 text-xs">{validFormData.compteurs.eau.numero || 'Non renseigné'}</td>
                         </tr>
                         <tr className="border-b">
                           <td className="py-1 px-2 text-xs font-medium bg-gray-50">Relevé</td>
-                          <td className="py-1 px-2 text-xs">{formData.compteurs.eau.releve || 'Non renseigné'}</td>
+                          <td className="py-1 px-2 text-xs">{validFormData.compteurs.eau.releve || 'Non renseigné'}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -322,9 +329,9 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
                 <h3 className="text-lg font-semibold text-primary mb-2">2. PIÈCES ET ÉQUIPEMENTS</h3>
                 <div className="h-1 w-full bg-primary mb-4"></div>
                 
-                {formData.pieces && formData.pieces.length > 0 ? (
+                {validFormData.pieces && validFormData.pieces.length > 0 ? (
                   <>
-                    <h4 className="font-medium">2.1 {formData.pieces[0].nom || 'Pièce 1'}</h4>
+                    <h4 className="font-medium">2.1 {validFormData.pieces[0].nom || 'Pièce 1'}</h4>
                     <div className="h-0.5 w-full bg-primary mb-4 opacity-30"></div>
                     
                     <table className="w-full mt-2 border text-xs">
@@ -338,7 +345,7 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
                       <tbody>
                         {['Murs', 'Sols', 'Plafond', 'Portes', 'Fenêtres'].map((element, idx) => {
                           const elementKey = element.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                          const etatValue = formData.pieces[0].etat?.[elementKey] || 'Non renseigné';
+                          const etatValue = validFormData.pieces[0].etat?.[elementKey] || 'Non renseigné';
                           let etatColor = '#4B5563'; // Couleur par défaut
                           
                           // Déterminer la couleur en fonction de l'état
@@ -354,7 +361,7 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
                             <tr key={idx} className="border-b">
                               <td className="py-1 px-2 font-medium bg-gray-50">{element}</td>
                               <td className="py-1 px-2" style={{ color: etatColor }}>{etatValue}</td>
-                              <td className="py-1 px-2">{formData.pieces[0].etat?.[`${elementKey}Commentaire`] || '-'}</td>
+                              <td className="py-1 px-2">{validFormData.pieces[0].etat?.[`${elementKey}Commentaire`] || '-'}</td>
                             </tr>
                           );
                         })}
@@ -362,11 +369,11 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
                     </table>
                     
                     {/* Ajouter des photos si disponibles */}
-                    {formData.pieces[0].photos && formData.pieces[0].photos.length > 0 && (
+                    {validFormData.pieces[0].photos && validFormData.pieces[0].photos.length > 0 && (
                       <div className="mt-4">
                         <h5 className="text-sm font-medium mb-2">Photos</h5>
                         <div className="grid grid-cols-2 gap-2">
-                          {formData.pieces[0].photos.slice(0, 2).map((photo: string, idx: number) => (
+                          {validFormData.pieces[0].photos.slice(0, 2).map((photo: string, idx: number) => (
                             <div key={idx} className="border rounded overflow-hidden h-24 bg-gray-100">
                               {typeof photo === 'string' && (
                                 <img src={photo} alt={`Photo ${idx+1}`} className="object-cover w-full h-full" />
