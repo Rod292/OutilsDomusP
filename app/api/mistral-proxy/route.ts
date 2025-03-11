@@ -24,11 +24,14 @@ export async function POST(req: NextRequest) {
   try {
     // Récupérer les variables d'environnement
     const apiKey = process.env.MISTRAL_API_KEY;
-    const apiUrl = 'https://api.mistral.ai/v1/chat/completions';
+    const apiUrl = process.env.MISTRAL_API_URL || 'https://api.mistral.ai/v1/chat/completions';
+    const agentId = process.env.MISTRAL_AGENT_ID;
     
     console.log('Configuration API Mistral:', { 
       apiKeyExists: !!apiKey,
       apiKeyPrefix: apiKey ? apiKey.substring(0, 6) : 'Non définie',
+      agentIdExists: !!agentId,
+      agentIdPrefix: agentId ? agentId.substring(0, 10) : 'Non défini'
     });
     
     // Vérifier si la clé API est disponible
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { 
           error: 'Configuration API manquante', 
-          message: 'Vous devez configurer une clé API Mistral valide dans le fichier .env.local. Consultez la documentation pour plus d\'informations.'
+          message: 'Vous devez configurer une clé API Mistral valide dans le fichier .env.local.'
         },
         { status: 500 }
       );
@@ -58,16 +61,22 @@ export async function POST(req: NextRequest) {
     ];
 
     // Préparer la requête pour l'API Mistral
-    const mistralPayload = {
+    const mistralPayload: any = {
       model: "mistral-tiny",
       messages: messages,
       max_tokens: 1000,
       temperature: 0.7,
     };
     
+    // Ajouter l'agent ID si disponible
+    if (agentId && agentId.trim() !== '') {
+      mistralPayload.agent_id = agentId;
+    }
+    
     console.log('Envoi de la requête à Mistral API avec la configuration:', {
       model: mistralPayload.model,
       messagesCount: mistralPayload.messages.length,
+      hasAgentId: !!mistralPayload.agent_id,
       url: apiUrl
     });
     
