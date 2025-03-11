@@ -54,7 +54,7 @@ function SelectionOutilClient() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
         <div className="text-center">
-          <div className="w-14 h-14 border-4 border-[#0052CC] border-t-transparent rounded-full animate-spin mx-auto mb-5"></div>
+          <div className="w-14 h-14 border-4 border-[#DC0032] border-t-transparent rounded-full animate-spin mx-auto mb-5"></div>
           <p className="text-gray-700 font-medium">Chargement...</p>
         </div>
       </div>
@@ -80,7 +80,7 @@ function SelectionOutilClient() {
               </div>
               <h1 className="text-3xl md:text-4xl font-bold text-[#2D2D2D] mb-3">Bienvenue, {user?.displayName || user?.email?.split('@')[0]}</h1>
               {consultant && (
-                <span className="mt-1 text-[#0052CC] font-medium text-sm bg-blue-50 px-4 py-1.5 rounded-full shadow-sm border border-blue-100">
+                <span className="mt-1 text-[#DC0032] font-medium text-sm bg-red-50 px-4 py-1.5 rounded-full shadow-sm border border-red-100">
                   Consultant: {consultant}
                 </span>
               )}
@@ -89,10 +89,10 @@ function SelectionOutilClient() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            <Card className="border border-gray-200 rounded-xl overflow-hidden hover:border-[#0052CC] transition-all duration-300 hover:shadow-lg hover:translate-y-[-4px] cursor-pointer group" onClick={() => navigateTo('/consultant/')}>
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b border-gray-100">
+            <Card className="border border-gray-200 rounded-xl overflow-hidden hover:border-[#DC0032] transition-all duration-300 hover:shadow-lg hover:translate-y-[-4px] cursor-pointer group" onClick={() => navigateTo('/consultant/')}>
+              <CardHeader className="bg-gradient-to-r from-red-50 to-pink-50 p-6 border-b border-gray-100">
                 <div className="flex items-center gap-5">
-                  <div className="bg-[#0052CC] text-white p-3.5 rounded-full w-16 h-16 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
+                  <div className="bg-[#DC0032] text-white p-3.5 rounded-full w-16 h-16 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
                     <ClipboardList size={28} />
                   </div>
                   <div>
@@ -104,26 +104,26 @@ function SelectionOutilClient() {
               <CardContent className="py-5 px-6">
                 <ul className="space-y-3 text-base text-gray-700">
                   <li className="flex items-center">
-                    <span className="bg-blue-100 text-[#0052CC] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
+                    <span className="bg-red-100 text-[#DC0032] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
                     Créer et modifier des états des lieux
                   </li>
                   <li className="flex items-center">
-                    <span className="bg-blue-100 text-[#0052CC] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
+                    <span className="bg-red-100 text-[#DC0032] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
                     Générer des rapports PDF
                   </li>
                 </ul>
               </CardContent>
               <CardFooter className="pt-0 pb-5 px-6">
-                <Button className="w-full bg-[#0052CC] hover:bg-[#0052CC]/90 text-white text-base font-medium py-5 rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                <Button className="w-full bg-[#DC0032] hover:bg-[#DC0032]/90 text-white text-base font-medium py-5 rounded-lg shadow-sm group-hover:shadow-md transition-all">
                   Accéder à l'outil
                 </Button>
               </CardFooter>
             </Card>
 
-            <Card className="border border-gray-200 rounded-xl overflow-hidden hover:border-[#0052CC] transition-all duration-300 hover:shadow-lg hover:translate-y-[-4px] cursor-pointer group" onClick={() => navigateTo('/plan-communication')}>
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b border-gray-100">
+            <Card className="border border-gray-200 rounded-xl overflow-hidden hover:border-[#DC0032] transition-all duration-300 hover:shadow-lg hover:translate-y-[-4px] cursor-pointer group" onClick={() => navigateTo('/plan-communication')}>
+              <CardHeader className="bg-gradient-to-r from-red-50 to-pink-50 p-6 border-b border-gray-100">
                 <div className="flex items-center gap-5">
-                  <div className="bg-[#0052CC] text-white p-3.5 rounded-full w-16 h-16 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
+                  <div className="bg-[#DC0032] text-white p-3.5 rounded-full w-16 h-16 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
                     <FileSpreadsheet size={28} />
                   </div>
                   <div>
@@ -135,26 +135,26 @@ function SelectionOutilClient() {
               <CardContent className="py-5 px-6">
                 <ul className="space-y-3 text-base text-gray-700">
                   <li className="flex items-center">
-                    <span className="bg-blue-100 text-[#0052CC] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
+                    <span className="bg-red-100 text-[#DC0032] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
                     Planifier des idées de publications
                   </li>
                   <li className="flex items-center">
-                    <span className="bg-blue-100 text-[#0052CC] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
+                    <span className="bg-red-100 text-[#DC0032] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
                     Organiser par ville et activité
                   </li>
                 </ul>
               </CardContent>
               <CardFooter className="pt-0 pb-5 px-6">
-                <Button className="w-full bg-[#0052CC] hover:bg-[#0052CC]/90 text-white text-base font-medium py-5 rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                <Button className="w-full bg-[#DC0032] hover:bg-[#DC0032]/90 text-white text-base font-medium py-5 rounded-lg shadow-sm group-hover:shadow-md transition-all">
                   Accéder à l'outil
                 </Button>
               </CardFooter>
             </Card>
             
-            <Card className="border border-gray-200 rounded-xl overflow-hidden hover:border-[#0052CC] transition-all duration-300 hover:shadow-lg hover:translate-y-[-4px] cursor-pointer group" onClick={() => navigateTo('/avis-google')}>
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b border-gray-100">
+            <Card className="border border-gray-200 rounded-xl overflow-hidden hover:border-[#DC0032] transition-all duration-300 hover:shadow-lg hover:translate-y-[-4px] cursor-pointer group" onClick={() => navigateTo('/avis-google')}>
+              <CardHeader className="bg-gradient-to-r from-red-50 to-pink-50 p-6 border-b border-gray-100">
                 <div className="flex items-center gap-5">
-                  <div className="bg-[#0052CC] text-white p-3.5 rounded-full w-16 h-16 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
+                  <div className="bg-[#DC0032] text-white p-3.5 rounded-full w-16 h-16 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
                     <Star size={28} />
                   </div>
                   <div>
@@ -166,26 +166,26 @@ function SelectionOutilClient() {
               <CardContent className="py-5 px-6">
                 <ul className="space-y-3 text-base text-gray-700">
                   <li className="flex items-center">
-                    <span className="bg-blue-100 text-[#0052CC] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
+                    <span className="bg-red-100 text-[#DC0032] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
                     Envoi de demandes post-signature
                   </li>
                   <li className="flex items-center">
-                    <span className="bg-blue-100 text-[#0052CC] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
+                    <span className="bg-red-100 text-[#DC0032] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
                     Relance des clients après 1-3 ans
                   </li>
                 </ul>
               </CardContent>
               <CardFooter className="pt-0 pb-5 px-6">
-                <Button className="w-full bg-[#0052CC] hover:bg-[#0052CC]/90 text-white text-base font-medium py-5 rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                <Button className="w-full bg-[#DC0032] hover:bg-[#DC0032]/90 text-white text-base font-medium py-5 rounded-lg shadow-sm group-hover:shadow-md transition-all">
                   Accéder à l'outil
                 </Button>
               </CardFooter>
             </Card>
             
-            <Card className="border border-gray-200 rounded-xl overflow-hidden hover:border-[#0052CC] transition-all duration-300 hover:shadow-lg hover:translate-y-[-4px] cursor-pointer group" onClick={() => navigateTo('/guides-immobilier')}>
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b border-gray-100">
+            <Card className="border border-gray-200 rounded-xl overflow-hidden hover:border-[#DC0032] transition-all duration-300 hover:shadow-lg hover:translate-y-[-4px] cursor-pointer group" onClick={() => navigateTo('/guides-immobilier')}>
+              <CardHeader className="bg-gradient-to-r from-red-50 to-pink-50 p-6 border-b border-gray-100">
                 <div className="flex items-center gap-5">
-                  <div className="bg-[#0052CC] text-white p-3.5 rounded-full w-16 h-16 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
+                  <div className="bg-[#DC0032] text-white p-3.5 rounded-full w-16 h-16 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
                     <BookOpen size={28} />
                   </div>
                   <div>
@@ -197,26 +197,26 @@ function SelectionOutilClient() {
               <CardContent className="py-5 px-6">
                 <ul className="space-y-3 text-base text-gray-700">
                   <li className="flex items-center">
-                    <span className="bg-blue-100 text-[#0052CC] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
+                    <span className="bg-red-100 text-[#DC0032] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
                     Baux commerciaux et loi Hoguet
                   </li>
                   <li className="flex items-center">
-                    <span className="bg-blue-100 text-[#0052CC] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
+                    <span className="bg-red-100 text-[#DC0032] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
                     Droit au bail et investissements
                   </li>
                 </ul>
               </CardContent>
               <CardFooter className="pt-0 pb-5 px-6">
-                <Button className="w-full bg-[#0052CC] hover:bg-[#0052CC]/90 text-white text-base font-medium py-5 rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                <Button className="w-full bg-[#DC0032] hover:bg-[#DC0032]/90 text-white text-base font-medium py-5 rounded-lg shadow-sm group-hover:shadow-md transition-all">
                   Accéder à l'outil
                 </Button>
               </CardFooter>
             </Card>
 
-            <Card className="border border-gray-200 rounded-xl overflow-hidden hover:border-[#0052CC] transition-all duration-300 hover:shadow-lg hover:translate-y-[-4px] cursor-pointer group" onClick={() => navigateTo('/newsletter')}>
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b border-gray-100">
+            <Card className="border border-gray-200 rounded-xl overflow-hidden hover:border-[#DC0032] transition-all duration-300 hover:shadow-lg hover:translate-y-[-4px] cursor-pointer group" onClick={() => navigateTo('/newsletter')}>
+              <CardHeader className="bg-gradient-to-r from-red-50 to-pink-50 p-6 border-b border-gray-100">
                 <div className="flex items-center gap-5">
-                  <div className="bg-[#0052CC] text-white p-3.5 rounded-full w-16 h-16 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
+                  <div className="bg-[#DC0032] text-white p-3.5 rounded-full w-16 h-16 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
                     <Mail size={28} />
                   </div>
                   <div>
@@ -228,17 +228,17 @@ function SelectionOutilClient() {
               <CardContent className="py-5 px-6">
                 <ul className="space-y-3 text-base text-gray-700">
                   <li className="flex items-center">
-                    <span className="bg-blue-100 text-[#0052CC] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
+                    <span className="bg-red-100 text-[#DC0032] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
                     Créer des newsletters personnalisées
                   </li>
                   <li className="flex items-center">
-                    <span className="bg-blue-100 text-[#0052CC] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
+                    <span className="bg-red-100 text-[#DC0032] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
                     Suivi des envois et statistiques
                   </li>
                 </ul>
               </CardContent>
               <CardFooter className="pt-0 pb-5 px-6">
-                <Button className="w-full bg-[#0052CC] hover:bg-[#0052CC]/90 text-white text-base font-medium py-5 rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                <Button className="w-full bg-[#DC0032] hover:bg-[#DC0032]/90 text-white text-base font-medium py-5 rounded-lg shadow-sm group-hover:shadow-md transition-all">
                   Accéder à l'outil
                 </Button>
               </CardFooter>
@@ -259,7 +259,7 @@ function SelectionOutilFallback() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <div className="text-center">
-        <div className="w-14 h-14 border-4 border-[#0052CC] border-t-transparent rounded-full animate-spin mx-auto mb-5"></div>
+        <div className="w-14 h-14 border-4 border-[#DC0032] border-t-transparent rounded-full animate-spin mx-auto mb-5"></div>
         <p className="text-gray-700 font-medium">Chargement...</p>
       </div>
     </div>
