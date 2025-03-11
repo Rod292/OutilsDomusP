@@ -13,6 +13,7 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   signInWithGoogle,
+  getGoogleRedirectResult,
 } from "@/app/lib/firebase"
 import { Loader2 } from "lucide-react"
 import type { User } from "firebase/auth"
@@ -286,6 +287,29 @@ export function EmailAuthForm({ mode }: EmailAuthFormProps) {
   const [focusedField, setFocusedField] = useState<'email' | 'password' | 'firstName' | 'lastName' | null>(null);
   const router = useRouter()
 
+  // Vérifier le résultat de la redirection Google au chargement de la page
+  useEffect(() => {
+    const checkRedirectResult = async () => {
+      try {
+        setIsGoogleLoading(true);
+        const user = await getGoogleRedirectResult();
+        if (user) {
+          // L'utilisateur est connecté, la redirection sera gérée par le useEffect onAuthStateChanged
+        }
+      } catch (error) {
+        if (error instanceof Error) {
+          setError(error.message);
+        } else {
+          setError("Une erreur s'est produite lors de la connexion avec Google. Veuillez réessayer.");
+        }
+      } finally {
+        setIsGoogleLoading(false);
+      }
+    };
+    
+    checkRedirectResult();
+  }, []);
+
   // Ajouter un useEffect pour rediriger automatiquement si l'utilisateur est déjà connecté
   useEffect(() => {
     if (!auth) return;
@@ -400,16 +424,16 @@ export function EmailAuthForm({ mode }: EmailAuthFormProps) {
     
     try {
       await signInWithGoogle()
-      // La redirection sera gérée par le useEffect onAuthStateChanged
+      // La redirection sera gérée par Firebase Auth
     } catch (error) {
       if (error instanceof Error) {
         setError(error.message)
       } else {
         setError("Une erreur s'est produite lors de la connexion avec Google. Veuillez réessayer.")
       }
-    } finally {
       setIsGoogleLoading(false)
     }
+    // Note: setIsGoogleLoading(false) n'est pas appelé dans le bloc finally car la page sera rechargée après la redirection
   }
 
   return (

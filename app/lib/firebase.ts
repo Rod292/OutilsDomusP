@@ -3,7 +3,9 @@ import { getFirestore, Firestore } from "firebase/firestore"
 import { 
   getAuth, 
   GoogleAuthProvider, 
-  signInWithPopup, 
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   Auth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword as firebaseCreateUser,
@@ -73,10 +75,22 @@ const ALLOWED_EMAIL_DOMAINS = [
   'arthur-loyd.fr'
 ];
 
+// Liste des emails spécifiques autorisés
+const ALLOWED_SPECIFIC_EMAILS = [
+  'photos.pers@gmail.com',
+  'rodrigue.pers29@gmail.com'
+];
+
 // Fonction pour vérifier si un email a un domaine autorisé
 export function hasAllowedEmailDomain(email: string): boolean {
   if (!email || !email.includes('@')) return false;
   
+  // Vérifier si l'email est dans la liste des emails spécifiques autorisés
+  if (ALLOWED_SPECIFIC_EMAILS.includes(email.toLowerCase())) {
+    return true;
+  }
+  
+  // Vérifier si le domaine est autorisé
   const domain = email.split('@')[1].toLowerCase();
   return ALLOWED_EMAIL_DOMAINS.includes(domain);
 }
@@ -84,7 +98,7 @@ export function hasAllowedEmailDomain(email: string): boolean {
 // Fonction pour créer un utilisateur avec vérification du domaine
 export async function createUserWithEmailAndPassword(auth: any, email: string, password: string) {
   if (!hasAllowedEmailDomain(email)) {
-    throw new Error('Seuls les emails @arthurloydbretagne.fr et @arthur-loyd.com sont autorisés à s\'inscrire.');
+    throw new Error('Seuls les emails @arthurloydbretagne.fr, @arthur-loyd.com et certains emails spécifiques sont autorisés à s\'inscrire.');
   }
   
   return await firebaseCreateUser(auth, email, password);
@@ -120,21 +134,44 @@ export async function signInWithGoogle() {
   }
   
   const provider = new GoogleAuthProvider();
+  // Forcer la sélection du compte même si l'utilisateur n'a qu'un seul compte
+  provider.setCustomParameters({
+    prompt: 'select_account'
+  });
+  
   try {
-    console.log('Tentative de connexion avec Google...');
-    const result = await signInWithPopup(auth, provider);
-    
-    // Vérifier si l'email a un domaine autorisé
-    if (!hasAllowedEmailDomain(result.user.email || '')) {
-      // Déconnecter l'utilisateur immédiatement
-      await auth.signOut();
-      throw new Error('Seuls les emails @arthurloydbretagne.fr et @arthur-loyd.com sont autorisés à se connecter.');
-    }
-    
-    console.log('Connexion réussie avec Google', { userId: result.user.uid });
-    return result.user;
+    console.log('Tentative de connexion avec Google par redirection...');
+    // Utiliser signInWithRedirect au lieu de signInWithPopup
+    await signInWithRedirect(auth, provider);
+    // La fonction ne retourne rien car la page va être rechargée après la redirection
   } catch (error) {
     console.error("Erreur lors de la connexion avec Google:", error);
+    throw error;
+  }
+}
+
+// Fonction pour récupérer le résultat de la redirection Google
+export async function getGoogleRedirectResult() {
+  if (typeof window === 'undefined' || !auth) {
+    return null;
+  }
+  
+  try {
+    const result = await getRedirectResult(auth);
+    if (result) {
+      // Vérifier si l'email a un domaine autorisé
+      if (!hasAllowedEmailDomain(result.user.email || '')) {
+        // Déconnecter l'utilisateur immédiatement
+        await auth.signOut();
+        throw new Error('Seuls les emails @arthurloydbretagne.fr, @arthur-loyd.com et certains emails spécifiques sont autorisés à se connecter.');
+      }
+      
+      console.log('Connexion réussie avec Google', { userId: result.user.uid });
+      return result.user;
+    }
+    return null;
+  } catch (error) {
+    console.error("Erreur lors de la récupération du résultat de redirection Google:", error);
     throw error;
   }
 }
