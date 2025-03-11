@@ -9,7 +9,8 @@ import {
   Auth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword as firebaseCreateUser,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  browserPopupRedirectResolver
 } from "firebase/auth"
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"
 
@@ -152,15 +153,29 @@ export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
   // Forcer la sélection du compte même si l'utilisateur n'a qu'un seul compte
   provider.setCustomParameters({
-    prompt: 'select_account'
+    prompt: 'select_account',
+    login_hint: ''
   });
   
   try {
-    console.log('Tentative de connexion avec Google par redirection...');
-    // Utiliser signInWithRedirect au lieu de signInWithPopup
-    await signInWithRedirect(auth, provider);
-    console.log('Redirection vers Google initiée');
-    // La fonction ne retourne rien car la page va être rechargée après la redirection
+    console.log('Tentative de connexion avec Google par popup...');
+    // Utiliser signInWithPopup avec le resolver explicite
+    const result = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
+    console.log('Résultat de popup Google obtenu, email:', result.user.email);
+    
+    // Vérifier si l'email a un domaine autorisé
+    const isAllowed = hasAllowedEmailDomain(result.user.email || '');
+    console.log('Email autorisé?', isAllowed);
+    
+    if (!isAllowed) {
+      // Déconnecter l'utilisateur immédiatement
+      console.log('Email non autorisé, déconnexion de l\'utilisateur');
+      await auth.signOut();
+      throw new Error('Seuls les emails @arthurloydbretagne.fr, @arthur-loyd.com et certains emails spécifiques sont autorisés à se connecter.');
+    }
+    
+    console.log('Connexion réussie avec Google', { userId: result.user.uid });
+    return result.user;
   } catch (error) {
     console.error("Erreur lors de la connexion avec Google:", error);
     throw error;
