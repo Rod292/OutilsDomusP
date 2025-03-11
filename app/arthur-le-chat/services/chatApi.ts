@@ -22,8 +22,6 @@ export interface ChatMessage {
  */
 export async function sendMessage(message: string, history: ChatMessage[] = []): Promise<ChatResponse> {
   try {
-    console.log('Envoi du message à l\'API...');
-    
     // Préparer les données pour l'API
     const payload = {
       message: message,
@@ -31,9 +29,7 @@ export async function sendMessage(message: string, history: ChatMessage[] = []):
     };
     
     // Appel à notre proxy Mistral
-    console.log('Envoi de la requête via proxy Mistral...');
     const response = await axios.post('/api/mistral-proxy', payload);
-    console.log('Réponse reçue du proxy Mistral');
     
     // Formater la réponse
     return {
