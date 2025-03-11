@@ -21,6 +21,70 @@ Si je ne connais pas la réponse à une question, je proposerai de contacter ${c
 Je ne dois jamais dire "Bonjour Arthur" car c'est moi qui suis Arthur. Je m'adresse directement à l'utilisateur.`;
 }
 
+// Fonction pour effectuer une recherche web
+async function performWebSearch(query: string): Promise<string> {
+  try {
+    // Vérifier si une clé API SerpApi est disponible
+    const serpApiKey = process.env.SERP_API_KEY;
+    
+    if (serpApiKey) {
+      // Utiliser SerpApi pour la recherche web
+      console.log('Utilisation de SerpApi pour la recherche web:', query);
+      
+      const response = await axios.get('https://serpapi.com/search', {
+        params: {
+          q: query,
+          api_key: serpApiKey,
+          engine: 'google',
+          num: 5, // Limiter à 5 résultats
+          hl: 'fr' // Langue française
+        }
+      });
+      
+      // Extraire les résultats organiques
+      const organicResults = response.data.organic_results || [];
+      
+      if (organicResults.length === 0) {
+        return `Aucun résultat trouvé pour la recherche "${query}".`;
+      }
+      
+      // Formater les résultats
+      let formattedResults = `Résultats de recherche pour "${query}":\n\n`;
+      
+      organicResults.forEach((result: any, index: number) => {
+        formattedResults += `${index + 1}. ${result.title}\n`;
+        formattedResults += `   ${result.snippet}\n`;
+        formattedResults += `   Source: ${result.link}\n\n`;
+      });
+      
+      return formattedResults;
+    } else {
+      // Recherche simulée si aucune clé API n'est disponible
+      console.log('Simulation de recherche web (pas de clé API SerpApi):', query);
+      
+      // Simuler un délai de recherche
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Résultats simulés
+      return `Résultats de recherche simulés pour "${query}" (Aucune clé API SerpApi configurée):\n
+1. Arthur Loyd Bretagne - Immobilier d'entreprise
+   Agence spécialisée dans l'immobilier d'entreprise en Bretagne. Bureaux, locaux, entrepôts et terrains.
+   Source: https://www.arthur-loyd-bretagne.com/
+
+2. Services immobiliers pour entreprises - Arthur Loyd
+   Location et vente de bureaux, entrepôts, locaux commerciaux et terrains pour les entreprises.
+   Source: https://www.arthur-loyd.com/services
+
+3. Immobilier d'entreprise en Bretagne - Tendances 2023
+   Analyse du marché immobilier d'entreprise en Bretagne, prix et disponibilités.
+   Source: https://www.immo-entreprise-bretagne.fr/tendances`;
+    }
+  } catch (error) {
+    console.error('Erreur lors de la recherche web:', error);
+    return `Une erreur est survenue lors de la recherche web pour "${query}". Veuillez réessayer plus tard.`;
+  }
+}
+
 // Définition des outils disponibles pour le modèle
 const tools = [
   {
@@ -144,11 +208,8 @@ export async function POST(req: NextRequest) {
           
           console.log('Recherche web demandée:', query);
           
-          // Simuler une recherche web (dans une vraie implémentation, vous utiliseriez une API de recherche)
-          const searchResults = `Résultats de recherche pour "${query}": 
-          1. Arthur Loyd Bretagne est une agence immobilière spécialisée dans l'immobilier d'entreprise.
-          2. Ils proposent des bureaux, entrepôts, locaux commerciaux et terrains en Bretagne.
-          3. Leur équipe de consultants accompagne les entreprises dans leurs projets immobiliers.`;
+          // Effectuer la recherche web
+          const searchResults = await performWebSearch(query);
           
           // Ajouter les résultats de recherche à la conversation
           const updatedMessages = [
