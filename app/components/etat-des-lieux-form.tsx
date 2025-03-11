@@ -1295,7 +1295,7 @@ export function EtatDesLieuxForm({
     <div className="container mx-auto pb-safe main-content">
       <div className="flex flex-col gap-6 p-2 sm:p-4">
         {/* Navigation par onglets */}
-        <div className="flex overflow-x-auto py-2 gap-1 sm:gap-3 no-scrollbar -mx-2 px-2">
+        <div className="flex overflow-x-auto py-2 gap-1 sm:gap-3 no-scrollbar -mx-2 px-2 section-navigation section-tabs">
           {tabs.map((tab, index) => (
             <button
               key={index}
@@ -1315,7 +1315,7 @@ export function EtatDesLieuxForm({
             </button>
           ))}
         </div>
-        
+
         {/* Contenu du formulaire */}
         <form onSubmit={handleSubmit} className="space-y-8" noValidate>
           <div className={activeTab === 0 ? "" : "hidden"}>
@@ -1324,194 +1324,194 @@ export function EtatDesLieuxForm({
                 <h2 className="text-xl font-bold text-gray-900">Type d'état des lieux</h2>
               </div>
               <div className="p-6 space-y-6">
-                {/* Type d'état des lieux */}
+          {/* Type d'état des lieux */}
                 <div className="space-y-3">
-                  <Label className="text-base font-medium">Type d'état des lieux</Label>
-                  <RadioGroup
+                    <Label className="text-base font-medium">Type d'état des lieux</Label>
+                    <RadioGroup
                     name="typeEtatDesLieux"
-                    value={formData.typeEtatDesLieux}
+                      value={formData.typeEtatDesLieux}
                     onValueChange={(value) => updateFormField("typeEtatDesLieux", value)}
                     className="flex gap-4"
-                  >
-                    <div className="flex items-center space-x-2">
+                    >
+                      <div className="flex items-center space-x-2">
                       <RadioGroupItem value="entree" id="typeEtatDesLieux-entree" className="text-[#DC0032]" />
                       <Label htmlFor="typeEtatDesLieux-entree" className="text-base">Entrée</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
+                      </div>
+                      <div className="flex items-center space-x-2">
                       <RadioGroupItem value="sortie" id="typeEtatDesLieux-sortie" className="text-[#DC0032]" />
                       <Label htmlFor="typeEtatDesLieux-sortie" className="text-base">Sortie</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
+                      </div>
+                    </RadioGroup>
+                  </div>
 
                 {/* Date de l'état des lieux */}
                 <div className="space-y-3">
                   <Label htmlFor="dateEtatDesLieux" className="text-base font-medium">
                     Date de l'état des lieux
                   </Label>
-                  <Input
-                    type="date"
-                    id="dateEtatDesLieux"
-                    name="dateEtatDesLieux"
-                    value={formData.dateEtatDesLieux}
-                    onChange={handleInputChange}
+                    <Input
+                      type="date"
+                      id="dateEtatDesLieux"
+                      name="dateEtatDesLieux"
+                      value={formData.dateEtatDesLieux}
+                      onChange={handleInputChange}
                     className="w-full text-base border-gray-300 rounded-lg"
-                  />
+                    />
+                  </div>
                 </div>
-              </div>
             </div>
           </div>
-          
+
           {/* Informations sur le bien */}
           <div className={activeTab === 1 ? "" : "hidden"}>
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="bg-gradient-to-r from-red-50 to-pink-50 px-6 py-4 border-b border-gray-200">
                 <h2 className="text-xl font-bold text-gray-900">Informations sur le bien</h2>
-              </div>
+                </div>
               <div className="p-6 space-y-6">
                 {/* Type de bien */}
-                <div className="space-y-3">
-                  <Label className="text-base font-medium">Type de bien</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="typeBien-bureau" 
-                        checked={formData.typeBien.includes("bureau")} 
-                        onCheckedChange={(checked) => {
-                          const newTypeBien = [...formData.typeBien];
-                          if (checked) {
-                            if (!newTypeBien.includes("bureau")) newTypeBien.push("bureau");
-                          } else {
-                            const index = newTypeBien.indexOf("bureau");
-                            if (index !== -1) newTypeBien.splice(index, 1);
-                          }
-                          updateFormField("typeBien", newTypeBien);
-                        }}
-                        className="data-[state=checked]:bg-[#DC0032] data-[state=checked]:border-[#DC0032]"
-                      />
-                      <Label htmlFor="typeBien-bureau">Bureau</Label>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="typeBien-commerce" 
-                        checked={formData.typeBien.includes("local-commercial")} 
-                        onCheckedChange={(checked) => {
-                          const newTypeBien = [...formData.typeBien];
-                          if (checked) {
-                            if (!newTypeBien.includes("local-commercial")) newTypeBien.push("local-commercial");
-                          } else {
-                            const index = newTypeBien.indexOf("local-commercial");
-                            if (index !== -1) newTypeBien.splice(index, 1);
-                          }
-                          updateFormField("typeBien", newTypeBien);
-                        }}
-                        className="data-[state=checked]:bg-[#DC0032] data-[state=checked]:border-[#DC0032]"
-                      />
-                      <Label htmlFor="typeBien-commerce">Commerce</Label>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="typeBien-entrepot" 
-                        checked={formData.typeBien.includes("entrepot")} 
-                        onCheckedChange={(checked) => {
-                          const newTypeBien = [...formData.typeBien];
-                          if (checked) {
-                            if (!newTypeBien.includes("entrepot")) newTypeBien.push("entrepot");
-                          } else {
-                            const index = newTypeBien.indexOf("entrepot");
-                            if (index !== -1) newTypeBien.splice(index, 1);
-                          }
-                          updateFormField("typeBien", newTypeBien);
-                        }}
-                        className="data-[state=checked]:bg-[#DC0032] data-[state=checked]:border-[#DC0032]"
-                      />
-                      <Label htmlFor="typeBien-entrepot">Entrepôt</Label>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="typeBien-local-activite" 
-                        checked={formData.typeBien.includes("local-activite")} 
-                        onCheckedChange={(checked) => {
-                          const newTypeBien = [...formData.typeBien];
-                          if (checked) {
-                            if (!newTypeBien.includes("local-activite")) newTypeBien.push("local-activite");
-                          } else {
-                            const index = newTypeBien.indexOf("local-activite");
-                            if (index !== -1) newTypeBien.splice(index, 1);
-                          }
-                          updateFormField("typeBien", newTypeBien);
-                        }}
-                        className="data-[state=checked]:bg-[#DC0032] data-[state=checked]:border-[#DC0032]"
-                      />
-                      <Label htmlFor="typeBien-local-activite">Local d'activité</Label>
+                  <div className="space-y-3">
+                    <Label className="text-base font-medium">Type de bien</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="typeBien-bureau" 
+                          checked={formData.typeBien.includes("bureau")} 
+                          onCheckedChange={(checked) => {
+                            const newTypeBien = [...formData.typeBien];
+                            if (checked) {
+                              if (!newTypeBien.includes("bureau")) newTypeBien.push("bureau");
+                            } else {
+                              const index = newTypeBien.indexOf("bureau");
+                              if (index !== -1) newTypeBien.splice(index, 1);
+                            }
+                            updateFormField("typeBien", newTypeBien);
+                          }}
+                          className="data-[state=checked]:bg-[#DC0032] data-[state=checked]:border-[#DC0032]"
+                        />
+                        <Label htmlFor="typeBien-bureau">Bureau</Label>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="typeBien-commerce" 
+                          checked={formData.typeBien.includes("local-commercial")} 
+                          onCheckedChange={(checked) => {
+                            const newTypeBien = [...formData.typeBien];
+                            if (checked) {
+                              if (!newTypeBien.includes("local-commercial")) newTypeBien.push("local-commercial");
+                            } else {
+                              const index = newTypeBien.indexOf("local-commercial");
+                              if (index !== -1) newTypeBien.splice(index, 1);
+                            }
+                            updateFormField("typeBien", newTypeBien);
+                          }}
+                          className="data-[state=checked]:bg-[#DC0032] data-[state=checked]:border-[#DC0032]"
+                        />
+                        <Label htmlFor="typeBien-commerce">Commerce</Label>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="typeBien-entrepot" 
+                          checked={formData.typeBien.includes("entrepot")} 
+                          onCheckedChange={(checked) => {
+                            const newTypeBien = [...formData.typeBien];
+                            if (checked) {
+                              if (!newTypeBien.includes("entrepot")) newTypeBien.push("entrepot");
+                            } else {
+                              const index = newTypeBien.indexOf("entrepot");
+                              if (index !== -1) newTypeBien.splice(index, 1);
+                            }
+                            updateFormField("typeBien", newTypeBien);
+                          }}
+                          className="data-[state=checked]:bg-[#DC0032] data-[state=checked]:border-[#DC0032]"
+                        />
+                        <Label htmlFor="typeBien-entrepot">Entrepôt</Label>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="typeBien-local-activite" 
+                          checked={formData.typeBien.includes("local-activite")} 
+                          onCheckedChange={(checked) => {
+                            const newTypeBien = [...formData.typeBien];
+                            if (checked) {
+                              if (!newTypeBien.includes("local-activite")) newTypeBien.push("local-activite");
+                            } else {
+                              const index = newTypeBien.indexOf("local-activite");
+                              if (index !== -1) newTypeBien.splice(index, 1);
+                            }
+                            updateFormField("typeBien", newTypeBien);
+                          }}
+                          className="data-[state=checked]:bg-[#DC0032] data-[state=checked]:border-[#DC0032]"
+                        />
+                        <Label htmlFor="typeBien-local-activite">Local d'activité</Label>
+                      </div>
                     </div>
                   </div>
-                </div>
-                
-                <div className="space-y-3">
-                  <Label htmlFor="adresseBien" className="text-base font-medium">
-                    Adresse
-                  </Label>
-                  <Input
-                    type="text"
-                    id="adresseBien"
-                    name="adresseBien"
-                    value={formData.adresseBien}
-                    onChange={handleInputChange}
-                    className="w-full text-base border-gray-300 rounded-lg"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  
                   <div className="space-y-3">
-                    <Label htmlFor="codePostalBien" className="text-base font-medium">
-                      Code postal
+                    <Label htmlFor="adresseBien" className="text-base font-medium">
+                      Adresse
                     </Label>
                     <Input
                       type="text"
-                      id="codePostalBien"
-                      name="codePostalBien"
-                      value={formData.codePostalBien}
+                      id="adresseBien"
+                      name="adresseBien"
+                      value={formData.adresseBien}
                       onChange={handleInputChange}
                       className="w-full text-base border-gray-300 rounded-lg"
                     />
                   </div>
                   
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <Label htmlFor="codePostalBien" className="text-base font-medium">
+                        Code postal
+                      </Label>
+                      <Input
+                        type="text"
+                        id="codePostalBien"
+                        name="codePostalBien"
+                        value={formData.codePostalBien}
+                        onChange={handleInputChange}
+                        className="w-full text-base border-gray-300 rounded-lg"
+                      />
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <Label htmlFor="villeBien" className="text-base font-medium">
+                        Ville
+                      </Label>
+                      <Input
+                        type="text"
+                        id="villeBien"
+                        name="villeBien"
+                        value={formData.villeBien}
+                        onChange={handleInputChange}
+                        className="w-full text-base border-gray-300 rounded-lg"
+                      />
+                    </div>
+                  </div>
+                  
                   <div className="space-y-3">
-                    <Label htmlFor="villeBien" className="text-base font-medium">
-                      Ville
+                    <Label htmlFor="superficieBien" className="text-base font-medium">
+                      Superficie (m²)
                     </Label>
                     <Input
                       type="text"
-                      id="villeBien"
-                      name="villeBien"
-                      value={formData.villeBien}
+                      id="superficieBien"
+                      name="superficieBien"
+                      value={formData.superficieBien || ""}
                       onChange={handleInputChange}
                       className="w-full text-base border-gray-300 rounded-lg"
                     />
                   </div>
                 </div>
-                
-                <div className="space-y-3">
-                  <Label htmlFor="superficieBien" className="text-base font-medium">
-                    Superficie (m²)
-                  </Label>
-                  <Input
-                    type="text"
-                    id="superficieBien"
-                    name="superficieBien"
-                    value={formData.superficieBien || ""}
-                    onChange={handleInputChange}
-                    className="w-full text-base border-gray-300 rounded-lg"
-                  />
-                </div>
-              </div>
             </div>
           </div>
-          
+
           {/* Parties */}
           {activeTab === 2 && (
             <div className="bg-card p-4 rounded-lg shadow-sm space-y-6">
@@ -1820,7 +1820,7 @@ export function EtatDesLieuxForm({
               </div>
             </div>
           )}
-          
+
           {/* Contrat */}
           {activeTab === 3 && (
             <div className="bg-card p-4 rounded-lg shadow-sm space-y-6">
@@ -1957,7 +1957,7 @@ export function EtatDesLieuxForm({
               </div>
             </div>
           )}
-          
+
           {/* Éléments remis */}
           {activeTab === 4 && (
             <div className="bg-card p-4 rounded-lg shadow-sm space-y-6">
@@ -2151,7 +2151,7 @@ export function EtatDesLieuxForm({
               </div>
             </div>
           )}
-          
+
           {/* Compteurs */}
           {activeTab === 5 && (
             <div className="bg-card p-4 rounded-lg shadow-sm space-y-6">
@@ -2681,7 +2681,7 @@ export function EtatDesLieuxForm({
               </div>
             </div>
           )}
-          
+
           {/* Pièces */}
           {activeTab === 6 && (
             <div className="bg-card p-4 rounded-lg shadow-sm space-y-6">
@@ -3859,9 +3859,9 @@ export function EtatDesLieuxForm({
                 Terminer
               </Button>
             )}
-          </div>
+                            </div>
         </form>
-      </div>
-    </div>
+                          </div>
+                        </div>
   )
 } 

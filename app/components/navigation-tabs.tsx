@@ -9,10 +9,10 @@ interface NavigationTabsProps {
 
 export function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) {
   return (
-    <div className="flex overflow-x-auto gap-2 px-3 sm:px-6 py-2 bg-white border-b shadow-sm">
+    <div className="flex overflow-x-auto gap-1 px-1 sm:px-6 py-1 bg-white border-b shadow-sm">
       <button
         onClick={() => onTabChange("form")}
-        className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
+        className={`px-2 sm:px-4 py-1 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
           activeTab === "form" 
             ? "bg-[#DC0032] text-white shadow-sm" 
             : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
@@ -23,7 +23,7 @@ export function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) 
       </button>
       <button
         onClick={() => onTabChange("preview")}
-        className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
+        className={`px-2 sm:px-4 py-1 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
           activeTab === "preview" 
             ? "bg-[#DC0032] text-white shadow-sm" 
             : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
@@ -34,7 +34,7 @@ export function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) 
       </button>
       <button
         onClick={() => onTabChange("recent")}
-        className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
+        className={`px-2 sm:px-4 py-1 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap flex-shrink-0 ${
           activeTab === "recent" 
             ? "bg-[#DC0032] text-white shadow-sm" 
             : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
