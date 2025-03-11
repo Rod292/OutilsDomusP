@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Send, Loader2, Cat, AlertTriangle, Trash2, Plus, MessageSquare } from 'lucide-react';
+import { Send, Loader2, Cat, AlertTriangle, Trash2, Plus, MessageSquare, Search, Image } from 'lucide-react';
 import { 
   sendMessage, 
   ChatMessage, 
@@ -22,11 +22,17 @@ import { fr } from 'date-fns/locale';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+// Interface pour les messages avec support des outils
+interface EnhancedChatMessage extends ChatMessage {
+  usedTool?: string;
+  query?: string;
+}
+
 export default function ChatInterface() {
   const searchParams = useSearchParams();
   const consultant = searchParams.get('consultant') || 'votre conseiller';
   
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<EnhancedChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -49,7 +55,7 @@ export default function ChatInterface() {
       )[0];
       
       setActiveConversationId(mostRecent.id);
-      setMessages(mostRecent.messages);
+      setMessages(mostRecent.messages as EnhancedChatMessage[]);
     }
   }, []);
 
@@ -96,7 +102,7 @@ export default function ChatInterface() {
     const conversation = conversations.find(c => c.id === conversationId);
     if (conversation) {
       setActiveConversationId(conversationId);
-      setMessages(conversation.messages);
+      setMessages(conversation.messages as EnhancedChatMessage[]);
       setApiError(null);
       setIsMobileMenuOpen(false);
     }
@@ -128,7 +134,7 @@ export default function ChatInterface() {
     }
 
     // Ajouter le message de l'utilisateur
-    const userMessage: ChatMessage = {
+    const userMessage: EnhancedChatMessage = {
       role: 'user',
       content: input,
       timestamp: new Date().toISOString()
@@ -144,10 +150,12 @@ export default function ChatInterface() {
       const response = await sendMessage(userMessage.content, messages, consultant);
 
       // Ajouter la réponse d'Arthur
-      const assistantMessage: ChatMessage = {
+      const assistantMessage: EnhancedChatMessage = {
         role: 'assistant',
         content: response.message,
-        timestamp: response.timestamp
+        timestamp: response.timestamp,
+        usedTool: response.usedTool,
+        query: response.query
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -167,7 +175,7 @@ export default function ChatInterface() {
       }
       
       // Ajouter un message d'erreur
-      const errorAssistantMessage: ChatMessage = {
+      const errorAssistantMessage: EnhancedChatMessage = {
         role: 'assistant',
         content: errorMessage,
         timestamp: new Date().toISOString()
@@ -199,6 +207,50 @@ export default function ChatInterface() {
     } catch (error) {
       return '';
     }
+  };
+
+  // Rendu d'un message avec information sur l'outil utilisé
+  const renderMessage = (msg: EnhancedChatMessage, index: number) => {
+    return (
+      <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+        {msg.role === 'assistant' && (
+          <Avatar className="h-7 w-7 mr-1.5 mt-1 flex-shrink-0">
+            <AvatarFallback className="bg-[#DC0032] text-white">
+              <Cat size={14} />
+            </AvatarFallback>
+          </Avatar>
+        )}
+        <div className="flex flex-col max-w-[85%]">
+          {msg.usedTool && (
+            <div className="flex items-center text-xs text-gray-500 mb-1">
+              {msg.usedTool === 'search_web' && (
+                <>
+                  <Search size={12} className="mr-1" />
+                  <span>Recherche web : {msg.query}</span>
+                </>
+              )}
+            </div>
+          )}
+          <Card className={`${
+            msg.role === 'user' 
+              ? 'bg-[#DC0032] text-white border-[#DC0032]' 
+              : 'bg-white border-gray-200'
+          }`}>
+            <CardContent className="p-2 text-sm">
+              {formatMessage(msg.content)}
+            </CardContent>
+          </Card>
+          <span className="text-[10px] text-gray-500 mt-0.5 px-1">
+            {formatDate(msg.timestamp)}
+          </span>
+        </div>
+        {msg.role === 'user' && (
+          <Avatar className="h-7 w-7 ml-1.5 mt-1 flex-shrink-0">
+            <AvatarFallback className="bg-gray-200 text-xs">U</AvatarFallback>
+          </Avatar>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -319,39 +371,30 @@ export default function ChatInterface() {
                 Je suis l'assistant virtuel d'Arthur Loyd Bretagne, spécialisé en immobilier d'entreprise.
                 Comment puis-je vous aider aujourd'hui ?
               </p>
+              <div className="mt-4 flex space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="flex items-center text-xs"
+                  onClick={() => setInput("Recherche des informations sur les bureaux à Rennes")}
+                >
+                  <Search size={12} className="mr-1" />
+                  Recherche web
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="flex items-center text-xs"
+                  onClick={() => setInput("Génère une image d'un bureau moderne")}
+                >
+                  <Image size={12} className="mr-1" />
+                  Génération d'images
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
-              {messages.map((msg, index) => (
-                <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  {msg.role === 'assistant' && (
-                    <Avatar className="h-7 w-7 mr-1.5 mt-1 flex-shrink-0">
-                      <AvatarFallback className="bg-[#DC0032] text-white">
-                        <Cat size={14} />
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
-                  <div className="flex flex-col max-w-[85%]">
-                    <Card className={`${
-                      msg.role === 'user' 
-                        ? 'bg-[#DC0032] text-white border-[#DC0032]' 
-                        : 'bg-white border-gray-200'
-                    }`}>
-                      <CardContent className="p-2 text-sm">
-                        {formatMessage(msg.content)}
-                      </CardContent>
-                    </Card>
-                    <span className="text-[10px] text-gray-500 mt-0.5 px-1">
-                      {formatDate(msg.timestamp)}
-                    </span>
-                  </div>
-                  {msg.role === 'user' && (
-                    <Avatar className="h-7 w-7 ml-1.5 mt-1 flex-shrink-0">
-                      <AvatarFallback className="bg-gray-200 text-xs">U</AvatarFallback>
-                    </Avatar>
-                  )}
-                </div>
-              ))}
+              {messages.map((msg, index) => renderMessage(msg, index))}
               {isLoading && (
                 <div className="flex justify-start">
                   <Avatar className="h-7 w-7 mr-1.5 mt-1">

@@ -5,6 +5,8 @@ interface ChatResponse {
   message: string;
   timestamp: string;
   status: string;
+  usedTool?: string;  // Outil utilisé (search_web, image_generation, etc.)
+  query?: string;     // Requête utilisée avec l'outil
 }
 
 // Interface pour l'historique des messages
@@ -12,6 +14,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  usedTool?: string;  // Outil utilisé (search_web, image_generation, etc.)
+  query?: string;     // Requête utilisée avec l'outil
 }
 
 // Interface pour une conversation complète
@@ -49,7 +53,9 @@ export async function sendMessage(
     return {
       message: response.data.message || 'Pas de réponse',
       timestamp: new Date().toISOString(),
-      status: 'success'
+      status: 'success',
+      usedTool: response.data.usedTool,
+      query: response.data.query
     };
   } catch (error) {
     console.error('Erreur lors de l\'envoi du message:', error);
