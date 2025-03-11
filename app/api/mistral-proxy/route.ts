@@ -24,19 +24,21 @@ export async function POST(req: NextRequest) {
   try {
     // Récupérer les variables d'environnement
     const apiKey = process.env.MISTRAL_API_KEY;
-    const apiUrl = process.env.MISTRAL_API_URL || 'https://api.mistral.ai/v1/chat/completions';
+    const apiUrl = 'https://api.mistral.ai/v1/chat/completions';
     
     console.log('Configuration API Mistral:', { 
       apiKeyExists: !!apiKey,
       apiKeyPrefix: apiKey ? apiKey.substring(0, 6) : 'Non définie',
-      apiUrl 
     });
     
     // Vérifier si la clé API est disponible
-    if (!apiKey) {
-      console.error('Clé API Mistral non définie');
+    if (!apiKey || apiKey.trim() === '') {
+      console.error('Clé API Mistral non définie ou vide');
       return NextResponse.json(
-        { error: 'Configuration API manquante' },
+        { 
+          error: 'Configuration API manquante', 
+          message: 'Vous devez configurer une clé API Mistral valide dans le fichier .env.local. Consultez la documentation pour plus d\'informations.'
+        },
         { status: 500 }
       );
     }
@@ -117,11 +119,10 @@ export async function POST(req: NextRequest) {
         status: error.response.status,
         statusText: error.response.statusText,
         data: error.response.data,
-        headers: error.response.headers
       });
       
       if (error.response.status === 401) {
-        errorMessage = "Erreur d'authentification avec l'API Mistral. Veuillez vérifier votre clé API.";
+        errorMessage = "Erreur d'authentification avec l'API Mistral. La clé API fournie n'est pas valide ou a expiré.";
       } else if (error.response.status === 429) {
         errorMessage = 'Trop de requêtes envoyées à l\'API Mistral. Veuillez réessayer plus tard.';
       } else {

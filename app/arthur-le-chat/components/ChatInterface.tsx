@@ -5,13 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, Loader2, Cat } from 'lucide-react';
+import { Send, Loader2, Cat, AlertTriangle } from 'lucide-react';
 import { sendMessage, ChatMessage } from '../services/chatApi';
 
 export default function ChatInterface() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -28,6 +29,9 @@ export default function ChatInterface() {
   // Gérer l'envoi d'un message
   const handleSendMessage = async () => {
     if (!input.trim() || isLoading) return;
+
+    // Réinitialiser l'erreur API
+    setApiError(null);
 
     // Ajouter le message de l'utilisateur
     const userMessage: ChatMessage = {
@@ -53,17 +57,29 @@ export default function ChatInterface() {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors de l\'envoi du message:', error);
       
+      // Vérifier si l'erreur contient des détails spécifiques
+      let errorMessage = 'Désolé, une erreur est survenue. Veuillez réessayer.';
+      
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+        
+        // Vérifier s'il s'agit d'une erreur d'API manquante
+        if (error.response.status === 500 && error.response.data.error.includes('Configuration API manquante')) {
+          setApiError('La clé API Mistral n\'est pas configurée. Veuillez configurer une clé API valide dans le fichier .env.local.');
+        }
+      }
+      
       // Ajouter un message d'erreur
-      const errorMessage: ChatMessage = {
+      const errorAssistantMessage: ChatMessage = {
         role: 'assistant',
-        content: 'Désolé, une erreur est survenue. Veuillez réessayer.',
+        content: errorMessage,
         timestamp: new Date().toISOString()
       };
       
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, errorAssistantMessage]);
     } finally {
       setIsLoading(false);
       // Focus sur l'input après l'envoi
@@ -96,6 +112,18 @@ export default function ChatInterface() {
           </div>
         </div>
       </div>
+      
+      {apiError && (
+        <div className="bg-amber-50 border-l-4 border-amber-500 p-4 flex items-start">
+          <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm text-amber-800">{apiError}</p>
+            <p className="text-xs mt-1 text-amber-700">
+              Pour obtenir une clé API Mistral, créez un compte sur <a href="https://console.mistral.ai/" target="_blank" rel="noopener noreferrer" className="underline">console.mistral.ai</a>
+            </p>
+          </div>
+        </div>
+      )}
       
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
         {messages.length === 0 ? (
