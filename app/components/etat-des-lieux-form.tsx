@@ -1290,6 +1290,116 @@ export function EtatDesLieuxForm({
     onProgressUpdate?.(formData)
   }, [formData, onProgressUpdate])
   
+  // Fonction pour gérer les erreurs de chargement d'images Firebase Storage
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>, photo: any) => {
+    console.log("Erreur de chargement d'image détectée");
+    const imgElement = e.target as HTMLImageElement;
+    
+    // Vérifier si l'image est une URL Firebase Storage
+    if (typeof photo === 'string' && photo.includes('firebasestorage.googleapis.com')) {
+      console.log("URL Firebase Storage détectée:", photo.substring(0, 100) + "...");
+      
+      // Essayer de convertir l'image en base64 via un canvas
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      
+      img.onload = () => {
+        console.log("Image Firebase chargée avec succès via crossOrigin");
+        try {
+          // Créer un canvas pour convertir l'image
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          
+          if (ctx) {
+            // Dessiner l'image sur le canvas
+            ctx.drawImage(img, 0, 0);
+            
+            // Convertir en base64
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            imgElement.src = dataUrl;
+          } else {
+            console.warn("Impossible de créer le contexte du canvas");
+            imgElement.src = PLACEHOLDER_IMAGE;
+          }
+        } catch (error) {
+          console.error("Erreur lors de la conversion en base64:", error);
+          imgElement.src = PLACEHOLDER_IMAGE;
+        }
+      };
+      
+      img.onerror = () => {
+        console.warn("Échec du chargement de l'image Firebase même avec crossOrigin");
+        imgElement.src = PLACEHOLDER_IMAGE;
+      };
+      
+      // Ajouter un timestamp pour éviter le cache
+      const urlWithTimestamp = `${photo}&t=${Date.now()}`;
+      img.src = urlWithTimestamp;
+    } else if (typeof photo === 'object' && photo !== null) {
+      // Essayer toutes les propriétés possibles qui pourraient contenir une URL
+      const possibleUrls = [
+        (photo as any).downloadUrl,
+        (photo as any).url,
+        (photo as any).fullUrl,
+        (photo as any).preview,
+        (photo as any).src,
+        (photo as any).path
+      ];
+      
+      // Trouver la première URL valide
+      const validUrl = possibleUrls.find(url => 
+        url && typeof url === 'string' && 
+        (url.startsWith('http') || url.startsWith('data:'))
+      );
+      
+      if (validUrl) {
+        console.log(`Tentative de rechargement avec URL alternative: ${validUrl.substring(0, 30)}...`);
+        
+        // Si c'est une URL Firebase Storage, utiliser la même approche que ci-dessus
+        if (validUrl.includes('firebasestorage.googleapis.com')) {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              
+              if (ctx) {
+                ctx.drawImage(img, 0, 0);
+                const dataUrl = canvas.toDataURL('image/jpeg');
+                imgElement.src = dataUrl;
+              } else {
+                imgElement.src = PLACEHOLDER_IMAGE;
+              }
+            } catch (error) {
+              imgElement.src = PLACEHOLDER_IMAGE;
+            }
+          };
+          
+          img.onerror = () => {
+            imgElement.src = PLACEHOLDER_IMAGE;
+          };
+          
+          const urlWithTimestamp = `${validUrl}&t=${Date.now()}`;
+          img.src = urlWithTimestamp;
+        } else {
+          imgElement.src = validUrl;
+        }
+      } else {
+        console.log("Aucune URL valide trouvée dans l'objet photo");
+        imgElement.src = PLACEHOLDER_IMAGE;
+      }
+    } else {
+      // Fallback sur une image par défaut
+      imgElement.src = PLACEHOLDER_IMAGE;
+    }
+  };
+  
   // Rendu du formulaire
   return (
     <div className="container mx-auto pb-safe main-content">
@@ -2278,37 +2388,7 @@ export function EtatDesLieuxForm({
                                 height={120}
                                 className="object-cover rounded-md w-full h-24"
                                 unoptimized={true}
-                                onError={(e) => {
-                                  console.log(`Erreur de chargement pour la photo ${index} :`, photo);
-                                  if (typeof photo === 'object' && photo !== null) {
-                                    // Essayer toutes les propriétés possibles qui pourraient contenir une URL
-                                    const possibleUrls = [
-                                      (photo as any).downloadUrl,
-                                      (photo as any).url,
-                                      (photo as any).fullUrl,
-                                      (photo as any).preview,
-                                      (photo as any).src,
-                                      (photo as any).path
-                                    ];
-                                    
-                                    // Trouver la première URL valide
-                                    const validUrl = possibleUrls.find(url => 
-                                      url && typeof url === 'string' && 
-                                      (url.startsWith('http') || url.startsWith('data:'))
-                                    );
-                                    
-                                    if (validUrl) {
-                                      console.log(`Tentative de rechargement avec URL alternative: ${validUrl.substring(0, 30)}...`);
-                                      (e.target as HTMLImageElement).src = validUrl;
-                                    } else {
-                                      console.log("Aucune URL valide trouvée dans l'objet photo");
-                                      (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
-                                    }
-                                  } else {
-                                    // Fallback sur une image par défaut
-                                    (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
-                                  }
-                                }}
+                                onError={(e) => handleImageError(e, photo)}
                               />
                               <button
                                 type="button"
@@ -2446,37 +2526,7 @@ export function EtatDesLieuxForm({
                                 height={120}
                                 className="object-cover rounded-md w-full h-24"
                                 unoptimized={true}
-                                onError={(e) => {
-                                  console.log(`Erreur de chargement pour la photo ${index} :`, photo);
-                                  if (typeof photo === 'object' && photo !== null) {
-                                    // Essayer toutes les propriétés possibles qui pourraient contenir une URL
-                                    const possibleUrls = [
-                                      (photo as any).downloadUrl,
-                                      (photo as any).url,
-                                      (photo as any).fullUrl,
-                                      (photo as any).preview,
-                                      (photo as any).src,
-                                      (photo as any).path
-                                    ];
-                                    
-                                    // Trouver la première URL valide
-                                    const validUrl = possibleUrls.find(url => 
-                                      url && typeof url === 'string' && 
-                                      (url.startsWith('http') || url.startsWith('data:'))
-                                    );
-                                    
-                                    if (validUrl) {
-                                      console.log(`Tentative de rechargement avec URL alternative: ${validUrl.substring(0, 30)}...`);
-                                      (e.target as HTMLImageElement).src = validUrl;
-                                    } else {
-                                      console.log("Aucune URL valide trouvée dans l'objet photo");
-                                      (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
-                                    }
-                                  } else {
-                                    // Fallback sur une image par défaut
-                                    (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
-                                  }
-                                }}
+                                onError={(e) => handleImageError(e, photo)}
                               />
                               <button
                                 type="button"
@@ -2614,37 +2664,7 @@ export function EtatDesLieuxForm({
                                 height={120}
                                 className="object-cover rounded-md w-full h-24"
                                 unoptimized={true}
-                                onError={(e) => {
-                                  console.log(`Erreur de chargement pour la photo ${index} :`, photo);
-                                  if (typeof photo === 'object' && photo !== null) {
-                                    // Essayer toutes les propriétés possibles qui pourraient contenir une URL
-                                    const possibleUrls = [
-                                      (photo as any).downloadUrl,
-                                      (photo as any).url,
-                                      (photo as any).fullUrl,
-                                      (photo as any).preview,
-                                      (photo as any).src,
-                                      (photo as any).path
-                                    ];
-                                    
-                                    // Trouver la première URL valide
-                                    const validUrl = possibleUrls.find(url => 
-                                      url && typeof url === 'string' && 
-                                      (url.startsWith('http') || url.startsWith('data:'))
-                                    );
-                                    
-                                    if (validUrl) {
-                                      console.log(`Tentative de rechargement avec URL alternative: ${validUrl.substring(0, 30)}...`);
-                                      (e.target as HTMLImageElement).src = validUrl;
-                                    } else {
-                                      console.log("Aucune URL valide trouvée dans l'objet photo");
-                                      (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
-                                    }
-                                  } else {
-                                    // Fallback sur une image par défaut
-                                    (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
-                                  }
-                                }}
+                                onError={(e) => handleImageError(e, photo)}
                               />
                               <button
                                 type="button"
@@ -3747,17 +3767,7 @@ export function EtatDesLieuxForm({
                                 height={120}
                                 className="object-cover rounded-md w-full h-24"
                                 unoptimized={true}
-                                onError={(e) => {
-                                  console.log(`Erreur de chargement pour la photo ${photoIndex} :`, photo);
-                                  if (typeof photo === 'object' && (photo as any)?.downloadUrl) {
-                                    console.log(`Tentative de rechargement avec l'URL directe: ${(photo as any).downloadUrl}`);
-                                    // Réessayer avec l'URL directe en cas d'échec
-                                    (e.target as HTMLImageElement).src = (photo as any).downloadUrl;
-                                  } else {
-                                    // Fallback sur une image par défaut
-                                    (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
-                                  }
-                                }}
+                                onError={(e) => handleImageError(e, photo)}
                               />
                               <button
                                 type="button"

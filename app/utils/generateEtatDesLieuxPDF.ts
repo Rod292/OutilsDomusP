@@ -44,8 +44,20 @@ try {
 
 // Fonction pour valider une image avant de l'utiliser dans le PDF
 async function validateImage(imageUrl: string): Promise<boolean> {
-  if (!imageUrl || imageUrl.startsWith('data:')) {
-    // Si c'est déjà une URL data, on considère qu'elle est valide
+  if (!imageUrl) {
+    return false;
+  }
+  
+  // Si c'est déjà une URL data, on considère qu'elle est valide
+  if (imageUrl.startsWith('data:')) {
+    return true;
+  }
+  
+  // Détecter si c'est une URL Firebase Storage
+  if (imageUrl.includes('firebasestorage.googleapis.com')) {
+    console.log(`Validation d'URL Firebase Storage: ${imageUrl}`);
+    // Pour Firebase Storage, on ne peut pas faire de HEAD request à cause de CORS
+    // On considère l'URL valide et on laissera le chargement de l'image gérer les erreurs
     return true;
   }
 
@@ -86,6 +98,70 @@ async function loadImageAsBase64(url: string): Promise<string> {
   }
   
   try {
+    // Détecter si c'est une URL Firebase Storage
+    const isFirebaseStorageUrl = url.includes('firebasestorage.googleapis.com');
+    
+    // Pour les URL Firebase Storage, on utilise une approche différente
+    if (isFirebaseStorageUrl) {
+      console.log(`URL Firebase Storage détectée: ${url}`);
+      
+      try {
+        // Utiliser une image pour précharger l'URL et vérifier si elle est accessible
+        return new Promise((resolve) => {
+          const img = new Image();
+          
+          img.onload = () => {
+            console.log(`Image Firebase chargée avec succès: ${url}`);
+            // L'image est chargée, on peut l'utiliser dans le canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            
+            if (!ctx) {
+              console.warn("Impossible de créer le contexte du canvas");
+              resolve(FALLBACK_LOGO);
+              return;
+            }
+            
+            // Dessiner l'image sur le canvas
+            ctx.drawImage(img, 0, 0);
+            
+            // Convertir en base64
+            try {
+              const dataUrl = canvas.toDataURL('image/jpeg');
+              resolve(dataUrl);
+            } catch (e) {
+              console.warn("Erreur lors de la conversion en base64:", e);
+              resolve(FALLBACK_LOGO);
+            }
+          };
+          
+          img.onerror = () => {
+            console.warn(`Erreur de chargement de l'image Firebase: ${url}`);
+            resolve(FALLBACK_LOGO);
+          };
+          
+          // Ajouter un timestamp pour éviter le cache
+          const urlWithTimestamp = `${url}&t=${Date.now()}`;
+          img.crossOrigin = "anonymous"; // Important pour éviter les erreurs CORS
+          img.src = urlWithTimestamp;
+          
+          // Timeout de sécurité
+          setTimeout(() => {
+            if (!img.complete) {
+              console.warn(`Timeout lors du chargement de l'image Firebase: ${url}`);
+              resolve(FALLBACK_LOGO);
+            }
+          }, 5000);
+        });
+      } catch (error) {
+        console.error("Erreur lors du traitement de l'image Firebase:", error);
+        return FALLBACK_LOGO;
+      }
+    }
+    
+    // Pour les autres URL, continuer avec l'approche standard
     // Vérifier d'abord si l'image est valide
     const isValid = await validateImage(url);
     if (!isValid) {
