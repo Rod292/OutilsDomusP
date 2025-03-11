@@ -26,14 +26,20 @@ export interface Conversation {
  * Envoie un message à l'API via notre proxy
  * @param message Le message à envoyer
  * @param history L'historique des messages précédents (optionnel)
+ * @param consultant Le nom du consultant sélectionné (optionnel)
  * @returns La réponse de l'API
  */
-export async function sendMessage(message: string, history: ChatMessage[] = []): Promise<ChatResponse> {
+export async function sendMessage(
+  message: string, 
+  history: ChatMessage[] = [], 
+  consultant: string = 'votre conseiller'
+): Promise<ChatResponse> {
   try {
     // Préparer les données pour l'API
     const payload = {
       message: message,
-      history: history
+      history: history,
+      consultant: consultant
     };
     
     // Appel à notre proxy Mistral

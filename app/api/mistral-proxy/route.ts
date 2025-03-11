@@ -13,11 +13,12 @@ export async function OPTIONS() {
   });
 }
 
-// Instructions pour Arthur le chat
-const SYSTEM_PROMPT = `Tu es Arthur, l'assistant virtuel d'Arthur Loyd Bretagne, une agence immobilière spécialisée dans l'immobilier d'entreprise.
-Tu es courtois, professionnel et tu réponds de manière concise et précise aux questions des utilisateurs.
-Tu peux aider les utilisateurs à trouver des informations sur les biens immobiliers, les services d'Arthur Loyd, et les démarches immobilières.
-Si tu ne connais pas la réponse à une question, tu dois l'admettre honnêtement et proposer de mettre l'utilisateur en contact avec un conseiller.`;
+// Fonction pour générer le prompt système avec le consultant
+function generateSystemPrompt(consultant: string = 'votre conseiller') {
+  return `Je suis Arthur, l'assistant virtuel d'Arthur Loyd Bretagne, spécialisé dans l'immobilier d'entreprise.
+Je travaille avec ${consultant} pour vous aider à trouver des informations sur les biens immobiliers, les services d'Arthur Loyd, et les démarches immobilières.
+Si je ne connais pas la réponse à une question, je vous proposerai de contacter ${consultant} directement.`;
+}
 
 // Fonction pour gérer les requêtes POST
 export async function POST(req: NextRequest) {
@@ -48,7 +49,10 @@ export async function POST(req: NextRequest) {
 
     // Récupérer les données de la requête
     const data = await req.json();
-    const { message, history = [] } = data;
+    const { message, history = [], consultant = 'votre conseiller' } = data;
+
+    // Générer le prompt système avec le consultant
+    const SYSTEM_PROMPT = generateSystemPrompt(consultant);
 
     // Formater les messages pour l'API Mistral
     const messages = [
