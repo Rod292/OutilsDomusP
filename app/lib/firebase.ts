@@ -83,16 +83,32 @@ const ALLOWED_SPECIFIC_EMAILS = [
 
 // Fonction pour vérifier si un email a un domaine autorisé
 export function hasAllowedEmailDomain(email: string): boolean {
-  if (!email || !email.includes('@')) return false;
+  if (!email || !email.includes('@')) {
+    console.log('Email invalide ou ne contient pas @:', email);
+    return false;
+  }
+  
+  // Normaliser l'email (trim et lowercase)
+  const normalizedEmail = email.trim().toLowerCase();
+  
+  console.log('Vérification de l\'email:', normalizedEmail);
+  console.log('Emails spécifiques autorisés:', ALLOWED_SPECIFIC_EMAILS);
   
   // Vérifier si l'email est dans la liste des emails spécifiques autorisés
-  if (ALLOWED_SPECIFIC_EMAILS.includes(email.toLowerCase())) {
+  if (ALLOWED_SPECIFIC_EMAILS.includes(normalizedEmail)) {
+    console.log('Email spécifique autorisé trouvé:', normalizedEmail);
     return true;
   }
   
   // Vérifier si le domaine est autorisé
-  const domain = email.split('@')[1].toLowerCase();
-  return ALLOWED_EMAIL_DOMAINS.includes(domain);
+  const domain = normalizedEmail.split('@')[1];
+  const isDomainAllowed = ALLOWED_EMAIL_DOMAINS.includes(domain);
+  
+  console.log('Domaine de l\'email:', domain);
+  console.log('Domaines autorisés:', ALLOWED_EMAIL_DOMAINS);
+  console.log('Domaine autorisé?', isDomainAllowed);
+  
+  return isDomainAllowed;
 }
 
 // Fonction pour créer un utilisateur avec vérification du domaine
@@ -143,6 +159,7 @@ export async function signInWithGoogle() {
     console.log('Tentative de connexion avec Google par redirection...');
     // Utiliser signInWithRedirect au lieu de signInWithPopup
     await signInWithRedirect(auth, provider);
+    console.log('Redirection vers Google initiée');
     // La fonction ne retourne rien car la page va être rechargée après la redirection
   } catch (error) {
     console.error("Erreur lors de la connexion avec Google:", error);
@@ -153,21 +170,33 @@ export async function signInWithGoogle() {
 // Fonction pour récupérer le résultat de la redirection Google
 export async function getGoogleRedirectResult() {
   if (typeof window === 'undefined' || !auth) {
+    console.log('getGoogleRedirectResult: window undefined ou auth non disponible');
     return null;
   }
   
   try {
+    console.log('Tentative de récupération du résultat de redirection Google...');
     const result = await getRedirectResult(auth);
+    
     if (result) {
+      const userEmail = result.user.email || '';
+      console.log('Résultat de redirection Google obtenu, email:', userEmail);
+      
       // Vérifier si l'email a un domaine autorisé
-      if (!hasAllowedEmailDomain(result.user.email || '')) {
+      const isAllowed = hasAllowedEmailDomain(userEmail);
+      console.log('Email autorisé?', isAllowed);
+      
+      if (!isAllowed) {
         // Déconnecter l'utilisateur immédiatement
+        console.log('Email non autorisé, déconnexion de l\'utilisateur');
         await auth.signOut();
         throw new Error('Seuls les emails @arthurloydbretagne.fr, @arthur-loyd.com et certains emails spécifiques sont autorisés à se connecter.');
       }
       
       console.log('Connexion réussie avec Google', { userId: result.user.uid });
       return result.user;
+    } else {
+      console.log('Aucun résultat de redirection Google');
     }
     return null;
   } catch (error) {
