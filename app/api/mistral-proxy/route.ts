@@ -18,71 +18,8 @@ function generateSystemPrompt(consultant: string = 'votre conseiller') {
   return `Je m'appelle Arthur, je suis l'assistant virtuel d'Arthur Loyd Bretagne, spécialisé dans l'immobilier d'entreprise.
 Je travaille avec ${consultant} pour aider les clients à trouver des informations sur les biens immobiliers, les services d'Arthur Loyd, et les démarches immobilières.
 Si je ne connais pas la réponse à une question, je proposerai de contacter ${consultant} directement.
-Je ne dois jamais dire "Bonjour Arthur" car c'est moi qui suis Arthur. Je m'adresse directement à l'utilisateur.`;
-}
-
-// Fonction pour effectuer une recherche web
-async function performWebSearch(query: string): Promise<string> {
-  try {
-    // Vérifier si une clé API SerpApi est disponible
-    const serpApiKey = process.env.SERP_API_KEY;
-    
-    if (serpApiKey) {
-      // Utiliser SerpApi pour la recherche web
-      console.log('Utilisation de SerpApi pour la recherche web:', query);
-      
-      const response = await axios.get('https://serpapi.com/search', {
-        params: {
-          q: query,
-          api_key: serpApiKey,
-          engine: 'google',
-          num: 5, // Limiter à 5 résultats
-          hl: 'fr' // Langue française
-        }
-      });
-      
-      // Extraire les résultats organiques
-      const organicResults = response.data.organic_results || [];
-      
-      if (organicResults.length === 0) {
-        return `Aucun résultat trouvé pour la recherche "${query}".`;
-      }
-      
-      // Formater les résultats
-      let formattedResults = `Résultats de recherche pour "${query}":\n\n`;
-      
-      organicResults.forEach((result: any, index: number) => {
-        formattedResults += `${index + 1}. ${result.title}\n`;
-        formattedResults += `   ${result.snippet}\n`;
-        formattedResults += `   Source: ${result.link}\n\n`;
-      });
-      
-      return formattedResults;
-    } else {
-      // Recherche simulée si aucune clé API n'est disponible
-      console.log('Simulation de recherche web (pas de clé API SerpApi):', query);
-      
-      // Simuler un délai de recherche
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Résultats simulés
-      return `Résultats de recherche simulés pour "${query}" (Aucune clé API SerpApi configurée):\n
-1. Arthur Loyd Bretagne - Immobilier d'entreprise
-   Agence spécialisée dans l'immobilier d'entreprise en Bretagne. Bureaux, locaux, entrepôts et terrains.
-   Source: https://www.arthur-loyd-bretagne.com/
-
-2. Services immobiliers pour entreprises - Arthur Loyd
-   Location et vente de bureaux, entrepôts, locaux commerciaux et terrains pour les entreprises.
-   Source: https://www.arthur-loyd.com/services
-
-3. Immobilier d'entreprise en Bretagne - Tendances 2023
-   Analyse du marché immobilier d'entreprise en Bretagne, prix et disponibilités.
-   Source: https://www.immo-entreprise-bretagne.fr/tendances`;
-    }
-  } catch (error) {
-    console.error('Erreur lors de la recherche web:', error);
-    return `Une erreur est survenue lors de la recherche web pour "${query}". Veuillez réessayer plus tard.`;
-  }
+Je ne dois jamais dire "Bonjour Arthur" car c'est moi qui suis Arthur. Je m'adresse directement à l'utilisateur.
+Pour les questions nécessitant des informations récentes ou spécifiques, j'utiliserai la recherche web pour fournir des réponses précises et à jour.`;
 }
 
 // Définition des outils disponibles pour le modèle
@@ -152,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     // Préparer la requête pour l'API Mistral
     const mistralPayload: any = {
-      model: "mistral-tiny",
+      model: "mistral-large-latest", // Utiliser le modèle le plus récent qui supporte la recherche web
       messages: messages,
       max_tokens: 1000,
       temperature: 0.7,
@@ -161,21 +98,16 @@ export async function POST(req: NextRequest) {
     };
     
     // Ajouter l'agent ID si disponible - mais seulement pour les modèles qui le supportent
-    // L'agent ID n'est pas supporté par tous les modèles Mistral
-    // Pour l'instant, nous ne l'utilisons pas pour éviter l'erreur 422
-    /*
     if (agentId && agentId.trim() !== '') {
       mistralPayload.agent_id = agentId;
     }
-    */
     
     console.log('Envoi de la requête à Mistral API avec la configuration:', {
       model: mistralPayload.model,
       messagesCount: mistralPayload.messages.length,
       hasAgentId: !!mistralPayload.agent_id,
       hasTools: !!mistralPayload.tools,
-      url: apiUrl,
-      payload: JSON.stringify(mistralPayload).substring(0, 200) + '...' // Afficher une partie du payload pour debug
+      url: apiUrl
     });
     
     // Appeler l'API Mistral
@@ -208,44 +140,13 @@ export async function POST(req: NextRequest) {
           
           console.log('Recherche web demandée:', query);
           
-          // Effectuer la recherche web
-          const searchResults = await performWebSearch(query);
-          
-          // Ajouter les résultats de recherche à la conversation
-          const updatedMessages = [
-            ...messages,
-            {
-              role: 'assistant',
-              content: null,
-              tool_calls: [toolCall]
-            },
-            {
-              role: 'tool',
-              tool_call_id: toolCall.id,
-              content: searchResults
-            }
-          ];
-          
-          // Faire une nouvelle requête à Mistral avec les résultats de l'outil
-          const finalResponse = await axios.post(apiUrl, {
-            model: "mistral-tiny",
-            messages: updatedMessages,
-            max_tokens: 1000,
-            temperature: 0.7
-          }, {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            }
-          });
-          
-          // Extraire la réponse finale
-          const assistantMessage = finalResponse.data.choices[0]?.message?.content || 'Pas de réponse';
+          // Avec Mistral, nous n'avons pas besoin d'effectuer la recherche nous-mêmes
+          // Le modèle a déjà effectué la recherche et intégré les résultats dans sa réponse
           
           // Retourner la réponse avec les informations sur l'utilisation de l'outil
           return NextResponse.json(
             { 
-              message: assistantMessage,
+              message: responseMessage.content,
               timestamp: new Date().toISOString(),
               status: 'success',
               usedTool: 'search_web',
@@ -261,7 +162,7 @@ export async function POST(req: NextRequest) {
             }
           );
         } catch (error) {
-          console.error('Erreur lors de l\'exécution de l\'outil de recherche:', error);
+          console.error('Erreur lors du traitement de l\'appel d\'outil:', error);
           // En cas d'erreur, continuer avec la réponse normale
         }
       }
