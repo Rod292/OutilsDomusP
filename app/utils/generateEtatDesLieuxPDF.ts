@@ -1486,7 +1486,41 @@ async function processImages(formData: any) {
             console.warn(`Photo ${i} est une image base64 invalide, ignorée`);
           }
         }
-        // Cas 2: Photo est un objet avec une URL ou une propriété downloadUrl
+        // Cas 2: Photo est une URL Firebase Storage
+        else if (typeof photo === 'string' && photo.includes('firebasestorage.googleapis.com')) {
+          console.log(`Photo ${i} est une URL Firebase Storage: ${photo.substring(0, 50)}...`);
+          
+          // Pour les URL Firebase Storage, on utilise une approche spéciale
+          try {
+            // Essayer de charger l'image via loadImageAsBase64
+            const base64Data = await loadImageAsBase64(photo);
+            
+            // Vérifier si c'est une image valide (pas le logo de secours)
+            if (base64Data !== FALLBACK_LOGO) {
+              const photoSignature = base64Data.substring(0, 100) + base64Data.length;
+              if (!addedPhotos.has(photoSignature)) {
+                addedPhotos.add(photoSignature);
+                result.push(base64Data);
+                console.log(`Photo Firebase ${i} ajoutée avec succès`);
+              } else {
+                console.warn(`Photo Firebase ${i} ignorée car c'est un doublon`);
+              }
+            } else {
+              console.warn(`Photo Firebase ${i} n'a pas pu être chargée, utilisation du logo de secours`);
+              // Ajouter le logo de secours uniquement si nous n'avons pas d'autres images
+              if (result.length === 0) {
+                result.push(FALLBACK_LOGO);
+              }
+            }
+          } catch (firebaseError) {
+            console.error(`Erreur lors du chargement de l'URL Firebase ${photo.substring(0, 50)}...`, firebaseError);
+            // Ajouter le logo de secours uniquement si nous n'avons pas d'autres images
+            if (result.length === 0) {
+              result.push(FALLBACK_LOGO);
+            }
+          }
+        }
+        // Cas 3: Photo est un objet avec une URL ou une propriété downloadUrl
         else if (typeof photo === 'object' && photo !== null) {
           console.log(`Photo ${i} est un objet:`, Object.keys(photo));
           // Essayer de trouver une URL valide dans l'objet
@@ -1514,7 +1548,38 @@ async function processImages(formData: any) {
                   console.warn(`Photo ${i} (objet avec base64) ignorée car c'est un doublon`);
                 }
               } 
-              // Sinon, essayer de charger l'URL comme une image
+              // Si c'est une URL Firebase Storage, utiliser l'approche spéciale
+              else if (foundUrl.includes('firebasestorage.googleapis.com')) {
+                try {
+                  console.log(`Tentative de chargement de l'URL Firebase: ${foundUrl.substring(0, 50)}...`);
+                  const base64Data = await loadImageAsBase64(foundUrl);
+                  
+                  // Vérifier si c'est une image valide (pas le logo de secours)
+                  if (base64Data !== FALLBACK_LOGO) {
+                    const photoSignature = base64Data.substring(0, 100) + base64Data.length;
+                    if (!addedPhotos.has(photoSignature)) {
+                      addedPhotos.add(photoSignature);
+                      result.push(base64Data);
+                      console.log(`Photo Firebase ${i} (objet) ajoutée avec succès`);
+                    } else {
+                      console.warn(`Photo Firebase ${i} (objet) ignorée car c'est un doublon`);
+                    }
+                  } else {
+                    console.warn(`Photo Firebase ${i} (objet) n'a pas pu être chargée, utilisation du logo de secours`);
+                    // Ajouter le logo de secours uniquement si nous n'avons pas d'autres images
+                    if (result.length === 0) {
+                      result.push(FALLBACK_LOGO);
+                    }
+                  }
+                } catch (firebaseError) {
+                  console.error(`Erreur lors du chargement de l'URL Firebase (objet) ${foundUrl.substring(0, 50)}...`, firebaseError);
+                  // Ajouter le logo de secours uniquement si nous n'avons pas d'autres images
+                  if (result.length === 0) {
+                    result.push(FALLBACK_LOGO);
+                  }
+                }
+              }
+              // Sinon, essayer de charger l'URL comme une image normale
               else if (foundUrl.startsWith('http') || foundUrl.startsWith('blob:')) {
                 try {
                   console.log(`Tentative de chargement de l'URL: ${foundUrl}`);
@@ -1544,7 +1609,7 @@ async function processImages(formData: any) {
             // Ne pas ajouter de logo de remplacement, simplement ignorer cette photo
           }
         }
-        // Cas 3: Autres types (non reconnus)
+        // Cas 4: Autres types (non reconnus)
         else {
           console.warn(`Photo ${i} n'est pas reconnue (type: ${typeof photo}), ignorée`);
           // Ne pas ajouter de logo de remplacement, simplement ignorer cette photo
@@ -1555,13 +1620,7 @@ async function processImages(formData: any) {
       }
     }
     
-    // S'assurer qu'il y a au moins une photo
-    if (result.length === 0) {
-      console.warn("Aucune photo valide trouvée, le tableau reste vide");
-      // Ne pas ajouter de logo par défaut, retourner un tableau vide
-    }
-    
-    console.log(`Nombre final de photos après élimination des doublons: ${result.length}`);
+    console.log(`Traitement terminé, ${result.length} photos valides sur ${photos.length}`);
     return result;
   };
   
