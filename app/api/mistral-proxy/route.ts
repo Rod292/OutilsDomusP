@@ -26,6 +26,12 @@ export async function POST(req: NextRequest) {
     const apiKey = process.env.MISTRAL_API_KEY;
     const apiUrl = process.env.MISTRAL_API_URL || 'https://api.mistral.ai/v1/chat/completions';
     
+    console.log('Configuration API Mistral:', { 
+      apiKeyExists: !!apiKey,
+      apiKeyPrefix: apiKey ? apiKey.substring(0, 6) : 'Non définie',
+      apiUrl 
+    });
+    
     // Vérifier si la clé API est disponible
     if (!apiKey) {
       console.error('Clé API Mistral non définie');
@@ -57,12 +63,24 @@ export async function POST(req: NextRequest) {
       temperature: 0.7,
     };
     
+    console.log('Envoi de la requête à Mistral API avec la configuration:', {
+      model: mistralPayload.model,
+      messagesCount: mistralPayload.messages.length,
+      url: apiUrl
+    });
+    
     // Appeler l'API Mistral
     const response = await axios.post(apiUrl, mistralPayload, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       }
+    });
+    
+    console.log('Réponse reçue de Mistral API:', {
+      status: response.status,
+      hasChoices: !!response.data.choices,
+      choicesLength: response.data.choices?.length
     });
     
     // Extraire la réponse
@@ -95,6 +113,13 @@ export async function POST(req: NextRequest) {
       // Erreur de réponse de l'API
       statusCode = error.response.status;
       
+      console.error('Détails de l\'erreur API:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data,
+        headers: error.response.headers
+      });
+      
       if (error.response.status === 401) {
         errorMessage = "Erreur d'authentification avec l'API Mistral. Veuillez vérifier votre clé API.";
       } else if (error.response.status === 429) {
@@ -104,6 +129,7 @@ export async function POST(req: NextRequest) {
       }
     } else if (error.request) {
       // Pas de réponse reçue
+      console.error('Aucune réponse reçue:', error.request);
       errorMessage = 'Aucune réponse reçue de l\'API Mistral. Veuillez vérifier votre connexion.';
     }
     

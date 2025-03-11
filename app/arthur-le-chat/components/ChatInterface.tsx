@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Cat } from 'lucide-react';
 import { sendMessage, ChatMessage } from '../services/chatApi';
 
 export default function ChatInterface() {
@@ -86,8 +86,9 @@ export default function ChatInterface() {
       <div className="bg-gradient-to-r from-[#DC0032] to-[#FF3366] p-4 text-white">
         <div className="flex items-center">
           <Avatar className="h-10 w-10 mr-3 border-2 border-white">
-            <AvatarImage src="/arthur-avatar.png" alt="Arthur le chat" />
-            <AvatarFallback className="bg-white text-[#DC0032]">AC</AvatarFallback>
+            <AvatarFallback className="bg-white text-[#DC0032]">
+              <Cat size={20} />
+            </AvatarFallback>
           </Avatar>
           <div>
             <h3 className="font-semibold">Arthur le chat</h3>
@@ -100,8 +101,9 @@ export default function ChatInterface() {
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 p-6">
             <Avatar className="h-20 w-20 mb-6 shadow-lg">
-              <AvatarImage src="/arthur-avatar.png" alt="Arthur le chat" />
-              <AvatarFallback className="bg-[#DC0032] text-white text-xl">AC</AvatarFallback>
+              <AvatarFallback className="bg-[#DC0032] text-white text-xl">
+                <Cat size={32} />
+              </AvatarFallback>
             </Avatar>
             <h3 className="text-xl font-medium text-gray-700 mb-2">Bonjour, je suis Arthur !</h3>
             <p className="text-gray-500 max-w-md">
@@ -144,8 +146,9 @@ export default function ChatInterface() {
             <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.role === 'assistant' && (
                 <Avatar className="h-8 w-8 mr-2 mt-1 flex-shrink-0">
-                  <AvatarImage src="/arthur-avatar.png" alt="Arthur" />
-                  <AvatarFallback className="bg-[#DC0032] text-white">AC</AvatarFallback>
+                  <AvatarFallback className="bg-[#DC0032] text-white">
+                    <Cat size={16} />
+                  </AvatarFallback>
                 </Avatar>
               )}
               <Card className={`max-w-[85%] ${
@@ -168,8 +171,9 @@ export default function ChatInterface() {
         {isLoading && (
           <div className="flex justify-start">
             <Avatar className="h-8 w-8 mr-2 mt-1">
-              <AvatarImage src="/arthur-avatar.png" alt="Arthur" />
-              <AvatarFallback className="bg-[#DC0032] text-white">AC</AvatarFallback>
+              <AvatarFallback className="bg-[#DC0032] text-white">
+                <Cat size={16} />
+              </AvatarFallback>
             </Avatar>
             <Card className="bg-white border-gray-200 w-24">
               <CardContent className="p-3 flex justify-center">
