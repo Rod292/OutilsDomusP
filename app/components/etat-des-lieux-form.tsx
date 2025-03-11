@@ -1300,7 +1300,7 @@ export function EtatDesLieuxForm({
       console.log("URL Firebase Storage détectée:", photo.substring(0, 100) + "...");
       
       // Essayer de convertir l'image en base64 via un canvas
-      const img = new Image();
+      const img = new window.Image();
       img.crossOrigin = "anonymous";
       
       img.onload = () => {
@@ -1359,7 +1359,7 @@ export function EtatDesLieuxForm({
         
         // Si c'est une URL Firebase Storage, utiliser la même approche que ci-dessus
         if (validUrl.includes('firebasestorage.googleapis.com')) {
-          const img = new Image();
+          const img = new window.Image();
           img.crossOrigin = "anonymous";
           
           img.onload = () => {
