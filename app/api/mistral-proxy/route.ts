@@ -68,16 +68,21 @@ export async function POST(req: NextRequest) {
       temperature: 0.7,
     };
     
-    // Ajouter l'agent ID si disponible
+    // Ajouter l'agent ID si disponible - mais seulement pour les modèles qui le supportent
+    // L'agent ID n'est pas supporté par tous les modèles Mistral
+    // Pour l'instant, nous ne l'utilisons pas pour éviter l'erreur 422
+    /*
     if (agentId && agentId.trim() !== '') {
       mistralPayload.agent_id = agentId;
     }
+    */
     
     console.log('Envoi de la requête à Mistral API avec la configuration:', {
       model: mistralPayload.model,
       messagesCount: mistralPayload.messages.length,
       hasAgentId: !!mistralPayload.agent_id,
-      url: apiUrl
+      url: apiUrl,
+      payload: JSON.stringify(mistralPayload).substring(0, 200) + '...' // Afficher une partie du payload pour debug
     });
     
     // Appeler l'API Mistral
@@ -118,6 +123,7 @@ export async function POST(req: NextRequest) {
     
     let errorMessage = 'Erreur lors de la communication avec l\'API';
     let statusCode = 500;
+    let errorDetails = null;
     
     // Gérer les erreurs spécifiques
     if (error.response) {
@@ -130,8 +136,17 @@ export async function POST(req: NextRequest) {
         data: error.response.data,
       });
       
+      // Capturer les détails de l'erreur pour le débogage
+      errorDetails = JSON.stringify(error.response.data);
+      
       if (error.response.status === 401) {
         errorMessage = "Erreur d'authentification avec l'API Mistral. La clé API fournie n'est pas valide ou a expiré.";
+      } else if (error.response.status === 422) {
+        errorMessage = "Erreur de validation des données envoyées à l'API Mistral. Format de requête incorrect.";
+        // Afficher les détails spécifiques de l'erreur 422
+        if (error.response.data?.message?.detail) {
+          console.error('Détails de l\'erreur 422:', error.response.data.message.detail);
+        }
       } else if (error.response.status === 429) {
         errorMessage = 'Trop de requêtes envoyées à l\'API Mistral. Veuillez réessayer plus tard.';
       } else {
@@ -147,7 +162,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { 
         error: errorMessage,
-        details: error.message,
+        details: errorDetails || error.message,
         status: 'error'
       },
       { 
