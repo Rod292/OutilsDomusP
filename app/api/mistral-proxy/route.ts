@@ -19,29 +19,24 @@ function generateSystemPrompt(consultant: string = 'votre conseiller') {
 Je travaille avec ${consultant} pour aider les clients à trouver des informations sur les biens immobiliers, les services d'Arthur Loyd, et les démarches immobilières.
 Si je ne connais pas la réponse à une question, je proposerai de contacter ${consultant} directement.
 Je ne dois jamais dire "Bonjour Arthur" car c'est moi qui suis Arthur. Je m'adresse directement à l'utilisateur.
-Pour les questions nécessitant des informations récentes ou spécifiques, j'utiliserai la recherche web pour fournir des réponses précises et à jour.`;
+Je dois indiquer clairement que je ne peux pas effectuer de recherches web en temps réel si l'utilisateur me le demande.`;
 }
 
-// Définition des outils disponibles pour le modèle
-const tools = [
-  {
-    type: "function",
-    function: {
-      name: "search_web",
-      description: "Recherche des informations sur le web pour répondre à des questions sur l'actualité ou des sujets spécifiques",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "La requête de recherche à effectuer"
-          }
-        },
-        required: ["query"]
-      }
-    }
-  }
-];
+// Fonction pour détecter si le message contient une demande de recherche web
+function containsWebSearchRequest(message: string): boolean {
+  const searchTerms = [
+    'recherche web', 
+    'cherche sur internet', 
+    'cherche sur le web', 
+    'recherche sur internet',
+    'fais une recherche',
+    'cherche en ligne',
+    'trouve sur internet'
+  ];
+  
+  const lowerMessage = message.toLowerCase();
+  return searchTerms.some(term => lowerMessage.includes(term));
+}
 
 // Fonction pour gérer les requêtes POST
 export async function POST(req: NextRequest) {
@@ -49,13 +44,10 @@ export async function POST(req: NextRequest) {
     // Récupérer les variables d'environnement
     const apiKey = process.env.MISTRAL_API_KEY;
     const apiUrl = process.env.MISTRAL_API_URL || 'https://api.mistral.ai/v1/chat/completions';
-    const agentId = process.env.MISTRAL_AGENT_ID;
     
     console.log('Configuration API Mistral:', { 
       apiKeyExists: !!apiKey,
       apiKeyPrefix: apiKey ? apiKey.substring(0, 6) : 'Non définie',
-      agentIdExists: !!agentId,
-      agentIdPrefix: agentId ? agentId.substring(0, 10) : 'Non défini'
     });
     
     // Vérifier si la clé API est disponible
@@ -73,6 +65,9 @@ export async function POST(req: NextRequest) {
     // Récupérer les données de la requête
     const data = await req.json();
     const { message, history = [], consultant = 'votre conseiller' } = data;
+    
+    // Vérifier si le message contient une demande de recherche web
+    const isWebSearchRequest = containsWebSearchRequest(message);
 
     // Générer le prompt système avec le consultant
     const SYSTEM_PROMPT = generateSystemPrompt(consultant);
@@ -89,24 +84,16 @@ export async function POST(req: NextRequest) {
 
     // Préparer la requête pour l'API Mistral
     const mistralPayload: any = {
-      model: "mistral-large-latest", // Utiliser le modèle le plus récent qui supporte la recherche web
+      model: "mistral-large-latest", // Utiliser le modèle le plus récent
       messages: messages,
       max_tokens: 1000,
       temperature: 0.7,
-      tools: tools, // Ajouter les outils disponibles
-      tool_choice: "auto" // Laisser le modèle décider quand utiliser les outils
     };
-    
-    // Ajouter l'agent ID si disponible - mais seulement pour les modèles qui le supportent
-    if (agentId && agentId.trim() !== '') {
-      mistralPayload.agent_id = agentId;
-    }
     
     console.log('Envoi de la requête à Mistral API avec la configuration:', {
       model: mistralPayload.model,
       messagesCount: mistralPayload.messages.length,
-      hasAgentId: !!mistralPayload.agent_id,
-      hasTools: !!mistralPayload.tools,
+      isWebSearchRequest,
       url: apiUrl
     });
     
@@ -122,61 +109,24 @@ export async function POST(req: NextRequest) {
       status: response.status,
       hasChoices: !!response.data.choices,
       choicesLength: response.data.choices?.length,
-      hasToolCalls: !!response.data.choices?.[0]?.message?.tool_calls
     });
     
-    // Vérifier si le modèle a appelé un outil
+    // Traitement normal de la réponse
     const responseMessage = response.data.choices[0]?.message;
+    let assistantMessage = responseMessage?.content || 'Pas de réponse';
     
-    if (responseMessage?.tool_calls && responseMessage.tool_calls.length > 0) {
-      // Traiter l'appel d'outil
-      const toolCall = responseMessage.tool_calls[0];
-      
-      if (toolCall.function.name === 'search_web') {
-        try {
-          // Extraire la requête de recherche
-          const args = JSON.parse(toolCall.function.arguments);
-          const query = args.query;
-          
-          console.log('Recherche web demandée:', query);
-          
-          // Avec Mistral, nous n'avons pas besoin d'effectuer la recherche nous-mêmes
-          // Le modèle a déjà effectué la recherche et intégré les résultats dans sa réponse
-          
-          // Retourner la réponse avec les informations sur l'utilisation de l'outil
-          return NextResponse.json(
-            { 
-              message: responseMessage.content,
-              timestamp: new Date().toISOString(),
-              status: 'success',
-              usedTool: 'search_web',
-              query: query
-            },
-            { 
-              status: 200,
-              headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-              }
-            }
-          );
-        } catch (error) {
-          console.error('Erreur lors du traitement de l\'appel d\'outil:', error);
-          // En cas d'erreur, continuer avec la réponse normale
-        }
-      }
+    // Ajouter une note sur la recherche web si nécessaire
+    if (isWebSearchRequest) {
+      console.log('Demande de recherche web détectée');
     }
-    
-    // Traitement normal si aucun outil n'est appelé ou en cas d'erreur
-    const assistantMessage = responseMessage?.content || 'Pas de réponse';
     
     // Retourner la réponse
     return NextResponse.json(
       { 
         message: assistantMessage,
         timestamp: new Date().toISOString(),
-        status: 'success'
+        status: 'success',
+        webSearchRequested: isWebSearchRequest
       },
       { 
         status: 200,
@@ -202,7 +152,7 @@ export async function POST(req: NextRequest) {
       console.error('Détails de l\'erreur API:', {
         status: error.response.status,
         statusText: error.response.statusText,
-        data: error.response.data,
+        data: JSON.stringify(error.response.data),
       });
       
       // Capturer les détails de l'erreur pour le débogage
@@ -213,13 +163,14 @@ export async function POST(req: NextRequest) {
       } else if (error.response.status === 422) {
         errorMessage = "Erreur de validation des données envoyées à l'API Mistral. Format de requête incorrect.";
         // Afficher les détails spécifiques de l'erreur 422
-        if (error.response.data?.message?.detail) {
-          console.error('Détails de l\'erreur 422:', error.response.data.message.detail);
+        if (error.response.data?.error) {
+          errorMessage += ` Détail: ${error.response.data.error}`;
+          console.error('Détails de l\'erreur 422:', error.response.data.error);
         }
       } else if (error.response.status === 429) {
         errorMessage = 'Trop de requêtes envoyées à l\'API Mistral. Veuillez réessayer plus tard.';
       } else {
-        errorMessage = `Erreur de l'API Mistral: ${error.response.data?.message || error.message}`;
+        errorMessage = `Erreur de l'API Mistral: ${error.response.data?.error || error.message}`;
       }
     } else if (error.request) {
       // Pas de réponse reçue
