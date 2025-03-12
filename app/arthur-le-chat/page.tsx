@@ -7,7 +7,8 @@ import ChatInterface from './components/ChatInterface';
 import { useAuth } from '../hooks/useAuth';
 import { Cat } from 'lucide-react';
 
-export default function ArthurLeChatPage() {
+// Composant client séparé pour gérer useSearchParams
+function ChatContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const consultant = searchParams.get('consultant');
@@ -97,5 +98,21 @@ export default function ArthurLeChatPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Composant principal avec Suspense boundary
+export default function ArthurLeChatPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+        <div className="text-center">
+          <div className="w-14 h-14 border-4 border-[#DC0032] border-t-transparent rounded-full animate-spin mx-auto mb-5"></div>
+          <p className="text-gray-700 font-medium">Chargement...</p>
+        </div>
+      </div>
+    }>
+      <ChatContent />
+    </Suspense>
   );
 } 
