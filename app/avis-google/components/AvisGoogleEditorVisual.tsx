@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db, storage } from '@/lib/firebase';
 import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { uploadImage } from '@/lib/firebase';
@@ -10,12 +10,35 @@ import { toast } from 'react-hot-toast';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import { 
   Box, Typography, Button, Paper, Tabs, Tab, CircularProgress, Alert,
-  TextField
+  TextField, Divider, Chip, IconButton, Tooltip
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import EditIcon from '@mui/icons-material/Edit';
 import PreviewIcon from '@mui/icons-material/Preview';
 import SendIcon from '@mui/icons-material/Send';
+import SaveIcon from '@mui/icons-material/Save';
+import HistoryIcon from '@mui/icons-material/History';
+import FormatBoldIcon from '@mui/icons-material/FormatBold';
+import FormatItalicIcon from '@mui/icons-material/FormatItalic';
+import FormatUnderlinedIcon from '@mui/icons-material/FormatUnderlined';
+import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
+import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
+import InsertLinkIcon from '@mui/icons-material/InsertLink';
+import { Editor } from '@tinymce/tinymce-react';
+
+// Récupérer la clé API TinyMCE depuis les variables d'environnement ou utiliser la clé en dur comme fallback
+const TINYMCE_API_KEY = process.env.NEXT_PUBLIC_TINYMCE_API_KEY || 'r4grgrcqwxc80gk44x3aaiqm3rqa29t3utou9a0224ixu4gc';
+
+// Types pour TinyMCE
+type TinyMCEEditor = {
+  getContent: () => string;
+  on: (event: string, callback: () => void) => void;
+};
+
+interface TinyMCEInitEvent {
+  readonly target: unknown;
+  readonly type: string;
+}
 
 // Types pour nos templates d'avis Google
 type AvisGoogleTemplate = {
@@ -45,21 +68,30 @@ type AvisGoogleSection = {
 
 export default function AvisGoogleEditorVisual() {
   const theme = useTheme();
+  const editorRef = useRef<TinyMCEEditor | null>(null);
   
   // États
   const [sections, setSections] = useState<AvisGoogleSection[]>([]);
   const [savedTemplates, setSavedTemplates] = useState<AvisGoogleTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('default');
-  const [mode, setMode] = useState<'edit' | 'send' | 'preview'>('edit');
+  const [mode, setMode] = useState<'edit' | 'send'>('edit');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
   const [user, setUser] = useState<User | null>(null);
   const [selectedTab, setSelectedTab] = useState<'nouveau' | 'relance'>('nouveau');
   const [emailContent, setEmailContent] = useState<string>('');
+  const [emailSubject, setEmailSubject] = useState<string>('');
+  const [senderName, setSenderName] = useState<string>('Arthur Loyd Bretagne');
 
   // Charger le template par défaut
   useEffect(() => {
     loadDefaultTemplate();
+    // Définir l'objet du mail en fonction du type de message
+    if (selectedTab === 'nouveau') {
+      setEmailSubject('Merci pour votre confiance !');
+    } else {
+      setEmailSubject('Déjà X an(s) dans vos locaux !');
+    }
   }, [selectedTab]);
 
   // Surveiller l'authentification
@@ -67,6 +99,8 @@ export default function AvisGoogleEditorVisual() {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      // Toujours utiliser "Arthur Loyd Bretagne" comme nom d'expéditeur par défaut
+      setSenderName('Arthur Loyd Bretagne');
     });
     return () => unsubscribe();
   }, []);
@@ -100,20 +134,25 @@ export default function AvisGoogleEditorVisual() {
   };
 
   const handleUpdateContent = () => {
-    const updatedSections = sections.map(section => {
-      if (section.type === 'content') {
-        return {
-          ...section,
-          content: {
-            ...section.content,
-            content: emailContent
-          }
-        };
-      }
-      return section;
-    });
+    if (editorRef.current) {
+      const content = editorRef.current.getContent();
+      
+      const updatedSections = sections.map(section => {
+        if (section.type === 'content') {
+          return {
+            ...section,
+            content: {
+              ...section.content,
+              content: content
+            }
+          };
+        }
+        return section;
+      });
 
-    setSections(updatedSections);
+      setSections(updatedSections);
+      setEmailContent(content);
+    }
   };
 
   const parseHtmlToSections = (html: string): AvisGoogleSection[] => {
@@ -150,7 +189,8 @@ export default function AvisGoogleEditorVisual() {
     }
 
     // Footer section
-    const signature = container.querySelector('.signature');
+    const footer = container.querySelector('.footer');
+    const signature = footer ? footer.querySelector('.signature') : container.querySelector('.signature');
     const socialLinks = Array.from(container.querySelectorAll('.social-link')).map(link => ({
       platform: link.textContent || '',
       url: (link as HTMLAnchorElement).href
@@ -198,8 +238,21 @@ export default function AvisGoogleEditorVisual() {
             max-width: 200px; 
             margin-bottom: 20px; 
           }
+          .small-logo {
+            max-width: 120px;
+            margin-bottom: 15px;
+            display: block;
+          }
           .content {
             margin: 20px 0;
+          }
+          .footer {
+            background-color: #464254;
+            padding: 20px;
+            color: #ffffff;
+            text-align: center;
+            border-radius: 0 0 8px 8px;
+            margin-top: 20px;
           }
           .signature { 
             margin-top: 30px; 
@@ -210,40 +263,74 @@ export default function AvisGoogleEditorVisual() {
             margin-top: 20px;
             display: flex;
             gap: 10px;
+            justify-content: center;
           }
           .social-link { 
-            color: #1E3C72;
+            color: #DC0032;
             text-decoration: none;
             padding: 5px 10px;
             border-radius: 4px;
             background-color: #F5F7FA;
           }
           .social-link:hover {
-            background-color: #E8EBF2;
+            background-color: #f8e6ea;
           }
           p {
             margin: 10px 0;
+          }
+          a {
+            color: #DC0032;
+            text-decoration: none;
+          }
+          a:hover {
+            text-decoration: underline;
+          }
+          h1, h2, h3, h4, h5, h6 {
+            color: #DC0032;
+          }
+          ul, ol {
+            margin: 10px 0;
+            padding-left: 20px;
+          }
+          li {
+            margin-bottom: 5px;
+          }
+          .cta-button {
+            display: inline-block;
+            background-color: #DC0032;
+            color: white !important;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            margin: 20px 0;
+            font-weight: bold;
+          }
+          .cta-button:hover {
+            background-color: #B00028;
+          }
+          .emoji {
+            font-size: 1.2em;
+            margin: 0 2px;
           }
         </style>
       </head>
       <body>
         <div class="container">
-          ${headerSection?.content.logo ? 
-            `<img src="${headerSection.content.logo}" alt="Logo" class="logo">` : 
-            ''}
+          <img src="/images/logo-arthur-loyd.png" alt="Arthur Loyd" class="small-logo">
           
           <div class="content">
             ${contentSection?.content.content || ''}
           </div>
           
           ${footerSection ? `
-            <div class="signature">
-              ${footerSection.content.signature}
-            </div>
-            <div class="social-links">
-              ${footerSection.content.socialLinks?.map(link => 
-                `<a href="${link.url}" class="social-link" target="_blank">${link.platform}</a>`
-              ).join('\n') || ''}
+            <div class="footer">
+              <div class="signature">
+                ${footerSection.content.signature || 'Arthur Loyd Bretagne'}
+              </div>
+              <div class="social-links">
+                <a href="https://www.linkedin.com/company/arthur-loyd-bretagne" class="social-link" target="_blank">LinkedIn</a>
+                <a href="https://www.instagram.com/arthurloydbretagne/" class="social-link" target="_blank">Instagram</a>
+              </div>
             </div>
           ` : ''}
         </div>
@@ -254,201 +341,359 @@ export default function AvisGoogleEditorVisual() {
 
   return (
     <Box sx={{ width: '100%' }}>
-      {/* Tabs de sélection du type de message */}
-      <Paper 
-        sx={{ 
-          mb: 3,
-          borderRadius: theme.shape.borderRadius,
-          overflow: 'hidden'
-        }}
-      >
-        <Tabs
-          value={selectedTab}
-          onChange={(_, newValue) => setSelectedTab(newValue)}
-          variant="fullWidth"
-          sx={{
-            borderBottom: `1px solid ${theme.palette.divider}`,
-            '& .MuiTab-root': {
-              py: 2,
-              color: theme.palette.text.primary,
-              '&.Mui-selected': {
-                color: '#DC0032',
-                fontWeight: 600
-              }
-            },
-            '& .MuiTabs-indicator': {
-              backgroundColor: '#DC0032'
-            }
-          }}
-        >
-          <Tab 
-            value="nouveau" 
-            label="Premier contact"
-          />
-          <Tab 
-            value="relance" 
-            label="Relance"
-          />
-        </Tabs>
-      </Paper>
-
-      {/* Affichage des erreurs */}
       {error && (
         <Alert 
           severity="error" 
-          sx={{ mb: 3 }}
-          onClose={() => setError('')}
+          sx={{ 
+            mb: 3, 
+            borderRadius: 2,
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
+          }}
         >
           {error}
         </Alert>
       )}
 
-      {/* Contenu principal */}
+      {/* Onglets pour choisir entre nouveau client et relance */}
+      <Box 
+        sx={{ 
+          mb: 3, 
+          borderBottom: 1, 
+          borderColor: 'divider',
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          gap: { xs: 1, sm: 2 }
+        }}
+      >
+        <Typography 
+          variant="subtitle1" 
+          sx={{ 
+            fontWeight: 600,
+            color: theme.palette.text.primary,
+            minWidth: { sm: '120px' }
+          }}
+        >
+          Type de message:
+        </Typography>
+        <Tabs 
+          value={selectedTab} 
+          onChange={(_, newValue) => setSelectedTab(newValue)}
+          sx={{
+            minHeight: '40px',
+            '& .MuiTabs-indicator': {
+              backgroundColor: '#DC0032',
+              height: 3
+            }
+          }}
+        >
+          <Tab 
+            label="Nouveau client" 
+            value="nouveau"
+            sx={{
+              textTransform: 'none',
+              fontWeight: 500,
+              fontSize: '0.9rem',
+              minHeight: '40px',
+              '&.Mui-selected': {
+                color: '#DC0032',
+                fontWeight: 600
+              }
+            }}
+          />
+          <Tab 
+            label="Relance" 
+            value="relance"
+            sx={{
+              textTransform: 'none',
+              fontWeight: 500,
+              fontSize: '0.9rem',
+              minHeight: '40px',
+              '&.Mui-selected': {
+                color: '#DC0032',
+                fontWeight: 600
+              }
+            }}
+          />
+        </Tabs>
+      </Box>
+
+      {/* Mode tabs */}
+      <Box 
+        sx={{ 
+          mb: 3,
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          gap: { xs: 1, sm: 2 }
+        }}
+      >
+        <Typography 
+          variant="subtitle1" 
+          sx={{ 
+            fontWeight: 600,
+            color: theme.palette.text.primary,
+            minWidth: { sm: '120px' }
+          }}
+        >
+          Mode:
+        </Typography>
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            gap: 1,
+            flexWrap: 'wrap'
+          }}
+        >
+          <Button
+            variant={mode === 'edit' ? 'contained' : 'outlined'}
+            size="small"
+            startIcon={<EditIcon />}
+            onClick={() => setMode('edit')}
+            sx={{
+              borderRadius: '20px',
+              textTransform: 'none',
+              boxShadow: mode === 'edit' ? 2 : 0,
+              backgroundColor: mode === 'edit' ? '#DC0032' : 'transparent',
+              borderColor: '#DC0032',
+              color: mode === 'edit' ? '#fff' : '#DC0032',
+              '&:hover': {
+                backgroundColor: mode === 'edit' ? '#B00028' : 'rgba(220, 0, 50, 0.08)',
+                borderColor: '#DC0032'
+              }
+            }}
+          >
+            Éditer
+          </Button>
+          <Button
+            variant={mode === 'send' ? 'contained' : 'outlined'}
+            size="small"
+            startIcon={<SendIcon />}
+            onClick={() => setMode('send')}
+            sx={{
+              borderRadius: '20px',
+              textTransform: 'none',
+              boxShadow: mode === 'send' ? 2 : 0,
+              backgroundColor: mode === 'send' ? '#DC0032' : 'transparent',
+              borderColor: '#DC0032',
+              color: mode === 'send' ? '#fff' : '#DC0032',
+              '&:hover': {
+                backgroundColor: mode === 'send' ? '#B00028' : 'rgba(220, 0, 50, 0.08)',
+                borderColor: '#DC0032'
+              }
+            }}
+          >
+            Envoyer
+          </Button>
+        </Box>
+      </Box>
+
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress sx={{ color: '#DC0032' }} />
+          <CircularProgress size={40} thickness={4} sx={{ color: '#DC0032' }} />
         </Box>
       ) : (
         <>
           {mode === 'edit' && (
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <TextField
-                label="Contenu de l'email"
-                multiline
-                rows={10}
-                value={emailContent}
-                onChange={(e) => setEmailContent(e.target.value)}
-                fullWidth
-                sx={{
-                  mb: 2,
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': {
-                      borderColor: '#DC0032',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#DC0032',
-                    }
-                  },
-                  '& .MuiInputLabel-root.Mui-focused': {
-                    color: '#DC0032'
-                  }
-                }}
-              />
-              <Button
-                variant="contained"
-                onClick={handleUpdateContent}
-                fullWidth
-                sx={{
-                  bgcolor: '#DC0032',
-                  color: '#fff',
-                  '&:hover': {
-                    bgcolor: '#B00028',
-                  }
+            <Box sx={{ mb: 3 }}>
+              <Paper 
+                elevation={0} 
+                sx={{ 
+                  p: { xs: 2, sm: 3 }, 
+                  borderRadius: 2,
+                  border: `1px solid ${theme.palette.divider}`,
+                  backgroundColor: theme.palette.background.paper,
+                  position: 'relative',
+                  zIndex: 1 // Assurer que le contenu est au-dessus
                 }}
               >
-                Mettre à jour le template
-              </Button>
-            </Paper>
+                <Typography 
+                  variant="h6" 
+                  gutterBottom
+                  sx={{ 
+                    fontWeight: 600,
+                    color: '#DC0032',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    mb: 2
+                  }}
+                >
+                  <EditIcon fontSize="small" />
+                  Éditer le contenu
+                </Typography>
+
+                {/* Champs pour le nom de l'expéditeur et l'objet du mail */}
+                <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <TextField
+                    label="Nom de l'expéditeur"
+                    value={senderName}
+                    onChange={(e) => setSenderName(e.target.value)}
+                    fullWidth
+                    variant="outlined"
+                    size="small"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 1.5,
+                        '&:hover fieldset': {
+                          borderColor: '#DC0032',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#DC0032',
+                        }
+                      },
+                      '& .MuiInputLabel-root.Mui-focused': {
+                        color: '#DC0032'
+                      }
+                    }}
+                  />
+                  <TextField
+                    label="Objet du mail"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    fullWidth
+                    variant="outlined"
+                    size="small"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 1.5,
+                        '&:hover fieldset': {
+                          borderColor: '#DC0032',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#DC0032',
+                        }
+                      },
+                      '& .MuiInputLabel-root.Mui-focused': {
+                        color: '#DC0032'
+                      }
+                    }}
+                  />
+                </Box>
+                
+                {/* Conteneur pour la barre d'outils TinyMCE */}
+                <div id="toolbar-container" style={{ position: 'relative', zIndex: 0 }}></div>
+                
+                <Box sx={{ mb: 3, position: 'relative', zIndex: 0 }}>
+                  <Editor
+                    apiKey={TINYMCE_API_KEY}
+                    onInit={(evt: TinyMCEInitEvent, editor: TinyMCEEditor) => editorRef.current = editor}
+                    initialValue={emailContent}
+                    init={{
+                      height: 400,
+                      menubar: false,
+                      plugins: [
+                        'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                        'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                        'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
+                      ],
+                      toolbar: 'undo redo | blocks | ' +
+                        'bold italic forecolor | alignleft aligncenter ' +
+                        'alignright alignjustify | bullist numlist outdent indent | ' +
+                        'removeformat | help',
+                      content_style: 'body { font-family:Poppins,Arial,sans-serif; font-size:14px }',
+                      skin: 'oxide',
+                      content_css: 'default',
+                      branding: false,
+                      resize: false,
+                      statusbar: false,
+                      setup: (editor: TinyMCEEditor) => {
+                        editor.on('Change', () => {
+                          setEmailContent(editor.getContent());
+                        });
+                      }
+                    }}
+                  />
+                </Box>
+
+                {/* Aperçu intégré */}
+                <Typography 
+                  variant="h6" 
+                  gutterBottom
+                  sx={{ 
+                    fontWeight: 600,
+                    color: '#DC0032',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    mb: 2,
+                    mt: 3
+                  }}
+                >
+                  <PreviewIcon fontSize="small" />
+                  Aperçu de l'email
+                </Typography>
+                <Box 
+                  sx={{ 
+                    border: `1px solid ${theme.palette.divider}`,
+                    borderRadius: 1.5,
+                    p: 2,
+                    backgroundColor: '#fff',
+                    maxHeight: '400px',
+                    overflow: 'auto',
+                    mb: 3
+                  }}
+                >
+                  <div dangerouslySetInnerHTML={{ __html: generateHtml(sections) }} />
+                </Box>
+                
+                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    variant="contained"
+                    startIcon={<SaveIcon />}
+                    onClick={handleUpdateContent}
+                    sx={{
+                      borderRadius: '8px',
+                      textTransform: 'none',
+                      boxShadow: 2,
+                      backgroundColor: '#DC0032',
+                      '&:hover': {
+                        backgroundColor: '#B00028'
+                      }
+                    }}
+                  >
+                    Enregistrer les modifications
+                  </Button>
+                </Box>
+              </Paper>
+            </Box>
           )}
 
           {mode === 'send' && (
-            <SendEmailForm
-              htmlContent={generateHtml(sections)}
-              onError={setError}
-            />
+            <Box sx={{ mb: 3 }}>
+              <Paper 
+                elevation={0} 
+                sx={{ 
+                  p: { xs: 2, sm: 3 }, 
+                  borderRadius: 2,
+                  border: `1px solid ${theme.palette.divider}`,
+                  backgroundColor: theme.palette.background.paper
+                }}
+              >
+                <Typography 
+                  variant="h6" 
+                  gutterBottom
+                  sx={{ 
+                    fontWeight: 600,
+                    color: '#DC0032',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    mb: 2
+                  }}
+                >
+                  <SendIcon fontSize="small" />
+                  Envoyer les demandes d'avis
+                </Typography>
+                <SendEmailForm 
+                  htmlContent={generateHtml(sections)} 
+                  onError={setError}
+                  senderName={senderName}
+                  emailSubject={emailSubject}
+                />
+              </Paper>
+            </Box>
           )}
-
-          {mode === 'preview' && (
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <div 
-                dangerouslySetInnerHTML={{ __html: generateHtml(sections) }}
-                style={{ maxWidth: '600px', margin: '0 auto' }}
-              />
-            </Paper>
-          )}
-
-          {/* Boutons de contrôle */}
-          <Box sx={{ 
-            mt: 3, 
-            display: 'flex', 
-            gap: 2, 
-            justifyContent: 'center'
-          }}>
-            <Button
-              variant={mode === 'edit' ? 'contained' : 'outlined'}
-              onClick={() => setMode('edit')}
-              startIcon={<EditIcon />}
-              sx={{
-                ...(mode === 'edit' ? {
-                  bgcolor: '#DC0032',
-                  color: '#fff',
-                  '&:hover': {
-                    bgcolor: '#B00028',
-                  }
-                } : {
-                  color: '#DC0032',
-                  borderColor: '#DC0032',
-                  '&:hover': {
-                    borderColor: '#B00028',
-                    color: '#B00028',
-                  }
-                })
-              }}
-            >
-              Éditer
-            </Button>
-            <Button
-              variant={mode === 'preview' ? 'contained' : 'outlined'}
-              onClick={() => setMode('preview')}
-              startIcon={<PreviewIcon />}
-              sx={{
-                ...(mode === 'preview' ? {
-                  bgcolor: '#DC0032',
-                  color: '#fff',
-                  '&:hover': {
-                    bgcolor: '#B00028',
-                  }
-                } : {
-                  color: '#DC0032',
-                  borderColor: '#DC0032',
-                  '&:hover': {
-                    borderColor: '#B00028',
-                    color: '#B00028',
-                  }
-                })
-              }}
-            >
-              Aperçu
-            </Button>
-            <Button
-              variant={mode === 'send' ? 'contained' : 'outlined'}
-              onClick={() => setMode('send')}
-              startIcon={<SendIcon />}
-              disabled={!user}
-              sx={{
-                ...(mode === 'send' ? {
-                  bgcolor: '#DC0032',
-                  color: '#fff',
-                  '&:hover': {
-                    bgcolor: '#B00028',
-                  }
-                } : {
-                  color: '#DC0032',
-                  borderColor: '#DC0032',
-                  '&:hover': {
-                    borderColor: '#B00028',
-                    color: '#B00028',
-                  }
-                }),
-                '&.Mui-disabled': {
-                  bgcolor: theme.palette.action.disabledBackground,
-                  color: theme.palette.action.disabled,
-                }
-              }}
-            >
-              Envoyer
-            </Button>
-          </Box>
         </>
       )}
     </Box>
