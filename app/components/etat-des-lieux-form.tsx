@@ -1683,7 +1683,7 @@ export function EtatDesLieuxForm({
                         type="text"
                         id="bailleur.nom"
                         name="bailleur.nom"
-                        value={formData.bailleur.nom}
+                        value={formData.bailleur?.nom || ""}
                         onChange={handleInputChange}
                         className="w-full text-base"
                         placeholder="Nom du bailleur"
@@ -1698,7 +1698,7 @@ export function EtatDesLieuxForm({
                         type="text"
                         id="bailleur.prenom"
                         name="bailleur.prenom"
-                        value={formData.bailleur.prenom}
+                        value={formData.bailleur?.prenom || ""}
                         onChange={handleInputChange}
                         className="w-full text-base"
                         placeholder="Prénom du bailleur"
@@ -1714,7 +1714,7 @@ export function EtatDesLieuxForm({
                       type="text"
                       id="bailleur.adresse"
                       name="bailleur.adresse"
-                      value={formData.bailleur.adresse}
+                      value={formData.bailleur?.adresse || ""}
                       onChange={handleInputChange}
                       className="w-full text-base"
                       placeholder="Adresse du bailleur"
@@ -1730,7 +1730,7 @@ export function EtatDesLieuxForm({
                         type="text"
                         id="bailleur.codePostal"
                         name="bailleur.codePostal"
-                        value={formData.bailleur.codePostal}
+                        value={formData.bailleur?.codePostal || ""}
                         onChange={handleInputChange}
                         className="w-full text-base"
                         placeholder="Code postal"
@@ -1745,7 +1745,7 @@ export function EtatDesLieuxForm({
                         type="text"
                         id="bailleur.ville"
                         name="bailleur.ville"
-                        value={formData.bailleur.ville}
+                        value={formData.bailleur?.ville || ""}
                         onChange={handleInputChange}
                         className="w-full text-base"
                         placeholder="Ville"
@@ -1762,7 +1762,7 @@ export function EtatDesLieuxForm({
                         type="tel"
                         id="bailleur.telephone"
                         name="bailleur.telephone"
-                        value={formData.bailleur.telephone}
+                        value={formData.bailleur?.telephone || ""}
                         onChange={handleInputChange}
                         className="w-full text-base"
                         placeholder="Numéro de téléphone"
@@ -1777,7 +1777,7 @@ export function EtatDesLieuxForm({
                         type="email"
                         id="bailleur.email"
                         name="bailleur.email"
-                        value={formData.bailleur.email}
+                        value={formData.bailleur?.email || ""}
                         onChange={handleInputChange}
                         className="w-full text-base"
                         placeholder="Adresse email"
@@ -1799,7 +1799,7 @@ export function EtatDesLieuxForm({
                         type="text"
                         id="locataire.nom"
                         name="locataire.nom"
-                        value={formData.locataire.nom}
+                        value={formData.locataire?.nom || ""}
                         onChange={handleInputChange}
                         className="w-full text-base"
                         placeholder="Nom du locataire"
@@ -1814,7 +1814,7 @@ export function EtatDesLieuxForm({
                         type="text"
                         id="locataire.prenom"
                         name="locataire.prenom"
-                        value={formData.locataire.prenom}
+                        value={formData.locataire?.prenom || ""}
                         onChange={handleInputChange}
                         className="w-full text-base"
                         placeholder="Prénom du locataire"
@@ -1831,7 +1831,7 @@ export function EtatDesLieuxForm({
                         type="tel"
                         id="locataire.telephone"
                         name="locataire.telephone"
-                        value={formData.locataire.telephone}
+                        value={formData.locataire?.telephone || ""}
                         onChange={handleInputChange}
                         className="w-full text-base"
                         placeholder="Numéro de téléphone"
@@ -1909,22 +1909,22 @@ export function EtatDesLieuxForm({
                   <div className="flex items-center mb-4">
                     <Checkbox 
                       id="mandataire.present" 
-                      checked={formData.mandataire.present}
+                      checked={formData.mandataire?.present || false}
                       onCheckedChange={(checked) => 
                         updateFormField("mandataire.present", checked === true)
                       }
                       className="mr-2"
                     />
-                    <Label htmlFor="mandataire.present" className="text-lg font-medium">
-                      Mandataire / Agence immobilière
+                    <Label htmlFor="mandataire.present" className="text-base font-medium">
+                      Mandataire présent
                     </Label>
                   </div>
                   
-                  {formData.mandataire.present && (
+                  {formData.mandataire?.present && (
                     <div className="space-y-4 pl-6">
                       <div className="space-y-2">
                         <Label htmlFor="mandataire.nom" className="text-base font-medium">
-                          Nom de l'agence / du mandataire
+                          Nom du mandataire
                         </Label>
                         <Input
                           type="text"
@@ -1988,7 +1988,7 @@ export function EtatDesLieuxForm({
                       type="date"
                       id="contrat.dateSignature"
                       name="contrat.dateSignature"
-                      value={formData.contrat.dateSignature}
+                      value={formData.contrat?.dateSignature || ""}
                       onChange={handleInputChange}
                       className="w-full text-base"
                     />
@@ -1998,21 +1998,15 @@ export function EtatDesLieuxForm({
                     <Label htmlFor="contrat.dureeContrat" className="text-base font-medium">
                       Durée du bail (ans)
                     </Label>
-                    <Select 
-                      value={formData.contrat.dureeContrat} 
-                      onValueChange={(value) => handleSelectChange("contrat.dureeContrat", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionner une durée" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="3">3 ans (bail commercial)</SelectItem>
-                        <SelectItem value="6">6 ans</SelectItem>
-                        <SelectItem value="9">9 ans (bail commercial)</SelectItem>
-                        <SelectItem value="12">12 ans</SelectItem>
-                        <SelectItem value="autre">Autre durée</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      type="text"
+                      id="contrat.dureeContrat"
+                      name="contrat.dureeContrat"
+                      value={formData.contrat?.dureeContrat || ""}
+                      onChange={handleInputChange}
+                      className="w-full text-base"
+                      placeholder="Ex: 3 ans, 6 ans, etc."
+                    />
                   </div>
                 </div>
                 
@@ -2025,7 +2019,7 @@ export function EtatDesLieuxForm({
                       type="date"
                       id="contrat.dateEntree"
                       name="contrat.dateEntree"
-                      value={formData.contrat.dateEntree}
+                      value={formData.contrat?.dateEntree || ""}
                       onChange={handleInputChange}
                       className="w-full text-base"
                     />
@@ -2039,7 +2033,7 @@ export function EtatDesLieuxForm({
                       type="date"
                       id="contrat.dateSortie"
                       name="contrat.dateSortie"
-                      value={formData.contrat.dateSortie}
+                      value={formData.contrat?.dateSortie || ""}
                       onChange={handleInputChange}
                       className="w-full text-base"
                     />
@@ -2055,10 +2049,10 @@ export function EtatDesLieuxForm({
                       type="text"
                       id="contrat.montantLoyer"
                       name="contrat.montantLoyer"
-                      value={formData.contrat.montantLoyer}
+                      value={formData.contrat?.montantLoyer || ""}
                       onChange={handleInputChange}
                       className="w-full text-base"
-                      placeholder="Ex: 1500"
+                      placeholder="Montant en euros"
                     />
                   </div>
                   
@@ -2070,10 +2064,10 @@ export function EtatDesLieuxForm({
                       type="text"
                       id="contrat.montantCharges"
                       name="contrat.montantCharges"
-                      value={formData.contrat.montantCharges}
+                      value={formData.contrat?.montantCharges || ""}
                       onChange={handleInputChange}
                       className="w-full text-base"
-                      placeholder="Ex: 200"
+                      placeholder="Montant en euros"
                     />
                   </div>
                 </div>
@@ -2086,10 +2080,10 @@ export function EtatDesLieuxForm({
                     type="text"
                     id="contrat.montantDepotGarantie"
                     name="contrat.montantDepotGarantie"
-                    value={formData.contrat.montantDepotGarantie}
+                    value={formData.contrat?.montantDepotGarantie || ""}
                     onChange={handleInputChange}
                     className="w-full text-base"
-                    placeholder="Ex: 3000"
+                    placeholder="Montant en euros"
                   />
                 </div>
                 
@@ -2129,7 +2123,7 @@ export function EtatDesLieuxForm({
                         type="number"
                         id="elements.cles.nombre"
                         name="elements.cles.nombre"
-                        value={formData.elements.cles.nombre}
+                        value={formData.elements?.cles?.nombre || "0"}
                         onChange={handleInputChange}
                         className="w-full text-base"
                         min="0"
@@ -2140,14 +2134,13 @@ export function EtatDesLieuxForm({
                       <Label htmlFor="elements.cles.detail" className="text-base font-medium">
                         Détail (portes, accès)
                       </Label>
-                      <Input
-                        type="text"
+                      <Textarea
                         id="elements.cles.detail"
                         name="elements.cles.detail"
-                        value={formData.elements.cles.detail}
+                        value={formData.elements?.cles?.detail || ""}
                         onChange={handleInputChange}
                         className="w-full text-base"
-                        placeholder="Ex: 2 entrée, 1 bureau principal"
+                        placeholder="Détails sur les clés"
                       />
                     </div>
                   </div>
@@ -2166,7 +2159,7 @@ export function EtatDesLieuxForm({
                         type="number"
                         id="elements.badges.nombre"
                         name="elements.badges.nombre"
-                        value={formData.elements.badges.nombre}
+                        value={formData.elements?.badges?.nombre || "0"}
                         onChange={handleInputChange}
                         className="w-full text-base"
                         min="0"
@@ -2177,14 +2170,13 @@ export function EtatDesLieuxForm({
                       <Label htmlFor="elements.badges.detail" className="text-base font-medium">
                         Détail (type d'accès)
                       </Label>
-                      <Input
-                        type="text"
+                      <Textarea
                         id="elements.badges.detail"
                         name="elements.badges.detail"
-                        value={formData.elements.badges.detail}
+                        value={formData.elements?.badges?.detail || ""}
                         onChange={handleInputChange}
                         className="w-full text-base"
-                        placeholder="Ex: accès immeuble, parking"
+                        placeholder="Détails sur les badges"
                       />
                     </div>
                   </div>
@@ -2203,7 +2195,7 @@ export function EtatDesLieuxForm({
                         type="number"
                         id="elements.telecommandes.nombre"
                         name="elements.telecommandes.nombre"
-                        value={formData.elements.telecommandes.nombre}
+                        value={formData.elements?.telecommandes?.nombre || "0"}
                         onChange={handleInputChange}
                         className="w-full text-base"
                         min="0"
@@ -2214,14 +2206,13 @@ export function EtatDesLieuxForm({
                       <Label htmlFor="elements.telecommandes.detail" className="text-base font-medium">
                         Détail (usage)
                       </Label>
-                      <Input
-                        type="text"
+                      <Textarea
                         id="elements.telecommandes.detail"
                         name="elements.telecommandes.detail"
-                        value={formData.elements.telecommandes.detail}
+                        value={formData.elements?.telecommandes?.detail || ""}
                         onChange={handleInputChange}
                         className="w-full text-base"
-                        placeholder="Ex: portail, porte de garage"
+                        placeholder="Détails sur les télécommandes"
                       />
                     </div>
                   </div>
@@ -2294,10 +2285,10 @@ export function EtatDesLieuxForm({
                   <Textarea
                     id="elements.autresElements"
                     name="elements.autresElements"
-                    value={formData.elements.autresElements || ""}
+                    value={formData.elements?.autresElements || ""}
                     onChange={handleInputChange}
-                    placeholder="Notez ici tous les autres éléments remis au locataire"
-                    className="w-full min-h-[80px] text-base"
+                    className="w-full text-base"
+                    placeholder="Autres éléments remis"
                   />
                 </div>
               </div>
@@ -2315,7 +2306,7 @@ export function EtatDesLieuxForm({
                   <div className="flex items-center mb-4">
                     <Checkbox 
                       id="compteurs.electricite.presence" 
-                      checked={formData.compteurs.electricite.presence}
+                      checked={formData.compteurs?.electricite?.presence || false}
                       onCheckedChange={(checked) => 
                         updateFormField("compteurs.electricite.presence", checked === true)
                       }
@@ -2326,7 +2317,7 @@ export function EtatDesLieuxForm({
                     </Label>
                   </div>
                   
-                  {formData.compteurs.electricite.presence && (
+                  {formData.compteurs?.electricite?.presence && (
                     <div className="space-y-4 pl-6">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -2337,7 +2328,7 @@ export function EtatDesLieuxForm({
                             type="text"
                             id="compteurs.electricite.numero"
                             name="compteurs.electricite.numero"
-                            value={formData.compteurs.electricite.numero}
+                            value={formData.compteurs?.electricite?.numero || ""}
                             onChange={handleInputChange}
                             className="w-full text-base"
                             placeholder="Ex: 123456789"
@@ -2352,7 +2343,7 @@ export function EtatDesLieuxForm({
                             type="text"
                             id="compteurs.electricite.releve"
                             name="compteurs.electricite.releve"
-                            value={formData.compteurs.electricite.releve}
+                            value={formData.compteurs?.electricite?.releve || ""}
                             onChange={handleInputChange}
                             className="w-full text-base"
                             placeholder="Ex: 12345"
@@ -2369,7 +2360,7 @@ export function EtatDesLieuxForm({
                             type="text"
                             id="compteurs.electricite.puissance"
                             name="compteurs.electricite.puissance"
-                            value={formData.compteurs.electricite.puissance}
+                            value={formData.compteurs?.electricite?.puissance || ""}
                             onChange={handleInputChange}
                             className="w-full text-base"
                             placeholder="Ex: 9"
@@ -2384,7 +2375,7 @@ export function EtatDesLieuxForm({
                             type="text"
                             id="compteurs.electricite.localisation"
                             name="compteurs.electricite.localisation"
-                            value={formData.compteurs.electricite.localisation}
+                            value={formData.compteurs?.electricite?.localisation || ""}
                             onChange={handleInputChange}
                             className="w-full text-base"
                             placeholder="Ex: Dans l'entrée"
@@ -2399,7 +2390,7 @@ export function EtatDesLieuxForm({
                         <Textarea
                           id="compteurs.electricite.observations"
                           name="compteurs.electricite.observations"
-                          value={formData.compteurs.electricite.observations}
+                          value={formData.compteurs?.electricite?.observations || ""}
                           onChange={handleInputChange}
                           className="w-full text-base"
                           placeholder="Notes sur l'état du compteur, accessibilité, etc."
@@ -2411,7 +2402,7 @@ export function EtatDesLieuxForm({
                           Photos du compteur
                         </Label>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                          {formData.compteurs.electricite.photos.map((photo, index) => (
+                          {formData.compteurs?.electricite?.photos.map((photo, index) => (
                             <div key={`electricite-photo-${index}`} className="relative">
                               <Image
                                 src={
@@ -2470,7 +2461,7 @@ export function EtatDesLieuxForm({
                   <div className="flex items-center mb-4">
                     <Checkbox 
                       id="compteurs.eau.presence" 
-                      checked={formData.compteurs.eau.presence}
+                      checked={formData.compteurs?.eau?.presence || false}
                       onCheckedChange={(checked) => 
                         updateFormField("compteurs.eau.presence", checked === true)
                       }
@@ -2481,53 +2472,53 @@ export function EtatDesLieuxForm({
                     </Label>
                   </div>
                   
-                  {formData.compteurs.eau.presence && (
+                  {formData.compteurs?.eau?.presence && (
                     <div className="space-y-4 pl-6">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="compteurs.eau.numero" className="text-base font-medium">
-                            Numéro du compteur
+                            Numéro de compteur
                           </Label>
                           <Input
                             type="text"
                             id="compteurs.eau.numero"
                             name="compteurs.eau.numero"
-                            value={formData.compteurs.eau.numero}
+                            value={formData.compteurs?.eau?.numero || ""}
                             onChange={handleInputChange}
                             className="w-full text-base"
-                            placeholder="Ex: 123456789"
+                            placeholder="Numéro du compteur"
                           />
                         </div>
                         
                         <div className="space-y-2">
                           <Label htmlFor="compteurs.eau.releve" className="text-base font-medium">
-                            Relevé (m³)
+                            Relevé
                           </Label>
                           <Input
                             type="text"
                             id="compteurs.eau.releve"
                             name="compteurs.eau.releve"
-                            value={formData.compteurs.eau.releve}
+                            value={formData.compteurs?.eau?.releve || ""}
                             onChange={handleInputChange}
                             className="w-full text-base"
-                            placeholder="Ex: 123"
+                            placeholder="Relevé du compteur"
                           />
                         </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="compteurs.eau.localisation" className="text-base font-medium">
-                          Localisation
-                        </Label>
-                        <Input
-                          type="text"
-                          id="compteurs.eau.localisation"
-                          name="compteurs.eau.localisation"
-                          value={formData.compteurs.eau.localisation}
-                          onChange={handleInputChange}
-                          className="w-full text-base"
-                          placeholder="Ex: Dans la cave, local technique"
-                        />
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="compteurs.eau.localisation" className="text-base font-medium">
+                            Localisation
+                          </Label>
+                          <Input
+                            type="text"
+                            id="compteurs.eau.localisation"
+                            name="compteurs.eau.localisation"
+                            value={formData.compteurs?.eau?.localisation || ""}
+                            onChange={handleInputChange}
+                            className="w-full text-base"
+                            placeholder="Localisation du compteur"
+                          />
+                        </div>
                       </div>
                       
                       <div className="space-y-2">
@@ -2537,19 +2528,19 @@ export function EtatDesLieuxForm({
                         <Textarea
                           id="compteurs.eau.observations"
                           name="compteurs.eau.observations"
-                          value={formData.compteurs.eau.observations}
+                          value={formData.compteurs?.eau?.observations || ""}
                           onChange={handleInputChange}
                           className="w-full text-base"
-                          placeholder="Notes sur l'état du compteur, accessibilité, etc."
+                          placeholder="Observations sur le compteur d'eau"
                         />
                       </div>
                       
-                      <div className="space-y-2 mt-4">
+                      <div className="space-y-2">
                         <Label className="text-base font-medium">
                           Photos du compteur
                         </Label>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                          {formData.compteurs.eau.photos.map((photo, index) => (
+                          {formData.compteurs?.eau?.photos?.map((photo, index) => (
                             <div key={`eau-photo-${index}`} className="relative">
                               <Image
                                 src={
@@ -2608,7 +2599,7 @@ export function EtatDesLieuxForm({
                   <div className="flex items-center mb-4">
                     <Checkbox 
                       id="compteurs.gaz.presence" 
-                      checked={formData.compteurs.gaz.presence}
+                      checked={formData.compteurs?.gaz?.presence || false}
                       onCheckedChange={(checked) => 
                         updateFormField("compteurs.gaz.presence", checked === true)
                       }
@@ -2619,7 +2610,7 @@ export function EtatDesLieuxForm({
                     </Label>
                   </div>
                   
-                  {formData.compteurs.gaz.presence && (
+                  {formData.compteurs?.gaz?.presence && (
                     <div className="space-y-4 pl-6">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -2751,7 +2742,7 @@ export function EtatDesLieuxForm({
               
               <div className="space-y-8">
                 {/* Liste des pièces */}
-                {formData.pieces.map((piece, pieceIndex) => (
+                {Array.isArray(formData.pieces) && formData.pieces.map((piece, pieceIndex) => (
                   <div key={piece.id} className="border rounded-lg p-4 bg-muted/30">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
