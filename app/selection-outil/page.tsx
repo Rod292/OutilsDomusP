@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '../hooks/useAuth';
-import { ClipboardList, FileSpreadsheet, Star, BookOpen, Mail, Cat } from 'lucide-react';
+import { ClipboardList, FileSpreadsheet, Star, BookOpen, Mail } from 'lucide-react';
 import { Header } from '../components/header';
 
 // Composant client qui utilise useSearchParams
@@ -234,38 +234,6 @@ function SelectionOutilClient() {
                   <li className="flex items-center">
                     <span className="bg-red-100 text-[#DC0032] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
                     Suivi des envois et statistiques
-                  </li>
-                </ul>
-              </CardContent>
-              <CardFooter className="pt-0 pb-5 px-6">
-                <Button className="w-full bg-[#DC0032] hover:bg-[#DC0032]/90 text-white text-base font-medium py-5 rounded-lg shadow-sm group-hover:shadow-md transition-all">
-                  Accéder à l'outil
-                </Button>
-              </CardFooter>
-            </Card>
-            
-            {/* Nouvel outil: Arthur le chat */}
-            <Card className="border border-gray-200 rounded-xl overflow-hidden hover:border-[#DC0032] transition-all duration-300 hover:shadow-lg hover:translate-y-[-4px] cursor-pointer group" onClick={() => navigateTo('/arthur-le-chat')}>
-              <CardHeader className="bg-gradient-to-r from-red-50 to-pink-50 p-6 border-b border-gray-100">
-                <div className="flex items-center gap-5">
-                  <div className="bg-[#DC0032] text-white p-3.5 rounded-full w-16 h-16 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
-                    <Cat size={28} />
-                  </div>
-                  <div>
-                    <CardTitle className="text-xl font-bold text-[#2D2D2D]">Arthur le chat</CardTitle>
-                    <CardDescription className="text-sm text-gray-600 mt-1">Assistant immobilier intelligent</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="py-5 px-6">
-                <ul className="space-y-3 text-base text-gray-700">
-                  <li className="flex items-center">
-                    <span className="bg-red-100 text-[#DC0032] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
-                    Réponses à vos questions immobilières
-                  </li>
-                  <li className="flex items-center">
-                    <span className="bg-red-100 text-[#DC0032] rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
-                    Conseils personnalisés et instantanés
                   </li>
                 </ul>
               </CardContent>
