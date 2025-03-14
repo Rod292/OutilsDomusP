@@ -756,7 +756,6 @@ export function EtatDesLieuxForm({
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
-      input.setAttribute('capture', 'environment'); // Ajouter l'attribut capture pour utiliser l'appareil photo
       input.multiple = true; // Permettre la sélection multiple
       
       // Définir le gestionnaire de changement
@@ -2458,11 +2457,11 @@ export function EtatDesLieuxForm({
                             <label className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-gray-700 cursor-pointer">
                               <Camera className="h-8 w-8 mb-1" />
                               <span className="text-xs">Ajouter</span>
+                              <span className="text-[10px] text-gray-400 text-center">Sélection multiple possible</span>
                               <input
                                 type="file"
                                 className="hidden"
                                 accept="image/*"
-                                capture="environment"
                                 multiple
                                 onChange={(e) => {
                                   if (e.target.files && e.target.files.length > 0) {
@@ -2597,11 +2596,11 @@ export function EtatDesLieuxForm({
                             <label className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-gray-700 cursor-pointer">
                               <Camera className="h-8 w-8 mb-1" />
                               <span className="text-xs">Ajouter</span>
+                              <span className="text-[10px] text-gray-400 text-center">Sélection multiple possible</span>
                               <input
                                 type="file"
                                 className="hidden"
                                 accept="image/*"
-                                capture="environment"
                                 multiple
                                 onChange={(e) => {
                                   if (e.target.files && e.target.files.length > 0) {
@@ -2740,7 +2739,6 @@ export function EtatDesLieuxForm({
                                 type="file"
                                 className="hidden"
                                 accept="image/*"
-                                capture="environment"
                                 multiple
                                 onChange={(e) => {
                                   if (e.target.files && e.target.files.length > 0) {
@@ -4946,13 +4944,13 @@ export function EtatDesLieuxForm({
                               <div className="flex flex-col items-center space-y-1">
                                 <Camera className="h-6 w-6 text-gray-400" />
                                 <span className="text-xs text-gray-500">Ajouter des photos</span>
+                                <span className="text-[10px] text-gray-400 text-center px-2">Vous pouvez sélectionner plusieurs photos à la fois</span>
                               </div>
                               <Input
                                 id={`piece-${pieceIndex}-photos-upload`}
                                 type="file"
                                 multiple
                                 accept="image/*"
-                                capture="environment"
                                 className="hidden"
                                 onChange={(e) => {
                                   if (e.target.files && e.target.files.length > 0) {
