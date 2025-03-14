@@ -756,6 +756,7 @@ export function EtatDesLieuxForm({
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
+      input.setAttribute('capture', 'environment'); // Ajouter l'attribut capture pour utiliser l'appareil photo
       input.multiple = true; // Permettre la sélection multiple
       
       // Définir le gestionnaire de changement
@@ -2461,6 +2462,7 @@ export function EtatDesLieuxForm({
                                 type="file"
                                 className="hidden"
                                 accept="image/*"
+                                capture="environment"
                                 multiple
                                 onChange={(e) => {
                                   if (e.target.files && e.target.files.length > 0) {
@@ -2599,6 +2601,7 @@ export function EtatDesLieuxForm({
                                 type="file"
                                 className="hidden"
                                 accept="image/*"
+                                capture="environment"
                                 multiple
                                 onChange={(e) => {
                                   if (e.target.files && e.target.files.length > 0) {
@@ -2737,6 +2740,7 @@ export function EtatDesLieuxForm({
                                 type="file"
                                 className="hidden"
                                 accept="image/*"
+                                capture="environment"
                                 multiple
                                 onChange={(e) => {
                                   if (e.target.files && e.target.files.length > 0) {
@@ -4948,6 +4952,7 @@ export function EtatDesLieuxForm({
                                 type="file"
                                 multiple
                                 accept="image/*"
+                                capture="environment"
                                 className="hidden"
                                 onChange={(e) => {
                                   if (e.target.files && e.target.files.length > 0) {
