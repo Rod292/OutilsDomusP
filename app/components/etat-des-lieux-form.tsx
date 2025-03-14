@@ -2198,15 +2198,20 @@ export function EtatDesLieuxForm({
                       <Label htmlFor="elements.cles.nombre" className="text-base font-medium">
                         Nombre de clés
                       </Label>
-                      <Input
-                        type="number"
-                        id="elements.cles.nombre"
-                        name="elements.cles.nombre"
+                      <Select
                         value={formData.elements?.cles?.nombre || "0"}
-                        onChange={handleInputChange}
-                        className="w-full text-base"
-                        min="0"
-                      />
+                        onValueChange={(value) => updateNestedFormField("elements.cles.nombre", value)}
+                      >
+                        <SelectTrigger className="w-full text-base">
+                          <SelectValue placeholder="Sélectionnez le nombre" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">0</SelectItem>
+                          {Array.from({ length: 20 }, (_, i) => (
+                            <SelectItem key={`cles-${i+1}`} value={(i+1).toString()}>{i+1}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     
                     <div className="space-y-2">
@@ -2234,15 +2239,20 @@ export function EtatDesLieuxForm({
                       <Label htmlFor="elements.badges.nombre" className="text-base font-medium">
                         Nombre de badges
                       </Label>
-                      <Input
-                        type="number"
-                        id="elements.badges.nombre"
-                        name="elements.badges.nombre"
+                      <Select
                         value={formData.elements?.badges?.nombre || "0"}
-                        onChange={handleInputChange}
-                        className="w-full text-base"
-                        min="0"
-                      />
+                        onValueChange={(value) => updateNestedFormField("elements.badges.nombre", value)}
+                      >
+                        <SelectTrigger className="w-full text-base">
+                          <SelectValue placeholder="Sélectionnez le nombre" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">0</SelectItem>
+                          {Array.from({ length: 20 }, (_, i) => (
+                            <SelectItem key={`badges-${i+1}`} value={(i+1).toString()}>{i+1}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     
                     <div className="space-y-2">
@@ -2270,15 +2280,20 @@ export function EtatDesLieuxForm({
                       <Label htmlFor="elements.telecommandes.nombre" className="text-base font-medium">
                         Nombre de télécommandes
                       </Label>
-                      <Input
-                        type="number"
-                        id="elements.telecommandes.nombre"
-                        name="elements.telecommandes.nombre"
+                      <Select
                         value={formData.elements?.telecommandes?.nombre || "0"}
-                        onChange={handleInputChange}
-                        className="w-full text-base"
-                        min="0"
-                      />
+                        onValueChange={(value) => updateNestedFormField("elements.telecommandes.nombre", value)}
+                      >
+                        <SelectTrigger className="w-full text-base">
+                          <SelectValue placeholder="Sélectionnez le nombre" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">0</SelectItem>
+                          {Array.from({ length: 20 }, (_, i) => (
+                            <SelectItem key={`telecommandes-${i+1}`} value={(i+1).toString()}>{i+1}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     
                     <div className="space-y-2">
