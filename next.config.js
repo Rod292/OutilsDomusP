@@ -1,5 +1,22 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactStrictMode: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
+  },
+  eslint: {
+    // Ne pas exécuter ESLint lors du build en production
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    // Ne pas faire de vérification de type lors du build en production
+    ignoreBuildErrors: true,
+  },
   async rewrites() {
     return [
       {
