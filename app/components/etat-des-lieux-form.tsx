@@ -1509,9 +1509,9 @@ export function EtatDesLieuxForm({
                       <div className="flex items-center space-x-2">
                         <Checkbox 
                           id="typeBien-bureau" 
-                          checked={formData.typeBien.includes("bureau")} 
+                          checked={Array.isArray(formData.typeBien) && formData.typeBien.includes("bureau")} 
                           onCheckedChange={(checked) => {
-                            const newTypeBien = [...formData.typeBien];
+                            const newTypeBien = Array.isArray(formData.typeBien) ? [...formData.typeBien] : [];
                             if (checked) {
                               if (!newTypeBien.includes("bureau")) newTypeBien.push("bureau");
                             } else {
@@ -1528,9 +1528,9 @@ export function EtatDesLieuxForm({
                       <div className="flex items-center space-x-2">
                         <Checkbox 
                           id="typeBien-commerce" 
-                          checked={formData.typeBien.includes("local-commercial")} 
+                          checked={Array.isArray(formData.typeBien) && formData.typeBien.includes("local-commercial")} 
                           onCheckedChange={(checked) => {
-                            const newTypeBien = [...formData.typeBien];
+                            const newTypeBien = Array.isArray(formData.typeBien) ? [...formData.typeBien] : [];
                             if (checked) {
                               if (!newTypeBien.includes("local-commercial")) newTypeBien.push("local-commercial");
                             } else {
@@ -1547,9 +1547,9 @@ export function EtatDesLieuxForm({
                       <div className="flex items-center space-x-2">
                         <Checkbox 
                           id="typeBien-entrepot" 
-                          checked={formData.typeBien.includes("entrepot")} 
+                          checked={Array.isArray(formData.typeBien) && formData.typeBien.includes("entrepot")} 
                           onCheckedChange={(checked) => {
-                            const newTypeBien = [...formData.typeBien];
+                            const newTypeBien = Array.isArray(formData.typeBien) ? [...formData.typeBien] : [];
                             if (checked) {
                               if (!newTypeBien.includes("entrepot")) newTypeBien.push("entrepot");
                             } else {
@@ -1566,9 +1566,9 @@ export function EtatDesLieuxForm({
                       <div className="flex items-center space-x-2">
                         <Checkbox 
                           id="typeBien-local-activite" 
-                          checked={formData.typeBien.includes("local-activite")} 
+                          checked={Array.isArray(formData.typeBien) && formData.typeBien.includes("local-activite")} 
                           onCheckedChange={(checked) => {
-                            const newTypeBien = [...formData.typeBien];
+                            const newTypeBien = Array.isArray(formData.typeBien) ? [...formData.typeBien] : [];
                             if (checked) {
                               if (!newTypeBien.includes("local-activite")) newTypeBien.push("local-activite");
                             } else {
@@ -1580,6 +1580,25 @@ export function EtatDesLieuxForm({
                           className="data-[state=checked]:bg-[#DC0032] data-[state=checked]:border-[#DC0032]"
                         />
                         <Label htmlFor="typeBien-local-activite">Local d'activité</Label>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="typeBien-local-commercial" 
+                          checked={Array.isArray(formData.typeBien) && formData.typeBien.includes("local-commercial")} 
+                          onCheckedChange={(checked) => {
+                            const newTypeBien = Array.isArray(formData.typeBien) ? [...formData.typeBien] : [];
+                            if (checked) {
+                              if (!newTypeBien.includes("local-commercial")) newTypeBien.push("local-commercial");
+                            } else {
+                              const index = newTypeBien.indexOf("local-commercial");
+                              if (index !== -1) newTypeBien.splice(index, 1);
+                            }
+                            updateFormField("typeBien", newTypeBien);
+                          }}
+                          className="data-[state=checked]:bg-[#DC0032] data-[state=checked]:border-[#DC0032]"
+                        />
+                        <Label htmlFor="typeBien-local-commercial">Commerce</Label>
                       </div>
                     </div>
                   </div>
