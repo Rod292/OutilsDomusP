@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { docusealFetch, getApiKey } from '@/app/utils/docuseal'
 
+// Forcer le mode dynamique pour cette route API
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     // Récupérer l'ID public de la requête

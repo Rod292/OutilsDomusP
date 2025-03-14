@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getApiKey } from '@/app/utils/docuseal'
 
+// Forcer le mode dynamique pour cette route API
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData()

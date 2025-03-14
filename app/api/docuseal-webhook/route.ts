@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
 
+// Forcer le mode dynamique pour cette route API
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   try {
     // Récupérer les données du webhook

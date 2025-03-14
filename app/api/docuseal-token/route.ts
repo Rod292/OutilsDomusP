@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { getApiKey, isTestMode } from '@/app/utils/docuseal'
 
+// Forcer le mode dynamique pour cette route API
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     // Récupérer le templateId de la requête s'il existe
