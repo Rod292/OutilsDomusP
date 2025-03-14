@@ -2,6 +2,43 @@ import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 import { formatDate, getTypeBienLabel, getEtatLabel, getEtatColor } from './format-helpers';
 
+// Fonction pour s'assurer que toutes les propriétés nécessaires existent
+function ensureDataIntegrity(data: any) {
+  // Vérifier et initialiser bailleur si absent
+  if (!data.bailleur) {
+    data.bailleur = {};
+  }
+
+  // Vérifier et initialiser locataire si absent
+  if (!data.locataire) {
+    data.locataire = {};
+  }
+
+  // Vérifier et initialiser pieces si absent
+  if (!data.pieces || !Array.isArray(data.pieces)) {
+    data.pieces = [];
+  }
+
+  // Vérifier et initialiser elements si absent
+  if (!data.elements) {
+    data.elements = {
+      autresElements: ""
+    };
+  }
+
+  // Vérifier et initialiser compteurs si absent
+  if (!data.compteurs) {
+    data.compteurs = [];
+  }
+
+  // Vérifier et initialiser contrat si absent
+  if (!data.contrat) {
+    data.contrat = {};
+  }
+
+  return data;
+}
+
 // Nous gardons un logo simple par défaut au cas où le chargement échouerait
 const FALLBACK_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
@@ -229,6 +266,7 @@ interface Compteur {
 export interface PDFOptions {
   filename?: string;
   openInNewTab?: boolean;
+  returnBlob?: boolean; // Nouvelle option pour retourner le blob au lieu d'ouvrir/télécharger
 }
 
 // Constantes pour les couleurs et le style
@@ -249,6 +287,9 @@ export async function generateEtatDesLieuxPDF(formData: any, options: PDFOptions
     console.log("====== DÉBUT DE LA GÉNÉRATION DU PDF ======");
     console.log("Préparation du PDF...");
     
+    // S'assurer que toutes les propriétés nécessaires sont présentes
+    const safeData = ensureDataIntegrity(formData);
+    
     // Vérifions d'abord que pdfMake est correctement initialisé
     if (!pdfMake) {
       console.error("ERREUR CRITIQUE: pdfMake n'est pas disponible!");
@@ -260,15 +301,13 @@ export async function generateEtatDesLieuxPDF(formData: any, options: PDFOptions
     
     // Chargement du logo depuis l'URL
     console.log("Chargement du logo depuis l'URL:", LOGO_URL);
-    const logoBase64 = await loadImageAsBase64(LOGO_URL);
-    console.log("Logo chargé avec succès.");
-    
-    // Variable globale temporaire pour que safeImage puisse y accéder
-    (global as any).logoBase64 = logoBase64;
+    const logoValid = await validateImage(LOGO_URL);
+    let logoBase64 = logoValid ? await loadImageAsBase64(LOGO_URL) : FALLBACK_LOGO;
+    console.log("État du logo:", logoValid ? "Logo valide chargé" : "Utilisation du logo de secours");
     
     // Prétraiter les données pour s'assurer que la structure est correcte
     console.log("Prétraitement des données du formulaire...");
-    const preprocessedData = preprocessFormData(formData);
+    const preprocessedData = preprocessFormData(safeData);
     
     // Traiter d'abord les images dans les données du formulaire pour éviter les problèmes lors de la génération
     console.log("Traitement des images...");
@@ -290,6 +329,17 @@ export async function generateEtatDesLieuxPDF(formData: any, options: PDFOptions
         // Créer le document PDF avec gestion d'erreur explicite
         const pdfDocGenerator = pdfMake.createPdf(docDefinition as any);
         console.log("Document PDF créé avec succès");
+        
+        // Option pour retourner le blob au lieu d'ouvrir/télécharger
+        if (options.returnBlob) {
+          console.log("Génération du blob PDF...");
+          return new Promise((resolve, reject) => {
+            pdfDocGenerator.getBlob((blob) => {
+              console.log("Blob PDF généré avec succès");
+              resolve(blob);
+            });
+          });
+        }
         
         // Gérer les options (téléchargement, ouverture dans un nouvel onglet)
         if (options.openInNewTab) {
@@ -560,10 +610,22 @@ function prepareDocDefinition(processedData: any, logoBase64: string = '') {
         margin: [40, 10, 40, 10],
         columns: [
           {
-            text: `© Arthur Loyd Bretagne - Document généré le ${formattedDate}`,
-            fontSize: 8,
-            color: COLORS.secondary,
-            alignment: 'left'
+            stack: [
+              {
+                text: `© Arthur Loyd Bretagne - Document généré le ${formattedDate}`,
+                fontSize: 8,
+                color: COLORS.secondary,
+                alignment: 'left'
+              },
+              {
+                text: '21 rue de Lyon, 29200 BREST - 02 98 46 28 14',
+                fontSize: 8,
+                color: COLORS.secondary,
+                alignment: 'left',
+                margin: [0, 2, 0, 0]
+              }
+            ],
+            width: '70%'  // Allocation de 70% de la largeur pour la colonne de gauche
           },
           {
             columns: [
@@ -662,6 +724,18 @@ function prepareDocDefinition(processedData: any, logoBase64: string = '') {
                     italics: true
                   },
                   {
+                    text: 'Superficie:',
+                    fontSize: 12,
+                    bold: true,
+                    margin: [0, 0, 0, 5]
+                  },
+                  {
+                    text: processedData.superficieBien ? `${processedData.superficieBien} m²` : 'Non spécifiée',
+                    fontSize: 12,
+                    margin: [0, 0, 0, 15],
+                    italics: true
+                  },
+                  {
                     text: 'Date:',
                     fontSize: 12,
                     bold: true,
@@ -718,7 +792,20 @@ function prepareDocDefinition(processedData: any, logoBase64: string = '') {
                     color: COLORS.primary
                   },
                   {
-                    text: `${processedData.bailleur?.prenom || ''} ${processedData.bailleur?.nom || ''}`,
+                    text: processedData.bailleur?.raisonSociale ? 
+                      `${processedData.bailleur.raisonSociale}` : '',
+                    fontSize: 10,
+                    margin: [50, 0, 0, 1],
+                    bold: true
+                  },
+                  {
+                    text: processedData.bailleur?.representant ? 
+                      `Représenté par : ${processedData.bailleur.representant}` : '',
+                    fontSize: 10,
+                    margin: [50, 0, 0, 1]
+                  },
+                  {
+                    text: `${processedData.bailleur?.civilite || ''} ${processedData.bailleur?.prenom || ''} ${processedData.bailleur?.nom || ''}`,
                     fontSize: 10,
                     margin: [50, 0, 0, 1]
                   },
@@ -741,7 +828,20 @@ function prepareDocDefinition(processedData: any, logoBase64: string = '') {
                     color: COLORS.primary
                   },
                   {
-                    text: `${processedData.locataire?.prenom || ''} ${processedData.locataire?.nom || ''}`,
+                    text: processedData.locataire?.raisonSociale ? 
+                      `${processedData.locataire.raisonSociale}` : '',
+                    fontSize: 10,
+                    margin: [0, 0, 0, 1],
+                    bold: true
+                  },
+                  {
+                    text: processedData.locataire?.representant ? 
+                      `Représenté par : ${processedData.locataire.representant}` : '',
+                    fontSize: 10,
+                    margin: [0, 0, 0, 1]
+                  },
+                  {
+                    text: `${processedData.locataire?.civilite || ''} ${processedData.locataire?.prenom || ''} ${processedData.locataire?.nom || ''}`,
                     fontSize: 10,
                     margin: [0, 0, 0, 1]
                   },
@@ -772,50 +872,44 @@ function prepareDocDefinition(processedData: any, logoBase64: string = '') {
           {
             ol: [
               { 
-                text: [
-                  'INFORMATIONS SUR LE CONTRAT',
-                  { text: ' .................................................. ', color: COLORS.border },
-                  { text: '3', alignment: 'right' }
+                columns: [
+                  { text: 'INFORMATIONS SUR LE CONTRAT', width: '80%' },
+                  { text: '3', alignment: 'right', width: '20%' }
                 ],
                 margin: [0, 5, 0, 5]
               },
               { 
-                text: [
-                  'ÉLÉMENTS REMIS AU LOCATAIRE',
-                  { text: ' .................................................. ', color: COLORS.border },
-                  { text: '4', alignment: 'right' }
+                columns: [
+                  { text: 'ÉLÉMENTS REMIS AU LOCATAIRE', width: '80%' },
+                  { text: '4', alignment: 'right', width: '20%' }
                 ],
                 margin: [0, 5, 0, 5]
               },
               { 
-                text: [
-                  'RELEVÉS DES COMPTEURS',
-                  { text: ' .................................................. ', color: COLORS.border },
-                  { text: '5', alignment: 'right' }
+                columns: [
+                  { text: 'RELEVÉS DES COMPTEURS', width: '80%' },
+                  { text: '5', alignment: 'right', width: '20%' }
                 ],
                 margin: [0, 5, 0, 5]
               },
               { 
-                text: [
-                  'PIÈCES ET ÉQUIPEMENTS',
-                  { text: ' .................................................. ', color: COLORS.border },
-                  { text: '6', alignment: 'right' }
+                columns: [
+                  { text: 'PIÈCES ET ÉQUIPEMENTS', width: '80%' },
+                  { text: '6', alignment: 'right', width: '20%' }
                 ],
                 margin: [0, 5, 0, 5]
               },
               { 
-                text: [
-                  'OBSERVATIONS GÉNÉRALES',
-                  { text: ' .................................................. ', color: COLORS.border },
-                  { text: '12', alignment: 'right' }
+                columns: [
+                  { text: 'OBSERVATIONS GÉNÉRALES', width: '80%' },
+                  { text: '12', alignment: 'right', width: '20%' }
                 ],
                 margin: [0, 5, 0, 5]
               },
               { 
-                text: [
-                  'SIGNATURES',
-                  { text: ' .................................................. ', color: COLORS.border },
-                  { text: '15', alignment: 'right' }
+                columns: [
+                  { text: 'SIGNATURES', width: '80%' },
+                  { text: '15', alignment: 'right', width: '20%' }
                 ],
                 margin: [0, 5, 0, 5]
               }
@@ -962,9 +1056,18 @@ function prepareDocDefinition(processedData: any, logoBase64: string = '') {
           },
           {
             text: [
-              'Le présent état des lieux a été établi contradictoirement entre les parties qui le reconnaissent exact.',
-              '\nFait à ', { text: processedData.villeBien || '___________________', italics: true }, 
-              ', le ', { text: formatDate(processedData.dateEtatDesLieux) || '___________________', italics: true }
+              'Le présent état des lieux a été établi contradictoirement entre les parties qui le reconnaissent exact. ',
+              'Signé électroniquement par l\'ensemble des Parties, chacune d\'elles en conservant un exemplaire original sur un support durable garantissant l\'intégrité de cet état des lieux.',
+              '\n\nFait à Brest, le ', { 
+                text: (() => {
+                  const today = new Date();
+                  const day = String(today.getDate()).padStart(2, '0');
+                  const month = String(today.getMonth() + 1).padStart(2, '0');
+                  const year = today.getFullYear();
+                  return `${day}/${month}/${year}`;
+                })(),
+                italics: true 
+              }
             ],
             margin: [0, 0, 0, 40]
           },
@@ -981,7 +1084,9 @@ function prepareDocDefinition(processedData: any, logoBase64: string = '') {
                   },
                   {
                     text: [
-                      `${processedData.bailleur?.prenom || ''} ${processedData.bailleur?.nom || ''}`,
+                      processedData.bailleur?.raisonSociale ? `${processedData.bailleur.raisonSociale}\n` : '',
+                      processedData.bailleur?.representant ? `Représenté par : ${processedData.bailleur.representant}\n` : '',
+                      `${processedData.bailleur?.civilite || ''} ${processedData.bailleur?.prenom || ''} ${processedData.bailleur?.nom || ''}`,
                       '\n',
                       `${processedData.bailleur?.adresse || ''}`,
                       '\n',
@@ -1038,7 +1143,13 @@ function prepareDocDefinition(processedData: any, logoBase64: string = '') {
                   },
                   {
                     text: [
-                      `${processedData.locataire?.prenom || ''} ${processedData.locataire?.nom || ''}`,
+                      processedData.locataire?.raisonSociale ? `${processedData.locataire.raisonSociale}\n` : '',
+                      processedData.locataire?.representant ? `Représenté par : ${processedData.locataire.representant}\n` : '',
+                      `${processedData.locataire?.civilite || ''} ${processedData.locataire?.prenom || ''} ${processedData.locataire?.nom || ''}`,
+                      '\n',
+                      `${processedData.locataire?.adresse || ''}`,
+                      '\n',
+                      `${processedData.locataire?.codePostal || ''} ${processedData.locataire?.ville || ''}`,
                       '\n',
                       `Tél: ${processedData.locataire?.telephone || ''}`,
                       '\n',
@@ -1264,8 +1375,7 @@ function generateRoomTables(pieces: any[] = []) {
       { key: 'fenetres', label: 'Fenêtres' },
       { key: 'portes', label: 'Portes' },
       { key: 'chauffage', label: 'Chauffage' },
-      { key: 'prises', label: 'Prises électriques' },
-      { key: 'interrupteurs', label: 'Interrupteurs' }
+      // Retirer les anciennes prises et interrupteurs
     ];
     
     // Ajouter chaque élément au tableau
@@ -1306,32 +1416,258 @@ function generateRoomTables(pieces: any[] = []) {
         cellWithColor,
         { text: commentaireValue, style: 'tableRow' }
       ]);
+      
+      // Ajouter indicateur si le chauffage n'est pas testable
+      if (key === 'chauffage' && piece[key]?.testable === false) {
+        const notTestableCell: any = {
+          text: 'NON TESTABLE',
+          style: 'tableRow',
+          color: 'red'
+        };
+        
+        tableBody.push([
+          { text: '', style: 'tableCellLabel' },
+          { text: '', style: 'tableRow' },
+          notTestableCell,
+          { text: '', style: 'tableRow' }
+        ]);
+      }
     });
     
-    // Ajouter les équipements supplémentaires s'ils existent
-    if (piece.equipements && Array.isArray(piece.equipements) && piece.equipements.length > 0) {
-      console.log(`Ajout de ${piece.equipements.length} équipements supplémentaires au tableau`);
+    // Ajouter la section électricité si présente
+    if (piece.electricite) {
+      // En-tête pour la section électricité
+      const electriciteHeader: any = {
+        text: 'ÉLECTRICITÉ',
+        style: 'tableCellLabel',
+        fillColor: '#f2f2f2',
+        colSpan: 4,
+        alignment: 'center'
+      };
       
-      piece.equipements.forEach((equipement: any) => {
-        if (equipement && equipement.nom) {
-          const etatValue = equipement.etat || 'Non renseigné';
-          const observationsValue = equipement.observations || '-';
-          
-          // Utilisation de any pour contourner les limitations de typage
-          const cellWithColor: any = { 
-            text: etatValue, 
+      tableBody.push([
+        electriciteHeader,
+        { text: '', style: 'tableRow' }, 
+        { text: '', style: 'tableRow' }, 
+        { text: '', style: 'tableRow' }
+      ]);
+      
+      // Prises murales
+      if (piece.electricite.prisesMurales) {
+        const etatValue = getEtatLabel(piece.electricite.prisesMurales.etat || '');
+        const stateColor = getEtatColor(piece.electricite.prisesMurales.etat || '');
+        
+        const stateCell: any = {
+          text: etatValue,
+          style: 'tableRow',
+          color: stateColor
+        };
+        
+        tableBody.push([
+          { text: 'Prises murales', style: 'tableCellLabel' },
+          { text: `${piece.electricite.prisesMurales.nombre || '0'} unité(s)`, style: 'tableRow' },
+          stateCell,
+          { text: piece.electricite.prisesMurales.observations || '', style: 'tableRow' }
+        ]);
+      }
+      
+      // Prises RJ45
+      if (piece.electricite.prisesRJ45) {
+        const etatValue = getEtatLabel(piece.electricite.prisesRJ45.etat || '');
+        const stateColor = getEtatColor(piece.electricite.prisesRJ45.etat || '');
+        
+        const stateCell: any = {
+          text: etatValue,
+          style: 'tableRow',
+          color: stateColor
+        };
+        
+        tableBody.push([
+          { text: 'Prises RJ45', style: 'tableCellLabel' },
+          { text: `${piece.electricite.prisesRJ45.nombre || '0'} unité(s)`, style: 'tableRow' },
+          stateCell,
+          { text: piece.electricite.prisesRJ45.observations || '', style: 'tableRow' }
+        ]);
+      }
+      
+      // Interrupteurs
+      if (piece.electricite.interrupteurs) {
+        const etatValue = getEtatLabel(piece.electricite.interrupteurs.etat || '');
+        const stateColor = getEtatColor(piece.electricite.interrupteurs.etat || '');
+        
+        const stateCell: any = {
+          text: etatValue,
+          style: 'tableRow',
+          color: stateColor
+        };
+        
+        tableBody.push([
+          { text: 'Interrupteurs', style: 'tableCellLabel' },
+          { text: `${piece.electricite.interrupteurs.nombre || '0'} unité(s)`, style: 'tableRow' },
+          stateCell,
+          { text: piece.electricite.interrupteurs.observations || '', style: 'tableRow' }
+        ]);
+      }
+      
+      // Observations générales électricité
+      if (piece.electricite.observations) {
+        tableBody.push([
+          { text: 'Observations', style: 'tableCellLabel' },
+          { 
+            text: piece.electricite.observations || '', 
             style: 'tableRow', 
-            color: getEtatColor(equipement.etat || 'non_renseigne')
-          };
-          
-          tableBody.push([
-            { text: equipement.nom, style: 'tableCellLabel' },
-            { text: 'Non renseigné', style: 'tableRow' },
-            cellWithColor,
-            { text: observationsValue, style: 'tableRow' }
-          ]);
-        }
-      });
+            colSpan: 3 
+          } as any,
+          { text: '', style: 'tableRow' },
+          { text: '', style: 'tableRow' }
+        ]);
+      }
+    }
+    
+    // Ajouter la section luminaires si présente
+    if (piece.luminaires) {
+      // En-tête pour la section luminaires
+      const luminairesHeader: any = {
+        text: 'LUMINAIRES',
+        style: 'tableCellLabel',
+        fillColor: '#f2f2f2',
+        colSpan: 4,
+        alignment: 'center'
+      };
+      
+      tableBody.push([
+        luminairesHeader,
+        { text: '', style: 'tableRow' }, 
+        { text: '', style: 'tableRow' }, 
+        { text: '', style: 'tableRow' }
+      ]);
+      
+      // Spots
+      if (piece.luminaires.spots) {
+        const etatValue = getEtatLabel(piece.luminaires.spots.etat || '');
+        const stateColor = getEtatColor(piece.luminaires.spots.etat || '');
+        
+        const stateCell: any = {
+          text: etatValue,
+          style: 'tableRow',
+          color: stateColor
+        };
+        
+        tableBody.push([
+          { text: 'Spots', style: 'tableCellLabel' },
+          { text: `${piece.luminaires.spots.nombre || '0'} unité(s)`, style: 'tableRow' },
+          stateCell,
+          { text: piece.luminaires.spots.observations || '', style: 'tableRow' }
+        ]);
+      }
+      
+      // Suspensions
+      if (piece.luminaires.suspensions) {
+        const etatValue = getEtatLabel(piece.luminaires.suspensions.etat || '');
+        const stateColor = getEtatColor(piece.luminaires.suspensions.etat || '');
+        
+        const stateCell: any = {
+          text: etatValue,
+          style: 'tableRow',
+          color: stateColor
+        };
+        
+        tableBody.push([
+          { text: 'Suspensions', style: 'tableCellLabel' },
+          { text: `${piece.luminaires.suspensions.nombre || '0'} unité(s)`, style: 'tableRow' },
+          stateCell,
+          { text: piece.luminaires.suspensions.observations || '', style: 'tableRow' }
+        ]);
+      }
+      
+      // Dalles lumineuses
+      if (piece.luminaires.dallesLumineuses) {
+        const etatValue = getEtatLabel(piece.luminaires.dallesLumineuses.etat || '');
+        const stateColor = getEtatColor(piece.luminaires.dallesLumineuses.etat || '');
+        
+        const stateCell: any = {
+          text: etatValue,
+          style: 'tableRow',
+          color: stateColor
+        };
+        
+        tableBody.push([
+          { text: 'Dalles lumineuses', style: 'tableCellLabel' },
+          { text: `${piece.luminaires.dallesLumineuses.nombre || '0'} unité(s)`, style: 'tableRow' },
+          stateCell,
+          { text: piece.luminaires.dallesLumineuses.observations || '', style: 'tableRow' }
+        ]);
+      }
+      
+      // Néons
+      if (piece.luminaires.neons) {
+        const etatValue = getEtatLabel(piece.luminaires.neons.etat || '');
+        const stateColor = getEtatColor(piece.luminaires.neons.etat || '');
+        
+        const stateCell: any = {
+          text: etatValue,
+          style: 'tableRow',
+          color: stateColor
+        };
+        
+        tableBody.push([
+          { text: 'Néons', style: 'tableCellLabel' },
+          { text: `${piece.luminaires.neons.nombre || '0'} unité(s)`, style: 'tableRow' },
+          stateCell,
+          { text: piece.luminaires.neons.observations || '', style: 'tableRow' }
+        ]);
+      }
+      
+      // Observations
+      if (piece.luminaires.observations) {
+        tableBody.push([
+          { text: 'Observations', style: 'tableCellLabel' },
+          { 
+            text: piece.luminaires.observations || '', 
+            style: 'tableRow', 
+            colSpan: 3 
+          } as any,
+          { text: '', style: 'tableRow' },
+          { text: '', style: 'tableRow' }
+        ]);
+      }
+    }
+    
+    // Ajouter les prises et interrupteurs pour rétrocompatibilité
+    if (piece.prises && !piece.electricite) {
+      const etatValue = getEtatLabel(piece.prises.etat || '');
+      const stateColor = getEtatColor(piece.prises.etat || '');
+      
+      const stateCell: any = {
+        text: etatValue,
+        style: 'tableRow',
+        color: stateColor
+      };
+      
+      tableBody.push([
+        { text: 'Prises électriques', style: 'tableCellLabel' },
+        { text: `${piece.prises.nombre || '0'} unité(s)`, style: 'tableRow' },
+        stateCell,
+        { text: piece.prises.observations || '', style: 'tableRow' }
+      ]);
+    }
+    
+    if (piece.interrupteurs && !piece.electricite) {
+      const etatValue = getEtatLabel(piece.interrupteurs.etat || '');
+      const stateColor = getEtatColor(piece.interrupteurs.etat || '');
+      
+      const stateCell: any = {
+        text: etatValue,
+        style: 'tableRow',
+        color: stateColor
+      };
+      
+      tableBody.push([
+        { text: 'Interrupteurs', style: 'tableCellLabel' },
+        { text: `${piece.interrupteurs.nombre || '0'} unité(s)`, style: 'tableRow' },
+        stateCell,
+        { text: piece.interrupteurs.observations || '', style: 'tableRow' }
+      ]);
     }
     
     tables.push({
@@ -1809,6 +2145,46 @@ function safeObjectValues(obj: any): any[] {
 function createContratSection(contrat: any) {
   if (!contrat) return { text: "Aucune information sur le contrat disponible", style: 'text' };
   
+  // Créer un tableau avec uniquement les champs renseignés
+  const tableBody = [];
+  
+  // Date de signature
+  if (contrat.dateSignature) {
+    tableBody.push([
+      { text: 'Date de signature', style: 'tableCellLabel' },
+      { text: formatDate(contrat.dateSignature) || 'Non spécifié', style: 'tableRow' }
+    ]);
+  }
+  
+  // Date d'entrée
+  if (contrat.dateEntree) {
+    tableBody.push([
+      { text: 'Date d\'entrée', style: 'tableCellLabel' },
+      { text: formatDate(contrat.dateEntree) || 'Non spécifié', style: 'tableRow' }
+    ]);
+  }
+  
+  // Durée du contrat
+  if (contrat.dureeContrat) {
+    tableBody.push([
+      { text: 'Durée du contrat', style: 'tableCellLabel' },
+      { text: contrat.dureeContrat || 'Non spécifié', style: 'tableRow' }
+    ]);
+  }
+  
+  // Type d'activité
+  if (contrat.typeActivite) {
+    tableBody.push([
+      { text: 'Type d\'activité', style: 'tableCellLabel' },
+      { text: contrat.typeActivite || 'Non spécifié', style: 'tableRow' }
+    ]);
+  }
+  
+  // Si aucun champ n'est renseigné
+  if (tableBody.length === 0) {
+    return { text: "Aucune information sur le contrat renseignée", style: 'text', italics: true };
+  }
+  
   return {
     stack: [
       {
@@ -1816,40 +2192,7 @@ function createContratSection(contrat: any) {
         table: {
           widths: ['40%', '60%'],
           headerRows: 0,
-          body: [
-            [
-              { text: 'Date de signature', style: 'tableCellLabel' },
-              { text: formatDate(contrat.dateSignature) || 'Non spécifié', style: 'tableRow' }
-            ],
-            [
-              { text: 'Date d\'entrée', style: 'tableCellLabel' },
-              { text: formatDate(contrat.dateEntree) || 'Non spécifié', style: 'tableRow' }
-            ],
-            [
-              { text: 'Date de sortie', style: 'tableCellLabel' },
-              { text: formatDate(contrat.dateSortie) || 'Non spécifié', style: 'tableRow' }
-            ],
-            [
-              { text: 'Durée du contrat', style: 'tableCellLabel' },
-              { text: contrat.dureeContrat || 'Non spécifié', style: 'tableRow' }
-            ],
-            [
-              { text: 'Montant du loyer', style: 'tableCellLabel' },
-              { text: contrat.montantLoyer || 'Non spécifié', style: 'tableRow' }
-            ],
-            [
-              { text: 'Montant des charges', style: 'tableCellLabel' },
-              { text: contrat.montantCharges || 'Non spécifié', style: 'tableRow' }
-            ],
-            [
-              { text: 'Montant du dépôt de garantie', style: 'tableCellLabel' },
-              { text: contrat.montantDepotGarantie || 'Non spécifié', style: 'tableRow' }
-            ],
-            [
-              { text: 'Type d\'activité', style: 'tableCellLabel' },
-              { text: contrat.typeActivite || 'Non spécifié', style: 'tableRow' }
-            ]
-          ]
+          body: tableBody
         },
         layout: {
           fillColor: function(rowIndex: number) {
@@ -1868,7 +2211,7 @@ function createElementsRemisSection(elements: any) {
   const stack: any[] = [];
   
   // Section clés
-  if (elements.cles) {
+  if (elements.cles && (elements.cles.nombre || elements.cles.detail)) {
     stack.push({ text: 'Clés', style: 'subheader', margin: [0, 10, 0, 5] });
     stack.push({
       style: 'table',
@@ -1895,7 +2238,7 @@ function createElementsRemisSection(elements: any) {
   }
   
   // Section badges
-  if (elements.badges) {
+  if (elements.badges && (elements.badges.nombre || elements.badges.detail)) {
     stack.push({ text: 'Badges/cartes d\'accès', style: 'subheader', margin: [0, 15, 0, 5] });
     stack.push({
       style: 'table',
@@ -1922,7 +2265,7 @@ function createElementsRemisSection(elements: any) {
   }
   
   // Section télécommandes
-  if (elements.telecommandes) {
+  if (elements.telecommandes && (elements.telecommandes.nombre || elements.telecommandes.detail)) {
     stack.push({ text: 'Télécommandes', style: 'subheader', margin: [0, 15, 0, 5] });
     stack.push({
       style: 'table',
@@ -1948,45 +2291,15 @@ function createElementsRemisSection(elements: any) {
     });
   }
   
-  // Section documents
-  if (elements.documents) {
-    stack.push({ text: 'Documents remis', style: 'subheader', margin: [0, 15, 0, 5] });
-    stack.push({
-      style: 'table',
-      table: {
-        widths: ['70%', '30%'],
-        headerRows: 0,
-        body: [
-          [
-            { text: 'Diagnostics techniques', style: 'tableCellLabel' },
-            { text: elements.documents.diagnostics ? 'Oui' : 'Non', style: 'tableRow' }
-          ],
-          [
-            { text: 'Plans des locaux', style: 'tableCellLabel' },
-            { text: elements.documents.planLocaux ? 'Oui' : 'Non', style: 'tableRow' }
-          ],
-          [
-            { text: 'Règlement d\'immeuble', style: 'tableCellLabel' },
-            { text: elements.documents.reglementImmeuble ? 'Oui' : 'Non', style: 'tableRow' }
-          ],
-          [
-            { text: 'Notice de maintenance', style: 'tableCellLabel' },
-            { text: elements.documents.noticeMaintenance ? 'Oui' : 'Non', style: 'tableRow' }
-          ]
-        ]
-      },
-      layout: {
-        fillColor: function(rowIndex: number) {
-          return (rowIndex % 2 === 0) ? '#F9F9F9' : null;
-        }
-      }
-    });
-  }
-  
   // Autres éléments
-  if (elements.autresElements) {
+  if (elements.autresElements && elements.autresElements.trim() !== '') {
     stack.push({ text: 'Autres éléments', style: 'subheader', margin: [0, 15, 0, 5] });
     stack.push({ text: elements.autresElements, style: 'text', margin: [0, 5, 0, 0] });
+  }
+  
+  // Si aucune section n'a été ajoutée, afficher un message
+  if (stack.length === 0) {
+    stack.push({ text: "Aucun élément remis renseigné", style: 'text', italics: true });
   }
   
   return { stack };

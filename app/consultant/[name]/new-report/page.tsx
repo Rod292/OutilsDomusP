@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, useRef } from "react"
+import { useRouter, useParams } from "next/navigation"
 import { Header } from "@/app/components/header"
 import { ProgressBar } from "@/app/components/progress-bar"
 import { NavigationTabs } from "@/app/components/navigation-tabs"
@@ -9,13 +9,18 @@ import { EtatDesLieuxForm } from "@/app/components/etat-des-lieux-form"
 import { RapportPreview } from "@/app/components/rapport-preview"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Trash2, Edit, Download, Copy } from "lucide-react"
+import { Trash2, Edit, Download, Copy, Send } from "lucide-react"
 import { db, auth } from "@/app/lib/firebase"
 import { collection, query, where, getDocs, getDocsFromServer, addDoc, updateDoc, deleteDoc, doc, Firestore, orderBy, limit } from "firebase/firestore"
 import { FirebaseError } from "firebase/app"
 import { generateEtatDesLieuxPDF } from "@/app/utils/generateEtatDesLieuxPDF"
 import { sanitizeReportDataForFirestore } from "@/app/utils/formatDataForStorage"
 import { toast } from "@/components/ui/use-toast"
+import { getDocuSealURL, uploadDocument } from "@/app/utils/docuseal"
+import { format } from "date-fns"
+import { fr } from "date-fns/locale"
+import { SignatureConfigModal } from "@/app/components/signature-config-modal"
+import generatePDFFromData from "@/app/utils/generatePDF"
 
 interface RecentReport {
   id: string
@@ -31,16 +36,20 @@ interface RapportPreviewProps {
   formData: any
 }
 
-export default function NewReportPage({ params }: { params: { name: string } }) {
+export default function NewReportPage() {
+  const router = useRouter()
+  const { name } = useParams()
+  const consultantName = decodeURIComponent(name as string)
+  
   const [activeTab, setActiveTab] = useState<"form" | "preview" | "recent">("form")
   const [progress, setProgress] = useState(0)
   const [rapport, setRapport] = useState<string | null>(null)
-  const [formData, setFormData] = useState(null)
+  const [formData, setFormData] = useState<any>({})
   const [editingReportId, setEditingReportId] = useState<string | null>(null)
   const [recentReports, setRecentReports] = useState<RecentReport[]>([])
-  const router = useRouter()
-
-  const consultantName = params.name.replace("-", " ")
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false)
+  const [activeTemplateId, setActiveTemplateId] = useState("")
+  const [activeReportId, setActiveReportId] = useState("")
 
   useEffect(() => {
     // Vérifier que auth n'est pas null
@@ -269,10 +278,9 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
         console.log("Actualisation de la liste des rapports récents...");
         fetchRecentReports();
         
-        // Naviguer vers l'onglet des rapports récents après la sauvegarde
-        // que ce soit pour une création ou une modification
-        console.log("Navigation vers l'onglet des rapports récents");
-        setActiveTab("recent");
+        // Ne pas naviguer automatiquement vers l'onglet des rapports récents après la sauvegarde
+        // mais rester sur l'onglet preview comme demandé par l'utilisateur
+        console.log("Reste sur l'onglet preview");
         
         // Réinitialiser le mode d'édition
         if (editingReportId) {
@@ -516,6 +524,39 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
     }
   }
 
+  // Ajouter cette fonction pour gérer l'ouverture de DocuSeal
+  const handleOpenDocuSeal = (report: RecentReport) => {
+    console.log("Ouverture de la modal de signature pour le rapport:", report.id)
+    setActiveReportId(report.id)
+    setIsSignatureModalOpen(true)
+  }
+
+  // Fonction pour télécharger le rapport en PDF et l'envoyer à DocuSeal
+  const handleUploadReportPDF = async (report: RecentReport) => {
+    try {
+      console.log("Génération du PDF pour DocuSeal...")
+      const pdfBlob = await generatePDFFromData(report.data)
+      
+      // Créer un fichier à partir du blob
+      const file = new File([pdfBlob], `${report.data.title || 'Etat des lieux'}.pdf`, { type: 'application/pdf' })
+      
+      // Télécharger le document vers DocuSeal
+      console.log("Téléchargement du PDF vers DocuSeal...")
+      const response = await uploadDocument(activeTemplateId, file)
+      console.log("Document téléchargé avec succès:", response)
+      
+      return response
+    } catch (error) {
+      console.error("Erreur lors du téléchargement du document:", error)
+      toast({
+        title: "Erreur",
+        description: "Impossible de télécharger le document vers DocuSeal",
+        variant: "destructive"
+      })
+      throw error
+    }
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -592,6 +633,15 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
                           <Button
                             variant="outline"
                             size="icon"
+                            onClick={() => handleOpenDocuSeal(report)}
+                            className="h-8 w-8"
+                            title="Configurer signatures"
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
                             onClick={() => handleDownloadPDF(report)}
                             className="h-8 w-8"
                           >
@@ -622,6 +672,20 @@ export default function NewReportPage({ params }: { params: { name: string } }) 
           </div>
         )}
       </div>
+      
+      {/* Modal de configuration des signatures */}
+      <SignatureConfigModal
+        isOpen={isSignatureModalOpen}
+        onClose={() => setIsSignatureModalOpen(false)}
+        templateId={activeTemplateId}
+        onComplete={(data: any) => {
+          console.log("Signature complétée:", data)
+          toast({
+            title: "Signature configurée",
+            description: "La demande de signature a été envoyée avec succès",
+          })
+        }}
+      />
     </div>
   )
 }
@@ -655,7 +719,7 @@ function countTotalFields(data: any): number {
   
   // Contrat
   if (data.contrat) {
-    count += 7 // dateSignature, dateEntree, dateSortie, dureeContrat, montantLoyer, montantCharges, montantDepotGarantie
+    count += 6 // dateSignature, dateEntree, dureeContrat, montantLoyer, montantCharges, montantDepotGarantie
   }
   
   // Éléments remis
@@ -762,7 +826,6 @@ function countFilledFields(data: any): number {
   if (data.contrat) {
     if (data.contrat.dateSignature && data.contrat.dateSignature.trim() !== "") count++
     if (data.contrat.dateEntree && data.contrat.dateEntree.trim() !== "") count++
-    if (data.contrat.dateSortie && data.contrat.dateSortie.trim() !== "") count++
     if (data.contrat.dureeContrat && data.contrat.dureeContrat.trim() !== "") count++
     if (data.contrat.montantLoyer && data.contrat.montantLoyer.trim() !== "") count++
     if (data.contrat.montantCharges && data.contrat.montantCharges.trim() !== "") count++

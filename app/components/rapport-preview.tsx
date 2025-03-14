@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { generateEtatDesLieuxPDF } from "@/app/utils/generateEtatDesLieuxPDF"
-import { Download, Printer, FileText, ExternalLink, Check, AlertCircle, Edit } from "lucide-react"
+import { Download, Printer, FileText, ExternalLink, Check, AlertCircle, Edit, Send, Settings } from "lucide-react"
 import { formatDate, getTypeBienLabel } from "@/app/utils/format-helpers"
+import { SignatureConfigModal } from "./signature-config-modal"
+import { toast } from "@/components/ui/use-toast"
 
 interface RapportPreviewProps {
   formData: any
@@ -15,6 +17,10 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
   const [loading, setLoading] = useState(true)
   const [generationSuccess, setGenerationSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [signatureModalOpen, setSignatureModalOpen] = useState(false)
+  const [editModeModalOpen, setEditModeModalOpen] = useState(false)
+  const [templateId, setTemplateId] = useState<string | undefined>(undefined)
+  const [numericTemplateId, setNumericTemplateId] = useState<string | undefined>(undefined)
 
   // Ajout de logs pour déboguer
   useEffect(() => {
@@ -124,6 +130,197 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
     }
   }
 
+  // Fonction pour ouvrir le modal de signature
+  const handleOpenSignatureModal = async () => {
+    try {
+      setLoading(true);
+      
+      // Vérifier si un templateId existe déjà
+      if (templateId) {
+        setSignatureModalOpen(true);
+        return;
+      }
+      
+      // Générer le PDF avec un retour de blob explicite
+      const filename = `etat-des-lieux-${formData.typeEtatDesLieux === 'entree' ? 'entree' : 'sortie'}-${new Date().toISOString().split('T')[0]}.pdf`;
+      console.log("Génération du PDF avec nom:", filename);
+      
+      // Utiliser l'option returnBlob pour obtenir explicitement le blob
+      const pdfBlob = await generateEtatDesLieuxPDF(formData, {
+        filename,
+        returnBlob: true
+      }) as Blob;
+      
+      console.log("PDF généré avec succès:", {
+        blobSize: pdfBlob.size,
+        blobType: pdfBlob.type,
+        filename
+      });
+      
+      // Vérifier que le blob est valide
+      if (!pdfBlob || pdfBlob.size < 1000) {
+        throw new Error("Le PDF généré est invalide ou vide");
+      }
+      
+      // Créer un fichier à partir du Blob
+      const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+      
+      // Préparer les données pour l'upload
+      const formDataUpload = new FormData();
+      formDataUpload.append('file', file);
+      formDataUpload.append('templateId', 'new'); // Indiquer explicitement que nous voulons créer un nouveau modèle
+      
+      // Envoyer à notre API pour upload vers DocuSeal
+      const response = await fetch('/api/docuseal-upload', {
+        method: 'POST',
+        body: formDataUpload
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Erreur lors de l'upload du document");
+      }
+      
+      const data = await response.json();
+      
+      console.log("Réponse de l'API d'upload DocuSeal:", data);
+      
+      // Stocker l'ID public (pour l'affichage du formulaire)
+      setTemplateId(data.templateId);
+      
+      // Stocker l'ID numérique (pour l'édition)
+      setNumericTemplateId(data.internalId);
+      
+      console.log("IDs DocuSeal configurés:", {
+        templateId: data.templateId,
+        numericTemplateId: data.internalId
+      });
+      
+      setSignatureModalOpen(true);
+    } catch (error) {
+      console.error("Erreur lors de la préparation du template:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de préparer le document pour signature",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Nouvelle fonction pour ouvrir le modal en mode édition
+  const handleOpenEditModeModal = async () => {
+    try {
+      setLoading(true);
+      
+      // Si vous avez déjà l'ID numérique stocké, pas besoin de le récupérer à nouveau
+      if (templateId && numericTemplateId) {
+        setEditModeModalOpen(true);
+        return;
+      }
+      
+      // Si on a un ID public mais pas d'ID numérique, essayer de récupérer l'ID numérique
+      if (templateId && !numericTemplateId) {
+        try {
+          const response = await fetch(`/api/docuseal-get-numeric-id?publicId=${templateId}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.numericId) {
+              console.log("ID numérique récupéré:", data.numericId);
+              setNumericTemplateId(data.numericId);
+              setEditModeModalOpen(true);
+              return;
+            }
+          }
+          // Si on ne peut pas récupérer l'ID numérique, on va créer un nouveau template
+          console.log("Impossible de récupérer l'ID numérique, création d'un nouveau template...");
+        } catch (error) {
+          console.error("Erreur lors de la récupération de l'ID numérique:", error);
+          // Continuer pour créer un nouveau template
+        }
+      }
+      
+      // Si on n'a pas de template ou si on n'a pas pu récupérer l'ID numérique, 
+      // on génère un nouveau PDF et on crée un nouveau template
+      
+      // Générer le PDF avec un retour de blob explicite
+      const filename = `etat-des-lieux-${formData.typeEtatDesLieux === 'entree' ? 'entree' : 'sortie'}-${new Date().toISOString().split('T')[0]}.pdf`;
+      console.log("Génération du PDF avec nom:", filename);
+      
+      // Utiliser l'option returnBlob pour obtenir explicitement le blob
+      const pdfBlob = await generateEtatDesLieuxPDF(formData, {
+        filename,
+        returnBlob: true
+      }) as Blob;
+      
+      console.log("PDF généré avec succès:", {
+        blobSize: pdfBlob.size,
+        blobType: pdfBlob.type,
+        filename
+      });
+      
+      // Vérifier que le blob est valide
+      if (!pdfBlob || pdfBlob.size < 1000) {
+        throw new Error("Le PDF généré est invalide ou vide");
+      }
+      
+      // Créer un fichier à partir du Blob
+      const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+      
+      // Préparer les données pour l'upload
+      const formDataUpload = new FormData();
+      formDataUpload.append('file', file);
+      formDataUpload.append('templateId', 'new'); // Indiquer explicitement que nous voulons créer un nouveau modèle
+      
+      // Envoyer à notre API pour upload vers DocuSeal
+      const response = await fetch('/api/docuseal-upload', {
+        method: 'POST',
+        body: formDataUpload
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Erreur lors de l'upload du document");
+      }
+      
+      const data = await response.json();
+      
+      console.log("Réponse de l'API d'upload DocuSeal pour l'édition:", data);
+      
+      // Stocker l'ID public (pour l'affichage du formulaire)
+      setTemplateId(data.templateId);
+      
+      // Stocker l'ID numérique (pour l'édition)
+      setNumericTemplateId(data.internalId);
+      
+      console.log("IDs DocuSeal configurés pour l'édition:", {
+        templateId: data.templateId,
+        numericTemplateId: data.internalId
+      });
+      
+      setEditModeModalOpen(true);
+    } catch (error) {
+      console.error("Erreur lors de la préparation du mode édition:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'ouvrir l'éditeur de template",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fonction pour gérer la complétion d'une signature
+  const handleSignatureComplete = (data: any) => {
+    console.log("Signature complétée:", data);
+    toast({
+      title: "Signature terminée",
+      description: "Le document a été signé avec succès",
+    });
+  };
+
   // Simuler un chargement
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -162,6 +359,10 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
                   Modifier
                 </Button>
               )}
+              <Button variant="outline" size="sm" onClick={handleOpenEditModeModal} disabled={loading}>
+                <Send className="h-4 w-4 mr-2" />
+                Envoyer pour signatures
+              </Button>
               <Button variant="outline" size="sm" onClick={handleOpenPreview} disabled={loading}>
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Prévisualiser
@@ -406,6 +607,32 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
               </div>
             </div>
           </div>
+
+          {/* Modals */}
+          <SignatureConfigModal
+            isOpen={signatureModalOpen}
+            onClose={() => setSignatureModalOpen(false)}
+            templateId={templateId}
+            onComplete={handleSignatureComplete}
+            isEditMode={false}
+            numericTemplateId={numericTemplateId}
+          />
+          
+          <SignatureConfigModal
+            isOpen={editModeModalOpen}
+            onClose={() => setEditModeModalOpen(false)}
+            templateId={templateId}
+            onComplete={(data) => {
+              console.log("Édition terminée:", data);
+              toast({
+                title: "Édition terminée",
+                description: "Le modèle a été mis à jour avec succès",
+              });
+              setEditModeModalOpen(false);
+            }}
+            isEditMode={true}
+            numericTemplateId={numericTemplateId}
+          />
         </div>
       </div>
     </div>

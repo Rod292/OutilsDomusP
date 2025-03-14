@@ -15,6 +15,11 @@ service cloud.firestore {
       allow write: if request.auth != null && isAllowedDomain(request.auth.token.email);
     }
 
+    // Règles spécifiques pour la collection unsubscribed
+    match /unsubscribed/{document} {
+      allow read, write: if true; // Permet l'accès sans authentification pour la désinscription
+    }
+
     // Règle par défaut pour les autres collections
     match /{document=**} {
       allow read: if true;

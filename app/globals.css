@@ -251,3 +251,25 @@
   }
 }
 
+/* Ajouter des styles pour les iframes de DocuSeal */
+.docuseal-builder iframe,
+.docuseal-form iframe {
+  height: 100% !important;
+  width: 100% !important;
+  overflow: auto !important;
+  display: block !important;
+  border: none !important;
+}
+
+/* Assurer que les modals de dialogue sont correctement affichés */
+.dialog-content {
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.dialog-content-body {
+  flex: 1 !important;
+  overflow: hidden !important;
+}
+

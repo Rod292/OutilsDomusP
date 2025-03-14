@@ -67,8 +67,11 @@ interface FormData {
   
   // Parties au contrat
   bailleur: {
+    raisonSociale: string
+    civilite: string
     nom: string
     prenom: string
+    representant: string
     adresse: string
     codePostal: string
     ville: string
@@ -76,8 +79,11 @@ interface FormData {
     email: string
   }
   locataire: {
+    raisonSociale: string
+    civilite: string
     nom: string
     prenom: string
+    representant: string
     telephone: string
     email: string
     adresse: string
@@ -97,11 +103,7 @@ interface FormData {
   contrat: {
     dateSignature: string
     dateEntree: string
-    dateSortie: string
     dureeContrat: string
-    montantLoyer: string
-    montantCharges: string
-    montantDepotGarantie: string
     typeActivite: string
   }
   
@@ -118,12 +120,6 @@ interface FormData {
     telecommandes: {
       nombre: string
       detail: string
-    }
-    documents: {
-      diagnostics: boolean
-      planLocaux: boolean
-      reglementImmeuble: boolean
-      noticeMaintenance: boolean
     }
     autresElements: string
   }
@@ -195,7 +191,51 @@ interface FormData {
       nature: string
       etat: string
       observations: string
+      testable?: boolean
     }
+    electricite: {
+      testable?: boolean
+      prisesMurales: {
+        nombre: string
+        etat: string
+        observations: string
+      }
+      prisesRJ45: {
+        nombre: string
+        etat: string
+        observations: string
+      }
+      interrupteurs: {
+        nombre: string
+        etat: string
+        observations: string
+      }
+      observations: string
+    }
+    luminaires: {
+      spots: {
+        nombre: string
+        etat: string
+        observations: string
+      }
+      suspensions: {
+        nombre: string
+        etat: string
+        observations: string
+      }
+      dallesLumineuses: {
+        nombre: string
+        etat: string
+        observations: string
+      }
+      neons: {
+        nombre: string
+        etat: string
+        observations: string
+      }
+      observations: string
+    }
+    // Garder les anciens champs pour la rétrocompatibilité
     prises: {
       nombre: string
       etat: string
@@ -364,8 +404,11 @@ export function EtatDesLieuxForm({
       villeBien: initialData?.villeBien || "",
       
       bailleur: {
+        raisonSociale: initialData?.bailleur?.raisonSociale || "",
+        civilite: initialData?.bailleur?.civilite || "",
         nom: initialData?.bailleur?.nom || "",
         prenom: initialData?.bailleur?.prenom || "",
+        representant: initialData?.bailleur?.representant || "",
         adresse: initialData?.bailleur?.adresse || "",
         codePostal: initialData?.bailleur?.codePostal || "",
         ville: initialData?.bailleur?.ville || "",
@@ -374,8 +417,11 @@ export function EtatDesLieuxForm({
       },
       
       locataire: {
+        raisonSociale: initialData?.locataire?.raisonSociale || "",
+        civilite: initialData?.locataire?.civilite || "",
         nom: initialData?.locataire?.nom || "",
         prenom: initialData?.locataire?.prenom || "",
+        representant: initialData?.locataire?.representant || "",
         telephone: initialData?.locataire?.telephone || "",
         email: initialData?.locataire?.email || "",
         adresse: initialData?.locataire?.adresse || "",
@@ -393,11 +439,7 @@ export function EtatDesLieuxForm({
       contrat: {
         dateSignature: initialData?.contrat?.dateSignature || "",
         dateEntree: initialData?.contrat?.dateEntree || "",
-        dateSortie: initialData?.contrat?.dateSortie || "",
         dureeContrat: initialData?.contrat?.dureeContrat || "",
-        montantLoyer: initialData?.contrat?.montantLoyer || "",
-        montantCharges: initialData?.contrat?.montantCharges || "",
-        montantDepotGarantie: initialData?.contrat?.montantDepotGarantie || "",
         typeActivite: initialData?.contrat?.typeActivite || "",
       },
       
@@ -413,12 +455,6 @@ export function EtatDesLieuxForm({
         telecommandes: {
           nombre: initialData?.elements?.telecommandes?.nombre || "0",
           detail: initialData?.elements?.telecommandes?.detail || "",
-        },
-        documents: {
-          diagnostics: initialData?.elements?.documents?.diagnostics || false,
-          planLocaux: initialData?.elements?.documents?.planLocaux || false,
-          reglementImmeuble: initialData?.elements?.documents?.reglementImmeuble || false,
-          noticeMaintenance: initialData?.elements?.documents?.noticeMaintenance || false
         },
         autresElements: initialData?.elements?.autresElements || ""
       },
@@ -488,6 +524,48 @@ export function EtatDesLieuxForm({
           chauffage: {
             nature: "",
             etat: "",
+            observations: "",
+          },
+          electricite: {
+            testable: false,
+            prisesMurales: {
+              nombre: "",
+              etat: "",
+              observations: "",
+            },
+            prisesRJ45: {
+              nombre: "",
+              etat: "",
+              observations: "",
+            },
+            interrupteurs: {
+              nombre: "",
+              etat: "",
+              observations: "",
+            },
+            observations: "",
+          },
+          luminaires: {
+            spots: {
+              nombre: "",
+              etat: "",
+              observations: "",
+            },
+            suspensions: {
+              nombre: "",
+              etat: "",
+              observations: "",
+            },
+            dallesLumineuses: {
+              nombre: "",
+              etat: "",
+              observations: "",
+            },
+            neons: {
+              nombre: "",
+              etat: "",
+              observations: "",
+            },
             observations: "",
           },
           prises: {
@@ -1087,6 +1165,48 @@ export function EtatDesLieuxForm({
         etat: "",
         observations: "",
       },
+      electricite: {
+        testable: false,
+        prisesMurales: {
+          nombre: "",
+          etat: "",
+          observations: "",
+        },
+        prisesRJ45: {
+          nombre: "",
+          etat: "",
+          observations: "",
+        },
+        interrupteurs: {
+          nombre: "",
+          etat: "",
+          observations: "",
+        },
+        observations: "",
+      },
+      luminaires: {
+        spots: {
+          nombre: "",
+          etat: "",
+          observations: "",
+        },
+        suspensions: {
+          nombre: "",
+          etat: "",
+          observations: "",
+        },
+        dallesLumineuses: {
+          nombre: "",
+          etat: "",
+          observations: "",
+        },
+        neons: {
+          nombre: "",
+          etat: "",
+          observations: "",
+        },
+        observations: "",
+      },
       prises: {
         nombre: "",
         etat: "",
@@ -1604,7 +1724,55 @@ export function EtatDesLieuxForm({
                 <div className="bg-muted/50 p-4 rounded-lg">
                   <h3 className="text-lg font-medium mb-3">Bailleur / Propriétaire</h3>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2 mb-4">
+                    <Label htmlFor="bailleur.raisonSociale" className="text-base font-medium">
+                      Raison sociale
+                    </Label>
+                    <Input
+                      type="text"
+                      id="bailleur.raisonSociale"
+                      name="bailleur.raisonSociale"
+                      value={formData.bailleur?.raisonSociale || ""}
+                      onChange={handleInputChange}
+                      className="w-full text-base"
+                      placeholder="Raison sociale"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2 mb-4">
+                    <Label htmlFor="bailleur.representant" className="text-base font-medium">
+                      Représenté par
+                    </Label>
+                    <Input
+                      type="text"
+                      id="bailleur.representant"
+                      name="bailleur.representant"
+                      value={formData.bailleur?.representant || ""}
+                      onChange={handleInputChange}
+                      className="w-full text-base"
+                      placeholder="Représentant"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2 mb-4">
+                    <Label htmlFor="bailleur.civilite" className="text-base font-medium">
+                      Civilité
+                    </Label>
+                    <Select
+                      value={formData.bailleur?.civilite || ""}
+                      onValueChange={(value) => handleSelectChange("bailleur.civilite", value)}
+                    >
+                      <SelectTrigger id="bailleur.civilite" className="w-full text-base">
+                        <SelectValue placeholder="Sélectionner une civilité" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="M.">M.</SelectItem>
+                        <SelectItem value="Mme">Mme</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                     <div className="space-y-2">
                       <Label htmlFor="bailleur.nom" className="text-base font-medium">
                         Nom
@@ -1718,9 +1886,57 @@ export function EtatDesLieuxForm({
                 
                 {/* Locataire */}
                 <div className="bg-muted/50 p-4 rounded-lg">
-                  <h3 className="text-lg font-medium mb-3">Locataire</h3>
+                  <h3 className="text-lg font-medium mb-3">Locataire / Preneur</h3>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2 mb-4">
+                    <Label htmlFor="locataire.raisonSociale" className="text-base font-medium">
+                      Raison sociale
+                    </Label>
+                    <Input
+                      type="text"
+                      id="locataire.raisonSociale"
+                      name="locataire.raisonSociale"
+                      value={formData.locataire?.raisonSociale || ""}
+                      onChange={handleInputChange}
+                      className="w-full text-base"
+                      placeholder="Raison sociale"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2 mb-4">
+                    <Label htmlFor="locataire.representant" className="text-base font-medium">
+                      Représenté par
+                    </Label>
+                    <Input
+                      type="text"
+                      id="locataire.representant"
+                      name="locataire.representant"
+                      value={formData.locataire?.representant || ""}
+                      onChange={handleInputChange}
+                      className="w-full text-base"
+                      placeholder="Représentant"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2 mb-4">
+                    <Label htmlFor="locataire.civilite" className="text-base font-medium">
+                      Civilité
+                    </Label>
+                    <Select
+                      value={formData.locataire?.civilite || ""}
+                      onValueChange={(value) => handleSelectChange("locataire.civilite", value)}
+                    >
+                      <SelectTrigger id="locataire.civilite" className="w-full text-base">
+                        <SelectValue placeholder="Sélectionner une civilité" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="M.">M.</SelectItem>
+                        <SelectItem value="Mme">Mme</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                     <div className="space-y-2">
                       <Label htmlFor="locataire.nom" className="text-base font-medium">
                         Nom
@@ -1752,8 +1968,7 @@ export function EtatDesLieuxForm({
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                    <div className="space-y-2">
+                  <div className="space-y-2 mt-4">
                       <Label htmlFor="locataire.telephone" className="text-base font-medium">
                         Téléphone
                       </Label>
@@ -1781,11 +1996,9 @@ export function EtatDesLieuxForm({
                         className="w-full text-base"
                         placeholder="Adresse email"
                       />
-                    </div>
                   </div>
                   
-                  <div className="mt-4">
-                    <div className="space-y-2">
+                  <div className="space-y-2 mt-4">
                       <Label htmlFor="locataire.adresse" className="text-base font-medium">
                         Adresse
                       </Label>
@@ -1798,7 +2011,6 @@ export function EtatDesLieuxForm({
                         className="w-full text-base"
                         placeholder="Adresse du locataire"
                       />
-                    </div>
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
@@ -1926,17 +2138,23 @@ export function EtatDesLieuxForm({
                   
                   <div className="space-y-2">
                     <Label htmlFor="contrat.dureeContrat" className="text-base font-medium">
-                      Durée du bail (ans)
+                      Durée du bail
                     </Label>
-                    <Input
-                      type="text"
-                      id="contrat.dureeContrat"
-                      name="contrat.dureeContrat"
+                    <Select
                       value={formData.contrat?.dureeContrat || ""}
-                      onChange={handleInputChange}
-                      className="w-full text-base"
-                      placeholder="Ex: 3 ans, 6 ans, etc."
-                    />
+                      onValueChange={(value) => handleSelectChange("contrat.dureeContrat", value)}
+                    >
+                      <SelectTrigger className="w-full text-base">
+                        <SelectValue placeholder="Sélectionner la durée du bail" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Bail 3-6-9">Bail 3-6-9</SelectItem>
+                        <SelectItem value="Bail 6-9">Bail 6-9</SelectItem>
+                        <SelectItem value="Bail 6 ans ferme">Bail 6 ans ferme</SelectItem>
+                        <SelectItem value="Bail 9 ans ferme">Bail 9 ans ferme</SelectItem>
+                        <SelectItem value="Bail précaire">Bail précaire</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 
@@ -1955,66 +2173,7 @@ export function EtatDesLieuxForm({
                     />
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="contrat.dateSortie" className="text-base font-medium">
-                      Date de sortie prévue
-                    </Label>
-                    <Input
-                      type="date"
-                      id="contrat.dateSortie"
-                      name="contrat.dateSortie"
-                      value={formData.contrat?.dateSortie || ""}
-                      onChange={handleInputChange}
-                      className="w-full text-base"
-                    />
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="contrat.montantLoyer" className="text-base font-medium">
-                      Montant du loyer (€ HT HC)
-                    </Label>
-                    <Input
-                      type="text"
-                      id="contrat.montantLoyer"
-                      name="contrat.montantLoyer"
-                      value={formData.contrat?.montantLoyer || ""}
-                      onChange={handleInputChange}
-                      className="w-full text-base"
-                      placeholder="Montant en euros"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="contrat.montantCharges" className="text-base font-medium">
-                      Provision sur charges (€)
-                    </Label>
-                    <Input
-                      type="text"
-                      id="contrat.montantCharges"
-                      name="contrat.montantCharges"
-                      value={formData.contrat?.montantCharges || ""}
-                      onChange={handleInputChange}
-                      className="w-full text-base"
-                      placeholder="Montant en euros"
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="contrat.montantDepotGarantie" className="text-base font-medium">
-                    Montant du dépôt de garantie (€)
-                  </Label>
-                  <Input
-                    type="text"
-                    id="contrat.montantDepotGarantie"
-                    name="contrat.montantDepotGarantie"
-                    value={formData.contrat?.montantDepotGarantie || ""}
-                    onChange={handleInputChange}
-                    className="w-full text-base"
-                    placeholder="Montant en euros"
-                  />
+                  {/* Suppression du bloc de date de sortie prévue */}
                 </div>
                 
                 <div className="space-y-2">
@@ -2144,65 +2303,6 @@ export function EtatDesLieuxForm({
                         className="w-full text-base"
                         placeholder="Détails sur les télécommandes"
                       />
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Documents remis */}
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <h3 className="text-lg font-medium mb-3">Documents remis</h3>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="elements.documents.diagnostics" 
-                        checked={formData.elements?.documents?.diagnostics || false}
-                        onCheckedChange={(checked) => 
-                          updateNestedFormField("elements.documents.diagnostics", checked === true)
-                        }
-                      />
-                      <Label htmlFor="elements.documents.diagnostics" className="text-base">
-                        Diagnostics techniques (DPE, amiante, etc.)
-                      </Label>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="elements.documents.planLocaux" 
-                        checked={formData.elements?.documents?.planLocaux || false}
-                        onCheckedChange={(checked) => 
-                          updateNestedFormField("elements.documents.planLocaux", checked === true)
-                        }
-                      />
-                      <Label htmlFor="elements.documents.planLocaux" className="text-base">
-                        Plan des locaux
-                      </Label>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="elements.documents.reglementImmeuble" 
-                        checked={formData.elements?.documents?.reglementImmeuble || false}
-                        onCheckedChange={(checked) => 
-                          updateNestedFormField("elements.documents.reglementImmeuble", checked === true)
-                        }
-                      />
-                      <Label htmlFor="elements.documents.reglementImmeuble" className="text-base">
-                        Règlement intérieur de l'immeuble
-                      </Label>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="elements.documents.noticeMaintenance" 
-                        checked={formData.elements?.documents?.noticeMaintenance || false}
-                        onCheckedChange={(checked) => 
-                          updateNestedFormField("elements.documents.noticeMaintenance", checked === true)
-                        }
-                      />
-                      <Label htmlFor="elements.documents.noticeMaintenance" className="text-base">
-                        Notices d'utilisation et de maintenance
-                      </Label>
                     </div>
                   </div>
                 </div>
@@ -3277,6 +3377,21 @@ export function EtatDesLieuxForm({
                       <div className="bg-white p-4 rounded-lg shadow-sm">
                         <h3 className="text-base font-medium mb-3">Chauffage</h3>
                         <div className="space-y-4">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <Checkbox 
+                              id={`pieces.${pieceIndex}.chauffage.testable`} 
+                              checked={piece.chauffage.testable || false}
+                              onCheckedChange={(checked) => {
+                                const newPieces = [...formData.pieces];
+                                newPieces[pieceIndex].chauffage.testable = checked === true;
+                                updateFormField("pieces", newPieces);
+                              }}
+                            />
+                            <Label htmlFor={`pieces.${pieceIndex}.chauffage.testable`} className="text-sm font-medium">
+                              Installation testable
+                            </Label>
+                          </div>
+
                           <div className="space-y-2">
                             <Label htmlFor={`pieces.${pieceIndex}.chauffage.nature`} className="text-sm font-medium">
                               Type de chauffage
@@ -3368,22 +3483,63 @@ export function EtatDesLieuxForm({
                         </div>
                       </div>
                       
-                      {/* Prises électriques */}
+                      {/* Électricité */}
                       <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="text-base font-medium mb-3">Prises électriques</h3>
+                        <h3 className="text-base font-medium mb-3">Électricité</h3>
                         <div className="space-y-4">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <Checkbox 
+                              id={`pieces.${pieceIndex}.electricite.testable`} 
+                              checked={piece.electricite?.testable || false}
+                              onCheckedChange={(checked) => {
+                                const newPieces = [...formData.pieces];
+                                if (!newPieces[pieceIndex].electricite) {
+                                  newPieces[pieceIndex].electricite = {
+                                    testable: checked === true,
+                                    prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                    prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                    interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                    observations: ""
+                                  };
+                                } else {
+                                  newPieces[pieceIndex].electricite.testable = checked === true;
+                                }
+                                updateFormField("pieces", newPieces);
+                              }}
+                            />
+                            <Label htmlFor={`pieces.${pieceIndex}.electricite.testable`} className="text-sm font-medium">
+                              Installation testable
+                            </Label>
+                          </div>
+
+                          {/* Prises murales */}
+                          <div className="border-t pt-3">
+                            <h4 className="text-sm font-medium mb-2">Prises murales</h4>
+                            <div className="space-y-3">
                           <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.prises.nombre`} className="text-sm font-medium">
-                              Nombre de prises
+                                <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesMurales.nombre`} className="text-xs font-medium">
+                                  Nombre
                             </Label>
                             <Input
                               type="number"
-                              id={`pieces.${pieceIndex}.prises.nombre`}
-                              name={`pieces.${pieceIndex}.prises.nombre`}
-                              value={piece.prises.nombre}
+                                  id={`pieces.${pieceIndex}.electricite.prisesMurales.nombre`}
+                                  name={`pieces.${pieceIndex}.electricite.prisesMurales.nombre`}
+                                  value={piece.electricite?.prisesMurales?.nombre || "0"}
                               onChange={(e) => {
                                 const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].prises.nombre = e.target.value;
+                                    if (!newPieces[pieceIndex].electricite) {
+                                      newPieces[pieceIndex].electricite = {
+                                        testable: false,
+                                        prisesMurales: { nombre: e.target.value, etat: "", observations: "" },
+                                        prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                        interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                        observations: ""
+                                      };
+                                    } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
+                                      newPieces[pieceIndex].electricite.prisesMurales = { nombre: e.target.value, etat: "", observations: "" };
+                                    } else {
+                                      newPieces[pieceIndex].electricite.prisesMurales.nombre = e.target.value;
+                                    }
                                 updateFormField("pieces", newPieces);
                               }}
                               className="w-full text-sm"
@@ -3392,16 +3548,28 @@ export function EtatDesLieuxForm({
                           </div>
                           
                           <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.prises.etat`} className="text-sm font-medium">
+                                <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesMurales.etat`} className="text-xs font-medium">
                               État
                             </Label>
                             <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
                               <Button
                                 type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.prises.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesMurales?.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
                                 onClick={() => {
                                   const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].prises.etat = "Très bon état";
+                                      if (!newPieces[pieceIndex].electricite) {
+                                        newPieces[pieceIndex].electricite = {
+                                          testable: false,
+                                          prisesMurales: { nombre: "0", etat: "Très bon état", observations: "" },
+                                          prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                          interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
+                                        newPieces[pieceIndex].electricite.prisesMurales = { nombre: "0", etat: "Très bon état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].electricite.prisesMurales.etat = "Très bon état";
+                                      }
                                   updateFormField("pieces", newPieces);
                                 }}
                               >
@@ -3409,10 +3577,22 @@ export function EtatDesLieuxForm({
                               </Button>
                               <Button
                                 type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.prises.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesMurales?.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
                                 onClick={() => {
                                   const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].prises.etat = "Bon état";
+                                      if (!newPieces[pieceIndex].electricite) {
+                                        newPieces[pieceIndex].electricite = {
+                                          testable: false,
+                                          prisesMurales: { nombre: "0", etat: "Bon état", observations: "" },
+                                          prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                          interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
+                                        newPieces[pieceIndex].electricite.prisesMurales = { nombre: "0", etat: "Bon état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].electricite.prisesMurales.etat = "Bon état";
+                                      }
                                   updateFormField("pieces", newPieces);
                                 }}
                               >
@@ -3420,10 +3600,22 @@ export function EtatDesLieuxForm({
                               </Button>
                               <Button
                                 type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.prises.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesMurales?.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
                                 onClick={() => {
                                   const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].prises.etat = "État d'usage";
+                                      if (!newPieces[pieceIndex].electricite) {
+                                        newPieces[pieceIndex].electricite = {
+                                          testable: false,
+                                          prisesMurales: { nombre: "0", etat: "État d'usage", observations: "" },
+                                          prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                          interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
+                                        newPieces[pieceIndex].electricite.prisesMurales = { nombre: "0", etat: "État d'usage", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].electricite.prisesMurales.etat = "État d'usage";
+                                      }
                                   updateFormField("pieces", newPieces);
                                 }}
                               >
@@ -3431,10 +3623,22 @@ export function EtatDesLieuxForm({
                               </Button>
                               <Button
                                 type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.prises.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesMurales?.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
                                 onClick={() => {
                                   const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].prises.etat = "Mauvais état";
+                                      if (!newPieces[pieceIndex].electricite) {
+                                        newPieces[pieceIndex].electricite = {
+                                          testable: false,
+                                          prisesMurales: { nombre: "0", etat: "Mauvais état", observations: "" },
+                                          prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                          interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
+                                        newPieces[pieceIndex].electricite.prisesMurales = { nombre: "0", etat: "Mauvais état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].electricite.prisesMurales.etat = "Mauvais état";
+                                      }
                                   updateFormField("pieces", newPieces);
                                 }}
                               >
@@ -3444,170 +3648,95 @@ export function EtatDesLieuxForm({
                           </div>
                           
                           <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.prises.observations`} className="text-sm font-medium">
+                                <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesMurales.observations`} className="text-xs font-medium">
                               Observations
                             </Label>
                             <Textarea
-                              id={`pieces.${pieceIndex}.prises.observations`}
-                              name={`pieces.${pieceIndex}.prises.observations`}
-                              value={piece.prises.observations}
+                                  id={`pieces.${pieceIndex}.electricite.prisesMurales.observations`}
+                                  name={`pieces.${pieceIndex}.electricite.prisesMurales.observations`}
+                                  value={piece.electricite?.prisesMurales?.observations || ""}
                               onChange={(e) => {
                                 const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].prises.observations = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              placeholder="Observations sur l'état des prises électriques"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Interrupteurs */}
-                      <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="text-base font-medium mb-3">Interrupteurs</h3>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.interrupteurs.nombre`} className="text-sm font-medium">
-                              Nombre d'interrupteurs
-                            </Label>
-                            <Input
-                              type="number"
-                              id={`pieces.${pieceIndex}.interrupteurs.nombre`}
-                              name={`pieces.${pieceIndex}.interrupteurs.nombre`}
-                              value={piece.interrupteurs.nombre}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].interrupteurs.nombre = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              min="0"
-                            />
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.interrupteurs.etat`} className="text-sm font-medium">
-                              État
-                            </Label>
-                            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.interrupteurs.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].interrupteurs.etat = "Très bon état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Très bon
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.interrupteurs.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].interrupteurs.etat = "Bon état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Bon
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.interrupteurs.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].interrupteurs.etat = "État d'usage";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Usage
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.interrupteurs.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].interrupteurs.etat = "Mauvais état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Mauvais
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.interrupteurs.observations`} className="text-sm font-medium">
-                              Observations
-                            </Label>
-                            <Textarea
-                              id={`pieces.${pieceIndex}.interrupteurs.observations`}
-                              name={`pieces.${pieceIndex}.interrupteurs.observations`}
-                              value={piece.interrupteurs.observations}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].interrupteurs.observations = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              placeholder="Observations sur l'état des interrupteurs"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Équipements personnalisés */}
-                      <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="text-base font-medium mb-3">Éléments personnalisés</h3>
-                        
-                        {piece.equipements.map((equipement, equipementIndex) => (
-                          <div key={equipement.id || equipementIndex} className="mb-4 p-3 border border-gray-200 rounded-md">
-                            <div className="flex justify-between items-center mb-2">
-                              <h4 className="text-sm font-medium">Élément {equipementIndex + 1}</h4>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRemoveEquipment(pieceIndex, equipementIndex)}
-                                className="h-8 w-8 p-0"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                            
-                            <div className="space-y-4">
-                              <div className="space-y-2">
-                                <Label htmlFor={`pieces.${pieceIndex}.equipements.${equipementIndex}.nom`} className="text-sm font-medium">
-                                  Nom de l'équipement
-                                </Label>
-                                <Input
-                                  type="text"
-                                  id={`pieces.${pieceIndex}.equipements.${equipementIndex}.nom`}
-                                  name={`pieces.${pieceIndex}.equipements.${equipementIndex}.nom`}
-                                  value={equipement.nom}
-                                  onChange={(e) => {
-                                    const newPieces = [...formData.pieces];
-                                    newPieces[pieceIndex].equipements[equipementIndex].nom = e.target.value;
+                                    if (!newPieces[pieceIndex].electricite) {
+                                      newPieces[pieceIndex].electricite = {
+                                        testable: false,
+                                        prisesMurales: { nombre: "0", etat: "", observations: e.target.value },
+                                        prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                        interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                        observations: ""
+                                      };
+                                    } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
+                                      newPieces[pieceIndex].electricite.prisesMurales = { nombre: "0", etat: "", observations: e.target.value };
+                                    } else {
+                                      newPieces[pieceIndex].electricite.prisesMurales.observations = e.target.value;
+                                    }
                                     updateFormField("pieces", newPieces);
                                   }}
-                                  className="w-full text-sm"
-                                  placeholder="Ex: Climatisation, Placard, Étagère..."
+                                  className="w-full text-xs"
+                                  placeholder="Observations sur les prises murales"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Prises RJ45 */}
+                          <div className="border-t pt-3">
+                            <h4 className="text-sm font-medium mb-2">Prises RJ45</h4>
+                            <div className="space-y-3">
+                              <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesRJ45.nombre`} className="text-xs font-medium">
+                                  Nombre
+                                </Label>
+                                <Input
+                                  type="number"
+                                  id={`pieces.${pieceIndex}.electricite.prisesRJ45.nombre`}
+                                  name={`pieces.${pieceIndex}.electricite.prisesRJ45.nombre`}
+                                  value={piece.electricite?.prisesRJ45?.nombre || "0"}
+                                  onChange={(e) => {
+                                    const newPieces = [...formData.pieces];
+                                    if (!newPieces[pieceIndex].electricite) {
+                                      newPieces[pieceIndex].electricite = {
+                                        testable: false,
+                                        prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                        prisesRJ45: { nombre: e.target.value, etat: "", observations: "" },
+                                        interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                        observations: ""
+                                      };
+                                    } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
+                                      newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: e.target.value, etat: "", observations: "" };
+                                    } else {
+                                      newPieces[pieceIndex].electricite.prisesRJ45.nombre = e.target.value;
+                                    }
+                                updateFormField("pieces", newPieces);
+                              }}
+                              className="w-full text-sm"
+                                  min="0"
                                 />
                               </div>
                               
                               <div className="space-y-2">
-                                <Label htmlFor={`pieces.${pieceIndex}.equipements.${equipementIndex}.etat`} className="text-sm font-medium">
+                                <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesRJ45.etat`} className="text-xs font-medium">
                                   État
                                 </Label>
                                 <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
                                   <Button
                                     type="button"
-                                    className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${equipement.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesRJ45?.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
                                     onClick={() => {
                                       const newPieces = [...formData.pieces];
-                                      newPieces[pieceIndex].equipements[equipementIndex].etat = "Très bon état";
+                                      if (!newPieces[pieceIndex].electricite) {
+                                        newPieces[pieceIndex].electricite = {
+                                          testable: false,
+                                          prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                          prisesRJ45: { nombre: "0", etat: "Très bon état", observations: "" },
+                                          interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
+                                        newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: "0", etat: "Très bon état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].electricite.prisesRJ45.etat = "Très bon état";
+                                      }
                                       updateFormField("pieces", newPieces);
                                     }}
                                   >
@@ -3615,10 +3744,22 @@ export function EtatDesLieuxForm({
                                   </Button>
                                   <Button
                                     type="button"
-                                    className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${equipement.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesRJ45?.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
                                     onClick={() => {
                                       const newPieces = [...formData.pieces];
-                                      newPieces[pieceIndex].equipements[equipementIndex].etat = "Bon état";
+                                      if (!newPieces[pieceIndex].electricite) {
+                                        newPieces[pieceIndex].electricite = {
+                                          testable: false,
+                                          prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                          prisesRJ45: { nombre: "0", etat: "Bon état", observations: "" },
+                                          interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
+                                        newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: "0", etat: "Bon état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].electricite.prisesRJ45.etat = "Bon état";
+                                      }
                                       updateFormField("pieces", newPieces);
                                     }}
                                   >
@@ -3626,10 +3767,22 @@ export function EtatDesLieuxForm({
                                   </Button>
                                   <Button
                                     type="button"
-                                    className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${equipement.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesRJ45?.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
                                     onClick={() => {
                                       const newPieces = [...formData.pieces];
-                                      newPieces[pieceIndex].equipements[equipementIndex].etat = "État d'usage";
+                                      if (!newPieces[pieceIndex].electricite) {
+                                        newPieces[pieceIndex].electricite = {
+                                          testable: false,
+                                          prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                          prisesRJ45: { nombre: "0", etat: "État d'usage", observations: "" },
+                                          interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
+                                        newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: "0", etat: "État d'usage", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].electricite.prisesRJ45.etat = "État d'usage";
+                                      }
                                       updateFormField("pieces", newPieces);
                                     }}
                                   >
@@ -3637,10 +3790,22 @@ export function EtatDesLieuxForm({
                                   </Button>
                                   <Button
                                     type="button"
-                                    className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${equipement.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesRJ45?.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
                                     onClick={() => {
                                       const newPieces = [...formData.pieces];
-                                      newPieces[pieceIndex].equipements[equipementIndex].etat = "Mauvais état";
+                                      if (!newPieces[pieceIndex].electricite) {
+                                        newPieces[pieceIndex].electricite = {
+                                          testable: false,
+                                          prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                          prisesRJ45: { nombre: "0", etat: "Mauvais état", observations: "" },
+                                          interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
+                                        newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: "0", etat: "Mauvais état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].electricite.prisesRJ45.etat = "Mauvais état";
+                                      }
                                       updateFormField("pieces", newPieces);
                                     }}
                                   >
@@ -3650,115 +3815,947 @@ export function EtatDesLieuxForm({
                               </div>
                               
                               <div className="space-y-2">
-                                <Label htmlFor={`pieces.${pieceIndex}.equipements.${equipementIndex}.observations`} className="text-sm font-medium">
+                                <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesRJ45.observations`} className="text-xs font-medium">
                                   Observations
                                 </Label>
                                 <Textarea
-                                  id={`pieces.${pieceIndex}.equipements.${equipementIndex}.observations`}
-                                  name={`pieces.${pieceIndex}.equipements.${equipementIndex}.observations`}
-                                  value={equipement.observations}
+                                  id={`pieces.${pieceIndex}.electricite.prisesRJ45.observations`}
+                                  name={`pieces.${pieceIndex}.electricite.prisesRJ45.observations`}
+                                  value={piece.electricite?.prisesRJ45?.observations || ""}
                                   onChange={(e) => {
                                     const newPieces = [...formData.pieces];
-                                    newPieces[pieceIndex].equipements[equipementIndex].observations = e.target.value;
+                                    if (!newPieces[pieceIndex].electricite) {
+                                      newPieces[pieceIndex].electricite = {
+                                        testable: false,
+                                        prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                        prisesRJ45: { nombre: "0", etat: "", observations: e.target.value },
+                                        interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                        observations: ""
+                                      };
+                                    } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
+                                      newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: "0", etat: "", observations: e.target.value };
+                                    } else {
+                                      newPieces[pieceIndex].electricite.prisesRJ45.observations = e.target.value;
+                                    }
                                     updateFormField("pieces", newPieces);
                                   }}
-                                  className="w-full text-sm"
-                                  placeholder="Observations sur l'état de l'équipement"
+                                  className="w-full text-xs"
+                                  placeholder="Observations sur les prises RJ45"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Interrupteurs */}
+                          <div className="border-t pt-3">
+                            <h4 className="text-sm font-medium mb-2">Interrupteurs</h4>
+                            <div className="space-y-3">
+                          <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.electricite.interrupteurs.nombre`} className="text-xs font-medium">
+                                  Nombre
+                            </Label>
+                            <Input
+                              type="number"
+                                  id={`pieces.${pieceIndex}.electricite.interrupteurs.nombre`}
+                                  name={`pieces.${pieceIndex}.electricite.interrupteurs.nombre`}
+                                  value={piece.electricite?.interrupteurs?.nombre || "0"}
+                              onChange={(e) => {
+                                const newPieces = [...formData.pieces];
+                                    if (!newPieces[pieceIndex].electricite) {
+                                      newPieces[pieceIndex].electricite = {
+                                        testable: false,
+                                        prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                        prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                        interrupteurs: { nombre: e.target.value, etat: "", observations: "" },
+                                        observations: ""
+                                      };
+                                    } else if (!newPieces[pieceIndex].electricite.interrupteurs) {
+                                      newPieces[pieceIndex].electricite.interrupteurs = { nombre: e.target.value, etat: "", observations: "" };
+                                    } else {
+                                      newPieces[pieceIndex].electricite.interrupteurs.nombre = e.target.value;
+                                    }
+                                updateFormField("pieces", newPieces);
+                              }}
+                              className="w-full text-sm"
+                              min="0"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.electricite.interrupteurs.etat`} className="text-xs font-medium">
+                              État
+                            </Label>
+                            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                              <Button
+                                type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.interrupteurs?.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                onClick={() => {
+                                  const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].electricite) {
+                                        newPieces[pieceIndex].electricite = {
+                                          testable: false,
+                                          prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                          prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                          interrupteurs: { nombre: "0", etat: "Très bon état", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].electricite.interrupteurs) {
+                                        newPieces[pieceIndex].electricite.interrupteurs = { nombre: "0", etat: "Très bon état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].electricite.interrupteurs.etat = "Très bon état";
+                                      }
+                                  updateFormField("pieces", newPieces);
+                                }}
+                              >
+                                Très bon
+                              </Button>
+                              <Button
+                                type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.interrupteurs?.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                onClick={() => {
+                                  const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].electricite) {
+                                        newPieces[pieceIndex].electricite = {
+                                          testable: false,
+                                          prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                          prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                          interrupteurs: { nombre: "0", etat: "Bon état", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].electricite.interrupteurs) {
+                                        newPieces[pieceIndex].electricite.interrupteurs = { nombre: "0", etat: "Bon état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].electricite.interrupteurs.etat = "Bon état";
+                                      }
+                                  updateFormField("pieces", newPieces);
+                                }}
+                              >
+                                Bon
+                              </Button>
+                              <Button
+                                type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.interrupteurs?.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                onClick={() => {
+                                  const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].electricite) {
+                                        newPieces[pieceIndex].electricite = {
+                                          testable: false,
+                                          prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                          prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                          interrupteurs: { nombre: "0", etat: "État d'usage", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].electricite.interrupteurs) {
+                                        newPieces[pieceIndex].electricite.interrupteurs = { nombre: "0", etat: "État d'usage", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].electricite.interrupteurs.etat = "État d'usage";
+                                      }
+                                  updateFormField("pieces", newPieces);
+                                }}
+                              >
+                                Usage
+                              </Button>
+                              <Button
+                                type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.interrupteurs?.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                onClick={() => {
+                                  const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].electricite) {
+                                        newPieces[pieceIndex].electricite = {
+                                          testable: false,
+                                          prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                          prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                          interrupteurs: { nombre: "0", etat: "Mauvais état", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].electricite.interrupteurs) {
+                                        newPieces[pieceIndex].electricite.interrupteurs = { nombre: "0", etat: "Mauvais état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].electricite.interrupteurs.etat = "Mauvais état";
+                                      }
+                                  updateFormField("pieces", newPieces);
+                                }}
+                              >
+                                Mauvais
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.electricite.interrupteurs.observations`} className="text-xs font-medium">
+                              Observations
+                            </Label>
+                            <Textarea
+                                  id={`pieces.${pieceIndex}.electricite.interrupteurs.observations`}
+                                  name={`pieces.${pieceIndex}.electricite.interrupteurs.observations`}
+                                  value={piece.electricite?.interrupteurs?.observations || ""}
+                              onChange={(e) => {
+                                const newPieces = [...formData.pieces];
+                                    if (!newPieces[pieceIndex].electricite) {
+                                      newPieces[pieceIndex].electricite = {
+                                        testable: false,
+                                        prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                        prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                        interrupteurs: { nombre: "0", etat: "", observations: e.target.value },
+                                        observations: ""
+                                      };
+                                    } else if (!newPieces[pieceIndex].electricite.interrupteurs) {
+                                      newPieces[pieceIndex].electricite.interrupteurs = { nombre: "0", etat: "", observations: e.target.value };
+                                    } else {
+                                      newPieces[pieceIndex].electricite.interrupteurs.observations = e.target.value;
+                                    }
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                  className="w-full text-xs"
+                                  placeholder="Observations sur les interrupteurs"
                                 />
                               </div>
                             </div>
                           </div>
-                        ))}
-                        
+
+                          {/* Observations générales électricité */}
+                          <div className="border-t pt-3">
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.electricite.observations`} className="text-sm font-medium">
+                                Observations générales sur l'électricité
+                              </Label>
+                              <Textarea
+                                id={`pieces.${pieceIndex}.electricite.observations`}
+                                name={`pieces.${pieceIndex}.electricite.observations`}
+                                value={piece.electricite?.observations || ""}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
+                                  if (!newPieces[pieceIndex].electricite) {
+                                    newPieces[pieceIndex].electricite = {
+                                      testable: false,
+                                      prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                      prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                      interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                      observations: e.target.value
+                                    };
+                                  } else {
+                                    newPieces[pieceIndex].electricite.observations = e.target.value;
+                                  }
+                                updateFormField("pieces", newPieces);
+                              }}
+                              className="w-full text-sm"
+                                placeholder="Observations générales sur l'installation électrique"
+                            />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Luminaires */}
+                      <div className="bg-white p-4 rounded-lg shadow-sm">
+                        <h3 className="text-base font-medium mb-3">Luminaires</h3>
+                        <div className="space-y-4">
+                          {/* Spots */}
+                          <div className="border-b pb-3">
+                            <h4 className="text-sm font-medium mb-2">Spots</h4>
+                            <div className="space-y-3">
+                              <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.luminaires.spots.nombre`} className="text-xs font-medium">
+                                  Nombre
+                                </Label>
+                                <Input
+                                  type="number"
+                                  id={`pieces.${pieceIndex}.luminaires.spots.nombre`}
+                                  name={`pieces.${pieceIndex}.luminaires.spots.nombre`}
+                                  value={piece.luminaires?.spots?.nombre || "0"}
+                                  onChange={(e) => {
+                                    const newPieces = [...formData.pieces];
+                                    if (!newPieces[pieceIndex].luminaires) {
+                                      newPieces[pieceIndex].luminaires = {
+                                        spots: { nombre: e.target.value, etat: "", observations: "" },
+                                        suspensions: { nombre: "0", etat: "", observations: "" },
+                                        dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                        neons: { nombre: "0", etat: "", observations: "" },
+                                        observations: ""
+                                      };
+                                    } else if (!newPieces[pieceIndex].luminaires.spots) {
+                                      newPieces[pieceIndex].luminaires.spots = { nombre: e.target.value, etat: "", observations: "" };
+                                    } else {
+                                      newPieces[pieceIndex].luminaires.spots.nombre = e.target.value;
+                                    }
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                  className="w-full text-sm"
+                                  min="0"
+                                />
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.luminaires.spots.etat`} className="text-xs font-medium">
+                                  État
+                                </Label>
+                                <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                              <Button
+                                type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.spots?.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].luminaires) {
+                                        newPieces[pieceIndex].luminaires = {
+                                          spots: { nombre: "0", etat: "Très bon état", observations: "" },
+                                          suspensions: { nombre: "0", etat: "", observations: "" },
+                                          dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                          neons: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].luminaires.spots) {
+                                        newPieces[pieceIndex].luminaires.spots = { nombre: "0", etat: "Très bon état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].luminaires.spots.etat = "Très bon état";
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Très bon
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.spots?.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].luminaires) {
+                                        newPieces[pieceIndex].luminaires = {
+                                          spots: { nombre: "0", etat: "Bon état", observations: "" },
+                                          suspensions: { nombre: "0", etat: "", observations: "" },
+                                          dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                          neons: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].luminaires.spots) {
+                                        newPieces[pieceIndex].luminaires.spots = { nombre: "0", etat: "Bon état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].luminaires.spots.etat = "Bon état";
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Bon
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.spots?.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].luminaires) {
+                                        newPieces[pieceIndex].luminaires = {
+                                          spots: { nombre: "0", etat: "État d'usage", observations: "" },
+                                          suspensions: { nombre: "0", etat: "", observations: "" },
+                                          dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                          neons: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].luminaires.spots) {
+                                        newPieces[pieceIndex].luminaires.spots = { nombre: "0", etat: "État d'usage", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].luminaires.spots.etat = "État d'usage";
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Usage
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.spots?.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].luminaires) {
+                                        newPieces[pieceIndex].luminaires = {
+                                          spots: { nombre: "0", etat: "Mauvais état", observations: "" },
+                                          suspensions: { nombre: "0", etat: "", observations: "" },
+                                          dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                          neons: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].luminaires.spots) {
+                                        newPieces[pieceIndex].luminaires.spots = { nombre: "0", etat: "Mauvais état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].luminaires.spots.etat = "Mauvais état";
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Mauvais
+                              </Button>
+                                </div>
+                            </div>
+                            
+                              <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.luminaires.spots.observations`} className="text-xs font-medium">
+                                  Observations
+                                </Label>
+                                <Textarea
+                                  id={`pieces.${pieceIndex}.luminaires.spots.observations`}
+                                  name={`pieces.${pieceIndex}.luminaires.spots.observations`}
+                                  value={piece.luminaires?.spots?.observations || ""}
+                                  onChange={(e) => {
+                                    const newPieces = [...formData.pieces];
+                                    if (!newPieces[pieceIndex].luminaires) {
+                                      newPieces[pieceIndex].luminaires = {
+                                        spots: { nombre: "0", etat: "", observations: e.target.value },
+                                        suspensions: { nombre: "0", etat: "", observations: "" },
+                                        dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                        neons: { nombre: "0", etat: "", observations: "" },
+                                        observations: ""
+                                      };
+                                    } else if (!newPieces[pieceIndex].luminaires.spots) {
+                                      newPieces[pieceIndex].luminaires.spots = { nombre: "0", etat: "", observations: e.target.value };
+                                    } else {
+                                      newPieces[pieceIndex].luminaires.spots.observations = e.target.value;
+                                    }
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                  className="w-full text-xs"
+                                  placeholder="Observations sur les spots"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Suspensions */}
+                          <div className="border-b pb-3">
+                            <h4 className="text-sm font-medium mb-2">Suspensions</h4>
+                            <div className="space-y-3">
+                              <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.luminaires.suspensions.nombre`} className="text-xs font-medium">
+                                  Nombre
+                                </Label>
+                                <Input
+                                  type="number"
+                                  id={`pieces.${pieceIndex}.luminaires.suspensions.nombre`}
+                                  name={`pieces.${pieceIndex}.luminaires.suspensions.nombre`}
+                                  value={piece.luminaires?.suspensions?.nombre || "0"}
+                                  onChange={(e) => {
+                                    const newPieces = [...formData.pieces];
+                                    if (!newPieces[pieceIndex].luminaires) {
+                                      newPieces[pieceIndex].luminaires = {
+                                        spots: { nombre: "0", etat: "", observations: "" },
+                                        suspensions: { nombre: e.target.value, etat: "", observations: "" },
+                                        dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                        neons: { nombre: "0", etat: "", observations: "" },
+                                        observations: ""
+                                      };
+                                    } else if (!newPieces[pieceIndex].luminaires.suspensions) {
+                                      newPieces[pieceIndex].luminaires.suspensions = { nombre: e.target.value, etat: "", observations: "" };
+                                    } else {
+                                      newPieces[pieceIndex].luminaires.suspensions.nombre = e.target.value;
+                                    }
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                  className="w-full text-sm"
+                                  min="0"
+                                />
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.luminaires.suspensions.etat`} className="text-xs font-medium">
+                                  État
+                                </Label>
+                                <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                                  <Button
+                                    type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.suspensions?.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].luminaires) {
+                                        newPieces[pieceIndex].luminaires = {
+                                          spots: { nombre: "0", etat: "", observations: "" },
+                                          suspensions: { nombre: "0", etat: "Très bon état", observations: "" },
+                                          dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                          neons: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].luminaires.suspensions) {
+                                        newPieces[pieceIndex].luminaires.suspensions = { nombre: "0", etat: "Très bon état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].luminaires.suspensions.etat = "Très bon état";
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Très bon
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.suspensions?.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].luminaires) {
+                                        newPieces[pieceIndex].luminaires = {
+                                          spots: { nombre: "0", etat: "", observations: "" },
+                                          suspensions: { nombre: "0", etat: "Bon état", observations: "" },
+                                          dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                          neons: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].luminaires.suspensions) {
+                                        newPieces[pieceIndex].luminaires.suspensions = { nombre: "0", etat: "Bon état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].luminaires.suspensions.etat = "Bon état";
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Bon
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.suspensions?.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].luminaires) {
+                                        newPieces[pieceIndex].luminaires = {
+                                          spots: { nombre: "0", etat: "", observations: "" },
+                                          suspensions: { nombre: "0", etat: "État d'usage", observations: "" },
+                                          dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                          neons: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].luminaires.suspensions) {
+                                        newPieces[pieceIndex].luminaires.suspensions = { nombre: "0", etat: "État d'usage", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].luminaires.suspensions.etat = "État d'usage";
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Usage
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.suspensions?.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].luminaires) {
+                                        newPieces[pieceIndex].luminaires = {
+                                          spots: { nombre: "0", etat: "", observations: "" },
+                                          suspensions: { nombre: "0", etat: "Mauvais état", observations: "" },
+                                          dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                          neons: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].luminaires.suspensions) {
+                                        newPieces[pieceIndex].luminaires.suspensions = { nombre: "0", etat: "Mauvais état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].luminaires.suspensions.etat = "Mauvais état";
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Mauvais
+                                  </Button>
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.luminaires.suspensions.observations`} className="text-xs font-medium">
+                                  Observations
+                                </Label>
+                                <Textarea
+                                  id={`pieces.${pieceIndex}.luminaires.suspensions.observations`}
+                                  name={`pieces.${pieceIndex}.luminaires.suspensions.observations`}
+                                  value={piece.luminaires?.suspensions?.observations || ""}
+                                  onChange={(e) => {
+                                    const newPieces = [...formData.pieces];
+                                    if (!newPieces[pieceIndex].luminaires) {
+                                      newPieces[pieceIndex].luminaires = {
+                                        spots: { nombre: "0", etat: "", observations: "" },
+                                        suspensions: { nombre: "0", etat: "", observations: e.target.value },
+                                        dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                        neons: { nombre: "0", etat: "", observations: "" },
+                                        observations: ""
+                                      };
+                                    } else if (!newPieces[pieceIndex].luminaires.suspensions) {
+                                      newPieces[pieceIndex].luminaires.suspensions = { nombre: "0", etat: "", observations: e.target.value };
+                                    } else {
+                                      newPieces[pieceIndex].luminaires.suspensions.observations = e.target.value;
+                                    }
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                  className="w-full text-xs"
+                                  placeholder="Observations sur les suspensions"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Dalles lumineuses */}
+                          <div className="border-b pb-3">
+                            <h4 className="text-sm font-medium mb-2">Dalles lumineuses</h4>
+                            <div className="space-y-3">
+                              <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.luminaires.dallesLumineuses.nombre`} className="text-xs font-medium">
+                                  Nombre
+                                </Label>
+                                <Input
+                                  type="number"
+                                  id={`pieces.${pieceIndex}.luminaires.dallesLumineuses.nombre`}
+                                  name={`pieces.${pieceIndex}.luminaires.dallesLumineuses.nombre`}
+                                  value={piece.luminaires?.dallesLumineuses?.nombre || "0"}
+                                  onChange={(e) => {
+                                    const newPieces = [...formData.pieces];
+                                    if (!newPieces[pieceIndex].luminaires) {
+                                      newPieces[pieceIndex].luminaires = {
+                                        spots: { nombre: "0", etat: "", observations: "" },
+                                        suspensions: { nombre: "0", etat: "", observations: "" },
+                                        dallesLumineuses: { nombre: e.target.value, etat: "", observations: "" },
+                                        neons: { nombre: "0", etat: "", observations: "" },
+                                        observations: ""
+                                      };
+                                    } else if (!newPieces[pieceIndex].luminaires.dallesLumineuses) {
+                                      newPieces[pieceIndex].luminaires.dallesLumineuses = { nombre: e.target.value, etat: "", observations: "" };
+                                    } else {
+                                      newPieces[pieceIndex].luminaires.dallesLumineuses.nombre = e.target.value;
+                                    }
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                  className="w-full text-sm"
+                                  min="0"
+                                />
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.luminaires.dallesLumineuses.etat`} className="text-xs font-medium">
+                                  État
+                                </Label>
+                                <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
                         <Button
                           type="button"
-                          onClick={(e) => {
-                            // Empêcher la propagation de l'événement
-                            e.preventDefault();
-                            e.stopPropagation();
-                            
-                            // Appeler directement la fonction d'ajout sans désactiver le bouton
-                            // La fonction handleAddEquipment a maintenant son propre mécanisme de verrouillage
-                            handleAddEquipment(pieceIndex);
-                          }}
-                          className="w-full mt-2"
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Ajouter un élément
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.dallesLumineuses?.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].luminaires) {
+                                        newPieces[pieceIndex].luminaires = {
+                                          spots: { nombre: "0", etat: "", observations: "" },
+                                          suspensions: { nombre: "0", etat: "", observations: "" },
+                                          dallesLumineuses: { nombre: "0", etat: "Très bon état", observations: "" },
+                                          neons: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].luminaires.dallesLumineuses) {
+                                        newPieces[pieceIndex].luminaires.dallesLumineuses = { nombre: "0", etat: "Très bon état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].luminaires.dallesLumineuses.etat = "Très bon état";
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Très bon
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.dallesLumineuses?.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].luminaires) {
+                                        newPieces[pieceIndex].luminaires = {
+                                          spots: { nombre: "0", etat: "", observations: "" },
+                                          suspensions: { nombre: "0", etat: "", observations: "" },
+                                          dallesLumineuses: { nombre: "0", etat: "Bon état", observations: "" },
+                                          neons: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].luminaires.dallesLumineuses) {
+                                        newPieces[pieceIndex].luminaires.dallesLumineuses = { nombre: "0", etat: "Bon état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].luminaires.dallesLumineuses.etat = "Bon état";
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Bon
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.dallesLumineuses?.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].luminaires) {
+                                        newPieces[pieceIndex].luminaires = {
+                                          spots: { nombre: "0", etat: "", observations: "" },
+                                          suspensions: { nombre: "0", etat: "", observations: "" },
+                                          dallesLumineuses: { nombre: "0", etat: "État d'usage", observations: "" },
+                                          neons: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].luminaires.dallesLumineuses) {
+                                        newPieces[pieceIndex].luminaires.dallesLumineuses = { nombre: "0", etat: "État d'usage", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].luminaires.dallesLumineuses.etat = "État d'usage";
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Usage
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.dallesLumineuses?.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].luminaires) {
+                                        newPieces[pieceIndex].luminaires = {
+                                          spots: { nombre: "0", etat: "", observations: "" },
+                                          suspensions: { nombre: "0", etat: "", observations: "" },
+                                          dallesLumineuses: { nombre: "0", etat: "Mauvais état", observations: "" },
+                                          neons: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].luminaires.dallesLumineuses) {
+                                        newPieces[pieceIndex].luminaires.dallesLumineuses = { nombre: "0", etat: "Mauvais état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].luminaires.dallesLumineuses.etat = "Mauvais état";
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Mauvais
                         </Button>
+                                </div>
                       </div>
                       
-                      {/* Observations générales de la pièce */}
-                      <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="text-base font-medium mb-3">Observations générales</h3>
+                              <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.luminaires.dallesLumineuses.observations`} className="text-xs font-medium">
+                                  Observations
+                                </Label>
                         <Textarea
-                          id={`pieces.${pieceIndex}.observations`}
-                          name={`pieces.${pieceIndex}.observations`}
-                          value={piece.observations}
+                                  id={`pieces.${pieceIndex}.luminaires.dallesLumineuses.observations`}
+                                  name={`pieces.${pieceIndex}.luminaires.dallesLumineuses.observations`}
+                                  value={piece.luminaires?.dallesLumineuses?.observations || ""}
                           onChange={(e) => {
                             const newPieces = [...formData.pieces];
-                            newPieces[pieceIndex].observations = e.target.value;
+                                    if (!newPieces[pieceIndex].luminaires) {
+                                      newPieces[pieceIndex].luminaires = {
+                                        spots: { nombre: "0", etat: "", observations: "" },
+                                        suspensions: { nombre: "0", etat: "", observations: "" },
+                                        dallesLumineuses: { nombre: "0", etat: "", observations: e.target.value },
+                                        neons: { nombre: "0", etat: "", observations: "" },
+                                        observations: ""
+                                      };
+                                    } else if (!newPieces[pieceIndex].luminaires.dallesLumineuses) {
+                                      newPieces[pieceIndex].luminaires.dallesLumineuses = { nombre: "0", etat: "", observations: e.target.value };
+                                    } else {
+                                      newPieces[pieceIndex].luminaires.dallesLumineuses.observations = e.target.value;
+                                    }
                             updateFormField("pieces", newPieces);
                           }}
-                          className="w-full min-h-[100px] text-sm"
-                          placeholder="Observations générales sur la pièce"
+                                  className="w-full text-xs"
+                                  placeholder="Observations sur les dalles lumineuses"
                         />
+                              </div>
+                            </div>
                       </div>
                       
-                      {/* Photos de la pièce */}
+                          {/* Néons */}
+                          <div className="border-b pb-3">
+                            <h4 className="text-sm font-medium mb-2">Néons</h4>
+                            <div className="space-y-3">
                       <div className="space-y-2">
-                        <Label className="text-base font-medium">
-                          Photos de la pièce
+                                <Label htmlFor={`pieces.${pieceIndex}.luminaires.neons.nombre`} className="text-xs font-medium">
+                                  Nombre
                         </Label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                          {piece.photos.map((photo, photoIndex) => (
-                            <div key={`piece-${pieceIndex}-photo-${photoIndex}`} className="relative">
-                              <Image
-                                src={
-                                  typeof photo === 'string' 
-                                    ? photo 
-                                    : ((photo as any)?.type === 'base64_metadata' || (photo as any)?.type === 'file_metadata') 
-                                      ? ((photo as any)?.downloadUrl 
-                                        ? (photo as any).downloadUrl 
-                                        : (photo as any)?.source 
-                                          ? `${(photo as any).source}...`
-                                          : PLACEHOLDER_IMAGE)
-                                      : PLACEHOLDER_IMAGE
-                                }
-                                alt={`Photo ${photoIndex + 1}`}
-                                width={120}
-                                height={120}
-                                className="object-cover rounded-md w-full h-24"
-                                unoptimized={true}
-                                onError={(e) => handleImageError(e, photo)}
-                              />
-                              <button
+                                <Input
+                                  type="number"
+                                  id={`pieces.${pieceIndex}.luminaires.neons.nombre`}
+                                  name={`pieces.${pieceIndex}.luminaires.neons.nombre`}
+                                  value={piece.luminaires?.neons?.nombre || "0"}
+                                  onChange={(e) => {
+                                    const newPieces = [...formData.pieces];
+                                    if (!newPieces[pieceIndex].luminaires) {
+                                      newPieces[pieceIndex].luminaires = {
+                                        spots: { nombre: "0", etat: "", observations: "" },
+                                        suspensions: { nombre: "0", etat: "", observations: "" },
+                                        dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                        neons: { nombre: e.target.value, etat: "", observations: "" },
+                                        observations: ""
+                                      };
+                                    } else if (!newPieces[pieceIndex].luminaires.neons) {
+                                      newPieces[pieceIndex].luminaires.neons = { nombre: e.target.value, etat: "", observations: "" };
+                                    } else {
+                                      newPieces[pieceIndex].luminaires.neons.nombre = e.target.value;
+                                    }
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                  className="w-full text-sm"
+                                  min="0"
+                                />
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.luminaires.neons.etat`} className="text-xs font-medium">
+                                  État
+                                </Label>
+                                <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                                  <Button
                                 type="button"
-                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md"
-                                onClick={() => handleRemovePhoto(`pieces.${pieceIndex}.photos`, photoIndex)}
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.neons?.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].luminaires) {
+                                        newPieces[pieceIndex].luminaires = {
+                                          spots: { nombre: "0", etat: "", observations: "" },
+                                          suspensions: { nombre: "0", etat: "", observations: "" },
+                                          dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                          neons: { nombre: "0", etat: "Très bon état", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].luminaires.neons) {
+                                        newPieces[pieceIndex].luminaires.neons = { nombre: "0", etat: "Très bon état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].luminaires.neons.etat = "Très bon état";
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Très bon
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.neons?.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].luminaires) {
+                                        newPieces[pieceIndex].luminaires = {
+                                          spots: { nombre: "0", etat: "", observations: "" },
+                                          suspensions: { nombre: "0", etat: "", observations: "" },
+                                          dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                          neons: { nombre: "0", etat: "Bon état", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].luminaires.neons) {
+                                        newPieces[pieceIndex].luminaires.neons = { nombre: "0", etat: "Bon état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].luminaires.neons.etat = "Bon état";
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Bon
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.neons?.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].luminaires) {
+                                        newPieces[pieceIndex].luminaires = {
+                                          spots: { nombre: "0", etat: "", observations: "" },
+                                          suspensions: { nombre: "0", etat: "", observations: "" },
+                                          dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                          neons: { nombre: "0", etat: "État d'usage", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].luminaires.neons) {
+                                        newPieces[pieceIndex].luminaires.neons = { nombre: "0", etat: "État d'usage", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].luminaires.neons.etat = "État d'usage";
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Usage
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.neons?.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                    onClick={() => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].luminaires) {
+                                        newPieces[pieceIndex].luminaires = {
+                                          spots: { nombre: "0", etat: "", observations: "" },
+                                          suspensions: { nombre: "0", etat: "", observations: "" },
+                                          dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                          neons: { nombre: "0", etat: "Mauvais état", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].luminaires.neons) {
+                                        newPieces[pieceIndex].luminaires.neons = { nombre: "0", etat: "Mauvais état", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].luminaires.neons.etat = "Mauvais état";
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                  >
+                                    Mauvais
+                                  </Button>
                             </div>
-                          ))}
-                          {/* Bouton d'ajout de photo toujours visible */}
-                          <div className="flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md w-full h-24">
-                            <label className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-gray-700 cursor-pointer">
-                              <Camera className="h-8 w-8 mb-1" />
-                              <span className="text-xs">Ajouter</span>
-                              <input
-                                type="file"
-                                className="hidden"
-                                accept="image/*"
-                                multiple
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label htmlFor={`pieces.${pieceIndex}.luminaires.neons.observations`} className="text-xs font-medium">
+                                  Observations
+                                </Label>
+                                <Textarea
+                                  id={`pieces.${pieceIndex}.luminaires.neons.observations`}
+                                  name={`pieces.${pieceIndex}.luminaires.neons.observations`}
+                                  value={piece.luminaires?.neons?.observations || ""}
                                 onChange={(e) => {
-                                  if (e.target.files && e.target.files.length > 0) {
-                                    handlePhotoUpload(`pieces.${pieceIndex}.photos`, e);
-                                  }
-                                }}
-                              />
-                            </label>
+                                    const newPieces = [...formData.pieces];
+                                    if (!newPieces[pieceIndex].luminaires) {
+                                      newPieces[pieceIndex].luminaires = {
+                                        spots: { nombre: "0", etat: "", observations: "" },
+                                        suspensions: { nombre: "0", etat: "", observations: "" },
+                                        dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                        neons: { nombre: "0", etat: "", observations: e.target.value },
+                                        observations: ""
+                                      };
+                                    } else if (!newPieces[pieceIndex].luminaires.neons) {
+                                      newPieces[pieceIndex].luminaires.neons = { nombre: "0", etat: "", observations: e.target.value };
+                                    } else {
+                                      newPieces[pieceIndex].luminaires.neons.observations = e.target.value;
+                                    }
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                  className="w-full text-xs"
+                                  placeholder="Observations sur les néons"
+                                />
                           </div>
+                            </div>
+                          </div>
+
+                          {/* Observations générales luminaires */}
+                          <div className="border-t pt-3 mt-3">
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.luminaires.observations`} className="text-sm font-medium">
+                                Observations générales sur les luminaires
+                              </Label>
+                              <Textarea
+                                id={`pieces.${pieceIndex}.luminaires.observations`}
+                                name={`pieces.${pieceIndex}.luminaires.observations`}
+                                value={piece.luminaires?.observations || ""}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
+                                  if (!newPieces[pieceIndex].luminaires) {
+                                    newPieces[pieceIndex].luminaires = {
+                                      spots: { nombre: "0", etat: "", observations: "" },
+                                      suspensions: { nombre: "0", etat: "", observations: "" },
+                                      dallesLumineuses: { nombre: "0", etat: "", observations: "" },
+                                      neons: { nombre: "0", etat: "", observations: "" },
+                                      observations: e.target.value
+                                    };
+                                  } else {
+                                    newPieces[pieceIndex].luminaires.observations = e.target.value;
+                                  }
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                placeholder="Observations générales sur les luminaires"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Équipements personnalisés */}
+                      <div className="bg-white p-4 rounded-lg shadow-sm">
+                        <h3 className="text-base font-medium mb-3">Équipements personnalisés</h3>
+                        <div className="space-y-4">
+                          {/* ... existing code ... */}
                         </div>
                       </div>
                     </div>

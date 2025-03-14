@@ -640,19 +640,11 @@ export async function generatePDFFromData(data: any, options: GeneratePDFOptions
         
         yPos += 10;
         
-        // Date de sortie
-        doc!.setFont("helvetica", "bold");
-        doc!.text("Date de sortie", margin, yPos);
-        doc!.setFont("helvetica", "normal");
-        doc!.text(formatDate(data.contrat.dateSortie) || "", contentWidth - margin, yPos, { align: 'right' });
-        
-        yPos += 10;
-        
         // Durée du contrat
         doc!.setFont("helvetica", "bold");
         doc!.text("Durée du contrat", margin, yPos);
         doc!.setFont("helvetica", "normal");
-        doc!.text(data.contrat.dureeContrat || "", contentWidth - margin, yPos, { align: 'right' });
+        doc!.text(data.contrat.dureeContrat ? `${data.contrat.dureeContrat} ans` : "", contentWidth - margin, yPos, { align: 'right' });
         
         yPos += 10;
         
@@ -748,37 +740,6 @@ export async function generatePDFFromData(data: any, options: GeneratePDFOptions
         doc!.text("Détail", margin, yPos);
         doc!.setFont("helvetica", "normal");
         doc!.text(data.elements.telecommandes?.detail || "", contentWidth - margin, yPos, { align: 'right' });
-      });
-      
-      // Documents remis
-      await addFramedSection("Documents remis", async () => {
-        const documents = data.elements.documents || {};
-        
-        doc!.setFont("helvetica", "bold");
-        doc!.text("Diagnostics techniques", margin, yPos);
-        doc!.setFont("helvetica", "normal");
-        doc!.text(documents.diagnostics ? "Oui" : "Non", contentWidth - margin, yPos, { align: 'right' });
-        
-        yPos += 10;
-        
-        doc!.setFont("helvetica", "bold");
-        doc!.text("Plans des locaux", margin, yPos);
-        doc!.setFont("helvetica", "normal");
-        doc!.text(documents.planLocaux ? "Oui" : "Non", contentWidth - margin, yPos, { align: 'right' });
-        
-        yPos += 10;
-        
-        doc!.setFont("helvetica", "bold");
-        doc!.text("Règlement d'immeuble", margin, yPos);
-        doc!.setFont("helvetica", "normal");
-        doc!.text(documents.reglementImmeuble ? "Oui" : "Non", contentWidth - margin, yPos, { align: 'right' });
-        
-        yPos += 10;
-        
-        doc!.setFont("helvetica", "bold");
-        doc!.text("Notice de maintenance", margin, yPos);
-        doc!.setFont("helvetica", "normal");
-        doc!.text(documents.noticeMaintenance ? "Oui" : "Non", contentWidth - margin, yPos, { align: 'right' });
       });
       
       // Autres éléments
