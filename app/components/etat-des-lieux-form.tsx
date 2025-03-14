@@ -1042,181 +1042,111 @@ export function EtatDesLieuxForm({
   const [isAddingRoom, setIsAddingRoom] = useState(false);
   const [isAddingEquipment, setIsAddingEquipment] = useState<Record<number, boolean>>({});
   
+  // Fonction utilitaire pour créer une copie sécurisée de formData.pieces
+  const safeClonePieces = () => {
+    return Array.isArray(formData.pieces) ? [...formData.pieces] : [];
+  };
+  
   // Gérer l'ajout d'une pièce
   const handleAddRoom = () => {
-    console.log("handleAddRoom appelé - début");
+    const newPiece = {
+      id: `piece_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+      nom: `Pièce ${Array.isArray(formData.pieces) ? formData.pieces.length + 1 : 1}`,
+      sols: {
+        nature: "",
+        etat: "",
+        observations: "",
+      },
+      murs: {
+        nature: "",
+        etat: "",
+        observations: "",
+      },
+      plafonds: {
+        nature: "",
+        etat: "",
+        observations: "",
+      },
+      plinthes: {
+        nature: "",
+        etat: "",
+        observations: "",
+      },
+      fenetres: {
+        nature: "",
+        etat: "",
+        observations: "",
+      },
+      portes: {
+        nature: "",
+        etat: "",
+        observations: "",
+      },
+      chauffage: {
+        nature: "",
+        etat: "",
+        observations: "",
+      },
+      prises: {
+        nombre: "",
+        etat: "",
+        observations: "",
+      },
+      interrupteurs: {
+        nombre: "",
+        etat: "",
+        observations: "",
+      },
+      equipements: [],
+      photos: [],
+      observations: "",
+    };
     
-    // Vérifier si un ajout est déjà en cours
-    if (isAddingRoom) {
-      console.log("Ajout de pièce déjà en cours, annulation");
-      return;
-    }
-    
-    // Marquer l'ajout comme en cours
-    setIsAddingRoom(true);
-    console.log("Marquage de l'ajout de pièce comme en cours");
-    
-    // Délai pour éviter les doubles appels en mode strict
-    setTimeout(() => {
-      // Ajouter la pièce une seule fois avec dé-doublonnage
-      setFormData((prevData) => {
-        console.log(`Pièces avant ajout: ${prevData.pieces.length}`);
-        
-        // Protection contre les doubles appels
-        const initialPieceCount = prevData.pieces.length;
-        const lastPieceAddTime = prevData.pieces.length > 0 
-          ? Number(prevData.pieces[prevData.pieces.length - 1]?.id?.split('_')[1] || 0) 
-          : 0;
-          
-        // Si la dernière pièce a été ajoutée il y a moins de 500ms, ne rien faire
-        if (Date.now() - lastPieceAddTime < 500) {
-          console.log("Double appel détecté, annulation");
-          setIsAddingRoom(false);
-          return prevData;
-        }
-        
-        const newData = { ...prevData };
-        
-        // Générer un ID unique pour la nouvelle pièce avec plus de précision
-        const timestamp = Date.now();
-        const randomSuffix = Math.floor(Math.random() * 10000);
-        const uniqueId = `piece_${timestamp}_${randomSuffix}`;
-        
-        console.log(`Nouvel ID généré: ${uniqueId}`);
-        
-        newData.pieces.push({
-          id: uniqueId,
-          nom: `Pièce ${newData.pieces.length + 1}`,
-          sols: { nature: "", etat: "", observations: "" },
-          murs: { nature: "", etat: "", observations: "" },
-          plafonds: { nature: "", etat: "", observations: "" },
-          plinthes: { nature: "", etat: "", observations: "" },
-          fenetres: { nature: "", etat: "", observations: "" },
-          portes: { nature: "", etat: "", observations: "" },
-          chauffage: { nature: "", etat: "", observations: "" },
-          prises: { nombre: "0", etat: "", observations: "" },
-          interrupteurs: { nombre: "0", etat: "", observations: "" },
-          equipements: [],
-          photos: [],
-          observations: "",
-        });
-        
-        console.log(`Pièces après ajout: ${newData.pieces.length}`);
-        
-        // Vérifier qu'une seule pièce a été ajoutée
-        if (newData.pieces.length !== initialPieceCount + 1) {
-          console.warn(`Anomalie détectée: ${newData.pieces.length - initialPieceCount} pièces ajoutées au lieu de 1`);
-        }
-        
-        // Réinitialiser l'état après l'ajout
-        setIsAddingRoom(false);
-        
-        return newData;
-      });
-      
-      console.log("handleAddRoom appelé - fin");
-    }, 0); // délai minimal pour échapper au double rendu
+    const newPieces = Array.isArray(formData.pieces) ? [...formData.pieces, newPiece] : [newPiece];
+    updateFormField("pieces", newPieces);
   };
   
   // Gérer la suppression d'une pièce
   const handleRemoveRoom = (index: number) => {
-    if (index === 0) return // Empêcher la suppression de la première pièce
+    if (index === 0) return; // Empêcher la suppression de la première pièce
     
-    setFormData((prevData) => {
-      const newData = { ...prevData }
-      newData.pieces.splice(index, 1)
-      return newData
-    })
-  }
+    if (!Array.isArray(formData.pieces)) return;
+    
+    const newPieces = [...formData.pieces];
+    newPieces.splice(index, 1);
+    updateFormField("pieces", newPieces);
+  };
   
   // Ajouter un objet pour suivre les verrous d'ajout d'équipement par pièce
   // const equipmentLocks = useRef<Record<string, boolean>>({});
   
   // Gérer l'ajout d'un équipement à une pièce
   const handleAddEquipment = (pieceIndex: number) => {
-    console.log("handleAddEquipment appelé - début", pieceIndex);
+    const newEquipment = {
+      id: `equip_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+      nom: "",
+      etat: "",
+      observations: "",
+    };
     
-    // Vérifier si un ajout est déjà en cours pour cette pièce
-    if (isAddingEquipment[pieceIndex]) {
-      console.log(`Ajout d'équipement déjà en cours pour la pièce ${pieceIndex}, annulation`);
-      return;
+    const newPieces = safeClonePieces();
+    if (newPieces[pieceIndex] && Array.isArray(newPieces[pieceIndex].equipements)) {
+      newPieces[pieceIndex].equipements.push(newEquipment);
+    } else if (newPieces[pieceIndex]) {
+      newPieces[pieceIndex].equipements = [newEquipment];
     }
     
-    // Marquer l'ajout comme en cours pour cette pièce
-    setIsAddingEquipment(prev => ({
-      ...prev,
-      [pieceIndex]: true
-    }));
-    console.log(`Marquage de l'ajout d'équipement comme en cours pour la pièce ${pieceIndex}`);
-    
-    // Délai pour éviter les doubles appels en mode strict
-    setTimeout(() => {
-      // Ajouter l'équipement une seule fois avec dé-doublonnage
-      setFormData((prevData) => {
-        console.log(`Équipements avant ajout: ${prevData.pieces[pieceIndex].equipements.length}`);
-        
-        // Protection contre les doubles appels
-        const initialEquipCount = prevData.pieces[pieceIndex].equipements.length;
-        const lastEquipAddTime = initialEquipCount > 0 
-          ? Number(prevData.pieces[pieceIndex].equipements[initialEquipCount - 1]?.id?.split('_')[1] || 0) 
-          : 0;
-          
-        // Si le dernier équipement a été ajouté il y a moins de 500ms, ne rien faire
-        if (Date.now() - lastEquipAddTime < 500) {
-          console.log("Double appel détecté, annulation");
-          setIsAddingEquipment(prev => ({
-            ...prev,
-            [pieceIndex]: false
-          }));
-          return prevData;
-        }
-        
-        const newData = { ...prevData };
-        
-        // Générer un ID unique pour le nouvel équipement
-        const timestamp = Date.now();
-        const randomSuffix = Math.floor(Math.random() * 10000);
-        const uniqueId = `equip_${timestamp}_${randomSuffix}`;
-        
-        console.log(`Nouvel ID d'équipement généré: ${uniqueId}`);
-        
-        newData.pieces[pieceIndex].equipements.push({
-          id: uniqueId,
-          nom: "",
-          etat: "",
-          observations: "",
-        });
-        
-        console.log(`Équipements après ajout: ${newData.pieces[pieceIndex].equipements.length}`);
-        
-        // Vérifier qu'un seul équipement a été ajouté
-        if (newData.pieces[pieceIndex].equipements.length !== initialEquipCount + 1) {
-          console.warn(`Anomalie détectée: ${newData.pieces[pieceIndex].equipements.length - initialEquipCount} équipements ajoutés au lieu de 1`);
-        }
-        
-        // Réinitialiser l'état après l'ajout
-        setIsAddingEquipment(prev => ({
-          ...prev,
-          [pieceIndex]: false
-        }));
-        
-        return newData;
-      });
-      
-      console.log("handleAddEquipment appelé - fin");
-    }, 0); // délai minimal pour échapper au double rendu
+    updateFormField("pieces", newPieces);
   };
   
   // Gérer la suppression d'un équipement
   const handleRemoveEquipment = (pieceIndex: number, equipmentIndex: number) => {
-    console.log(`handleRemoveEquipment appelé - pieceIndex: ${pieceIndex}, equipmentIndex: ${equipmentIndex}`);
-    setFormData((prevData) => {
-      const newData = { ...prevData };
-      newData.pieces[pieceIndex].equipements.splice(equipmentIndex, 1);
-      console.log(`Équipement supprimé, nombre restant: ${newData.pieces[pieceIndex].equipements.length}`);
-      return newData;
-    });
-  }
+    const newPieces = safeClonePieces();
+    if (newPieces[pieceIndex] && Array.isArray(newPieces[pieceIndex].equipements)) {
+      newPieces[pieceIndex].equipements.splice(equipmentIndex, 1);
+      updateFormField("pieces", newPieces);
+    }
+  };
   
   // Gérer l'ouverture/fermeture d'une section
   const handleSectionToggle = (sectionId: string) => {
@@ -1846,7 +1776,7 @@ export function EtatDesLieuxForm({
                         type="email"
                         id="locataire.email"
                         name="locataire.email"
-                        value={formData.locataire.email}
+                        value={formData.locataire?.email || ""}
                         onChange={handleInputChange}
                         className="w-full text-base"
                         placeholder="Adresse email"
@@ -1863,7 +1793,7 @@ export function EtatDesLieuxForm({
                         type="text"
                         id="locataire.adresse"
                         name="locataire.adresse"
-                        value={formData.locataire.adresse}
+                        value={formData.locataire?.adresse || ""}
                         onChange={handleInputChange}
                         className="w-full text-base"
                         placeholder="Adresse du locataire"
@@ -1880,7 +1810,7 @@ export function EtatDesLieuxForm({
                         type="text"
                         id="locataire.codePostal"
                         name="locataire.codePostal"
-                        value={formData.locataire.codePostal}
+                        value={formData.locataire?.codePostal || ""}
                         onChange={handleInputChange}
                         className="w-full text-base"
                         placeholder="Code postal"
@@ -1895,7 +1825,7 @@ export function EtatDesLieuxForm({
                         type="text"
                         id="locataire.ville"
                         name="locataire.ville"
-                        value={formData.locataire.ville}
+                        value={formData.locataire?.ville || ""}
                         onChange={handleInputChange}
                         className="w-full text-base"
                         placeholder="Ville"
@@ -2094,7 +2024,7 @@ export function EtatDesLieuxForm({
                   <Textarea
                     id="contrat.typeActivite"
                     name="contrat.typeActivite"
-                    value={formData.contrat.typeActivite || ""}
+                    value={formData.contrat?.typeActivite || ""}
                     onChange={handleInputChange}
                     placeholder="Précisez l'activité exercée dans les locaux"
                     className="w-full min-h-[80px] text-base"
@@ -2751,7 +2681,7 @@ export function EtatDesLieuxForm({
                           type="text"
                           value={piece.nom}
                           onChange={(e) => {
-                            const newPieces = [...formData.pieces];
+                            const newPieces = Array.isArray(formData.pieces) ? [...formData.pieces] : [];
                             newPieces[pieceIndex].nom = e.target.value;
                             updateFormField("pieces", newPieces);
                           }}
