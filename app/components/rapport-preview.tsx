@@ -478,15 +478,15 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
                       <tbody>
                         <tr className="border-b">
                           <td className="py-1 px-2 text-xs font-medium bg-gray-50">Numéro du compteur</td>
-                          <td className="py-1 px-2 text-xs">{formData.compteurs.electricite.numero || 'Non renseigné'}</td>
+                          <td className="py-1 px-2 text-xs">{formData.compteurs?.electricite.numero || 'Non renseigné'}</td>
                         </tr>
                         <tr className="border-b">
                           <td className="py-1 px-2 text-xs font-medium bg-gray-50">Relevé</td>
-                          <td className="py-1 px-2 text-xs">{formData.compteurs.electricite.releve || 'Non renseigné'}</td>
+                          <td className="py-1 px-2 text-xs">{formData.compteurs?.electricite.releve || 'Non renseigné'}</td>
                         </tr>
                         <tr className="border-b">
                           <td className="py-1 px-2 text-xs font-medium bg-gray-50">Localisation</td>
-                          <td className="py-1 px-2 text-xs">{formData.compteurs.electricite.localisation || 'Non renseigné'}</td>
+                          <td className="py-1 px-2 text-xs">{formData.compteurs?.electricite.localisation || 'Non renseigné'}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -506,11 +506,11 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
                       <tbody>
                         <tr className="border-b">
                           <td className="py-1 px-2 text-xs font-medium bg-gray-50">Numéro du compteur</td>
-                          <td className="py-1 px-2 text-xs">{formData.compteurs.eau.numero || 'Non renseigné'}</td>
+                          <td className="py-1 px-2 text-xs">{formData.compteurs?.eau.numero || 'Non renseigné'}</td>
                         </tr>
                         <tr className="border-b">
                           <td className="py-1 px-2 text-xs font-medium bg-gray-50">Relevé</td>
-                          <td className="py-1 px-2 text-xs">{formData.compteurs.eau.releve || 'Non renseigné'}</td>
+                          <td className="py-1 px-2 text-xs">{formData.compteurs?.eau.releve || 'Non renseigné'}</td>
                         </tr>
                       </tbody>
                     </table>

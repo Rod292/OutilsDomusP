@@ -386,10 +386,20 @@ export async function generateEtatDesLieuxPDF(formData: any, options: PDFOptions
 
 // Fonction pour prétraiter les données du formulaire et s'assurer que la structure est correcte
 export function preprocessFormData(formData: any): any {
+  // Faire une copie profonde pour éviter de modifier l'original
+  const processed = JSON.parse(JSON.stringify(formData));
+  
+  // S'assurer que la date est définie
+  if (!processed.dateEtatDesLieux) {
+    const today = new Date();
+    processed.dateEtatDesLieux = today.toISOString().split('T')[0];
+    console.log("Date d'état des lieux manquante, initialisée à aujourd'hui:", processed.dateEtatDesLieux);
+  }
+  
   console.log("Prétraitement des données du formulaire...");
   
   // Copie profonde pour ne pas modifier les données originales
-  const processedData = JSON.parse(JSON.stringify(formData));
+  const processedData = JSON.parse(JSON.stringify(processed));
   
   // Vérifier si les pièces existent et sont un tableau
   if (!processedData.pieces || !Array.isArray(processedData.pieces)) {
@@ -1434,6 +1444,46 @@ function generateRoomTables(pieces: any[] = []) {
       }
     });
     
+    // Ajouter les équipements personnalisés
+    if (piece.equipements && Array.isArray(piece.equipements) && piece.equipements.length > 0) {
+      // En-tête pour la section équipements personnalisés
+      const equipementsHeader: any = {
+        text: 'AUTRES ÉLÉMENTS',
+        style: 'tableCellLabel',
+        fillColor: '#f2f2f2',
+        colSpan: 4,
+        alignment: 'center'
+      };
+      
+      tableBody.push([
+        equipementsHeader,
+        { text: '', style: 'tableRow' }, 
+        { text: '', style: 'tableRow' }, 
+        { text: '', style: 'tableRow' }
+      ]);
+      
+      // Ajouter chaque équipement personnalisé
+      piece.equipements.forEach((equipement: any) => {
+        if (equipement && equipement.nom) {
+          const etatValue = getEtatLabel(equipement.etat || '');
+          const stateColor = getEtatColor(equipement.etat || '');
+          
+          const stateCell: any = {
+            text: etatValue,
+            style: 'tableRow',
+            color: stateColor
+          };
+          
+          tableBody.push([
+            { text: equipement.nom, style: 'tableCellLabel' },
+            { text: equipement.nature || 'Non spécifié', style: 'tableRow' },
+            stateCell,
+            { text: equipement.observations || '', style: 'tableRow' }
+          ]);
+        }
+      });
+    }
+    
     // Ajouter la section électricité si présente
     if (piece.electricite) {
       // En-tête pour la section électricité
@@ -1727,22 +1777,26 @@ function generateRoomTables(pieces: any[] = []) {
       let currentRow: any[] = [];
       
       for (let i = 0; i < piece.photos.length; i++) {
-        currentRow.push(safeImage(piece.photos[i]));
-        
-        // Après 2 photos ou à la fin, ajouter la ligne
-        if (currentRow.length === 2 || i === piece.photos.length - 1) {
-          // Si la dernière ligne n'a qu'une photo, ajouter un espace vide pour l'alignement
-          if (currentRow.length === 1) {
-            currentRow.push({ text: '', width: 170, margin: [5, 10, 5, 10] });
+        const photoImage = safeImage(piece.photos[i]);
+        if (photoImage) {
+          currentRow.push(photoImage);
+          
+          // Après 2 photos ou à la fin, ajouter la ligne
+          if (currentRow.length === 2 || i === piece.photos.length - 1) {
+            // Si la dernière ligne n'a qu'une photo, ajouter un espace vide pour l'alignement
+            if (currentRow.length === 1) {
+              currentRow.push({ text: '', width: 170, margin: [5, 10, 5, 10] });
+            }
+            
+            photoRows.push({
+              columns: currentRow,
+              columnGap: 10,
+              margin: [0, 5, 0, 5]
+            });
+            
+            // Réinitialiser la ligne courante
+            currentRow = [];
           }
-          
-          photoRows.push({
-            columns: currentRow,
-            columnGap: 10,
-            margin: [0, 5, 0, 5]
-          });
-          
-          currentRow = [];
         }
       }
       
@@ -1974,7 +2028,9 @@ async function processImages(formData: any) {
   if (processedData.pieces && Array.isArray(processedData.pieces)) {
     for (let i = 0; i < processedData.pieces.length; i++) {
       if (processedData.pieces[i] && processedData.pieces[i].photos && Array.isArray(processedData.pieces[i].photos)) {
+        console.log(`Traitement des photos pour la pièce ${i}: ${processedData.pieces[i].nom}`);
         processedData.pieces[i].photos = await processPhotoArray(processedData.pieces[i].photos);
+        console.log(`Après traitement: ${processedData.pieces[i].photos.length} photos valides`);
       }
     }
   }
@@ -2079,9 +2135,29 @@ function safeImage(imageSource: any) {
     if (typeof imageSource === 'object' && imageSource !== null) {
       console.log("Traitement d'un objet image:", Object.keys(imageSource).join(", "));
       
+      // Vérifier si c'est un objet File ou Blob
+      if ((typeof File !== 'undefined' && imageSource instanceof File) || 
+          (typeof Blob !== 'undefined' && imageSource instanceof Blob)) {
+        console.log("Objet File/Blob détecté, utilisation du logo de remplacement");
+        return {
+          image: currentLogo,
+          width: 170,
+          margin: [5, 10, 5, 10],
+          fit: [170, 130]
+        };
+      }
+      
       // Vérifier toutes les possibilités d'accès à l'URL
       if (imageSource.downloadUrl) {
         console.log("URL de téléchargement trouvée dans l'objet:", imageSource.downloadUrl);
+        if (typeof imageSource.downloadUrl === 'string' && imageSource.downloadUrl.startsWith('data:')) {
+          return {
+            image: imageSource.downloadUrl,
+            width: 170,
+            margin: [5, 10, 5, 10],
+            fit: [170, 130]
+          };
+        }
         return {
           image: currentLogo, // On utilise le logo car pdfmake ne peut pas utiliser les URLs directement
           width: 170,
@@ -2090,6 +2166,14 @@ function safeImage(imageSource: any) {
         };
       } else if (imageSource.url) {
         console.log("URL trouvée dans l'objet:", imageSource.url);
+        if (typeof imageSource.url === 'string' && imageSource.url.startsWith('data:')) {
+          return {
+            image: imageSource.url,
+            width: 170,
+            margin: [5, 10, 5, 10],
+            fit: [170, 130]
+          };
+        }
         return {
           image: currentLogo, // On utilise le logo car pdfmake ne peut pas utiliser les URLs directement
           width: 170,
@@ -2105,16 +2189,36 @@ function safeImage(imageSource: any) {
           margin: [5, 10, 5, 10],
           fit: [170, 130]
         };
+      } else if (imageSource.type === 'base64_metadata' && imageSource.data) {
+        // Format spécial pour les données base64
+        console.log("Métadonnées base64 trouvées");
+        return {
+          image: imageSource.data,
+          width: 170,
+          margin: [5, 10, 5, 10],
+          fit: [170, 130]
+        };
       }
     }
     
-    // Dans tous les autres cas, retourner null pour ne pas afficher d'image
-    console.warn("Type d'image non reconnu, aucune image ne sera affichée:", 
-                typeof imageSource === 'string' ? imageSource : typeof imageSource);
-    return null;
+    // Dans tous les autres cas, retourner le logo par défaut pour avoir au moins une image
+    console.warn("Type d'image non reconnu, utilisation du logo par défaut:", 
+                typeof imageSource === 'object' ? JSON.stringify(Object.keys(imageSource)) : typeof imageSource);
+    return {
+      image: currentLogo,
+      width: 170,
+      margin: [5, 10, 5, 10],
+      fit: [170, 130]
+    };
   } catch (error) {
     console.error("Erreur lors du traitement de l'image:", error);
-    return null;
+    // En cas d'erreur, utiliser le logo par défaut
+    return {
+      image: (global as any).logoBase64 || FALLBACK_LOGO,
+      width: 170,
+      margin: [5, 10, 5, 10],
+      fit: [170, 130]
+    };
   }
 }
 

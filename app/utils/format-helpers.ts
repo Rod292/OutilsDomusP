@@ -1,6 +1,10 @@
 // Fonction utilitaire pour formater les dates
 export function formatDate(dateStr?: string): string {
-  if (!dateStr) return 'Non spécifiée';
+  if (!dateStr) {
+    // Retourner la date du jour au lieu de "Non spécifiée"
+    const today = new Date();
+    return today.toLocaleDateString('fr-FR');
+  }
   
   try {
     const date = new Date(dateStr);

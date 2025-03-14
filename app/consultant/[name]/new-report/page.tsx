@@ -601,8 +601,8 @@ export default function NewReportPage() {
                         <div>
                           <CardTitle className="text-lg">{report.title || "Sans titre"}</CardTitle>
                           <CardDescription>
-                            Créé le {report.date}
-                            {report.lastUpdated && ` • Modifié le ${report.lastUpdated}`}
+                            Créé le {formatDate(report.date)}
+                            {report.lastUpdated && ` • Modifié le ${formatDate(report.lastUpdated)}`}
                           </CardDescription>
                         </div>
                         <div className="flex gap-1">
@@ -982,5 +982,10 @@ function calculateCompletionPercentage(data: any): number {
   const totalFields = countTotalFields(data);
   const filledFields = countFilledFields(data);
   return Math.round((filledFields / totalFields) * 100);
+}
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return format(date, 'dd/MM/yyyy HH:mm', { locale: fr });
 }
 

@@ -249,6 +249,7 @@ interface FormData {
     equipements: Array<{
       id: string
       nom: string
+      nature: string
       etat: string
       observations: string
     }>
@@ -641,9 +642,16 @@ export function EtatDesLieuxForm({
   
   // Gérer les changements dans les champs simples
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    updateFormField(name, value)
-  }
+    const { name, value } = e.target;
+    
+    // Traitement spécial pour la date qui doit toujours avoir une valeur
+    if (name === "dateEtatDesLieux" && value === "") {
+      updateFormField(name, getTodayDate());
+      return;
+    }
+    
+    updateFormField(name, value);
+  };
   
   // Gérer les changements dans les listes déroulantes
   const handleSelectChange = (name: string, value: string) => {
@@ -1245,6 +1253,7 @@ export function EtatDesLieuxForm({
     const newEquipment = {
       id: `equip_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
       nom: "",
+      nature: "",
       etat: "",
       observations: "",
     };
@@ -1536,7 +1545,7 @@ export function EtatDesLieuxForm({
                       type="date"
                       id="dateEtatDesLieux"
                       name="dateEtatDesLieux"
-                      value={formData.dateEtatDesLieux}
+                      value={formData.dateEtatDesLieux || getTodayDate()}
                       onChange={handleInputChange}
                     className="w-full text-base border-gray-300 rounded-lg"
                     />
@@ -1573,25 +1582,6 @@ export function EtatDesLieuxForm({
                           className="data-[state=checked]:bg-[#DC0032] data-[state=checked]:border-[#DC0032]"
                         />
                         <Label htmlFor="typeBien-bureau">Bureau</Label>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="typeBien-commerce" 
-                          checked={Array.isArray(formData.typeBien) && formData.typeBien.includes("local-commercial")} 
-                          onCheckedChange={(checked) => {
-                            const newTypeBien = Array.isArray(formData.typeBien) ? [...formData.typeBien] : [];
-                            if (checked) {
-                              if (!newTypeBien.includes("local-commercial")) newTypeBien.push("local-commercial");
-                            } else {
-                              const index = newTypeBien.indexOf("local-commercial");
-                              if (index !== -1) newTypeBien.splice(index, 1);
-                            }
-                            updateFormField("typeBien", newTypeBien);
-                          }}
-                          className="data-[state=checked]:bg-[#DC0032] data-[state=checked]:border-[#DC0032]"
-                        />
-                        <Label htmlFor="typeBien-commerce">Commerce</Label>
                       </div>
                       
                       <div className="flex items-center space-x-2">
@@ -1648,7 +1638,7 @@ export function EtatDesLieuxForm({
                           }}
                           className="data-[state=checked]:bg-[#DC0032] data-[state=checked]:border-[#DC0032]"
                         />
-                        <Label htmlFor="typeBien-local-commercial">Commerce</Label>
+                        <Label htmlFor="typeBien-local-commercial">Local commercial</Label>
                       </div>
                     </div>
                   </div>
@@ -2432,7 +2422,7 @@ export function EtatDesLieuxForm({
                           Photos du compteur
                         </Label>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                          {formData.compteurs?.electricite?.photos.map((photo, index) => (
+                          {(formData.compteurs?.electricite?.photos || []).map((photo, index) => (
                             <div key={`electricite-photo-${index}`} className="relative">
                               <Image
                                 src={
@@ -2570,7 +2560,7 @@ export function EtatDesLieuxForm({
                           Photos du compteur
                         </Label>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                          {formData.compteurs?.eau?.photos?.map((photo, index) => (
+                          {(formData.compteurs?.eau?.photos || []).map((photo, index) => (
                             <div key={`eau-photo-${index}`} className="relative">
                               <Image
                                 src={
@@ -2651,7 +2641,7 @@ export function EtatDesLieuxForm({
                             type="text"
                             id="compteurs.gaz.numero"
                             name="compteurs.gaz.numero"
-                            value={formData.compteurs.gaz.numero}
+                            value={formData.compteurs?.gaz?.numero}
                             onChange={handleInputChange}
                             className="w-full text-base"
                             placeholder="Ex: 123456789"
@@ -2666,7 +2656,7 @@ export function EtatDesLieuxForm({
                             type="text"
                             id="compteurs.gaz.releve"
                             name="compteurs.gaz.releve"
-                            value={formData.compteurs.gaz.releve}
+                            value={formData.compteurs?.gaz?.releve}
                             onChange={handleInputChange}
                             className="w-full text-base"
                             placeholder="Ex: 1234"
@@ -2682,7 +2672,7 @@ export function EtatDesLieuxForm({
                           type="text"
                           id="compteurs.gaz.localisation"
                           name="compteurs.gaz.localisation"
-                          value={formData.compteurs.gaz.localisation}
+                          value={formData.compteurs?.gaz?.localisation}
                           onChange={handleInputChange}
                           className="w-full text-base"
                           placeholder="Ex: Dans le local technique"
@@ -2696,7 +2686,7 @@ export function EtatDesLieuxForm({
                         <Textarea
                           id="compteurs.gaz.observations"
                           name="compteurs.gaz.observations"
-                          value={formData.compteurs.gaz.observations}
+                          value={formData.compteurs?.gaz?.observations}
                           onChange={handleInputChange}
                           className="w-full text-base"
                           placeholder="Notes sur l'état du compteur, accessibilité, etc."
@@ -2708,7 +2698,7 @@ export function EtatDesLieuxForm({
                           Photos du compteur
                         </Label>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                          {formData.compteurs.gaz.photos.map((photo, index) => (
+                          {(formData.compteurs?.gaz?.photos || []).map((photo, index) => (
                             <div key={`gaz-photo-${index}`} className="relative">
                               <Image
                                 src={
@@ -2995,7 +2985,7 @@ export function EtatDesLieuxForm({
                       
                       {/* Plafonds */}
                       <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="text-base font-medium mb-3">Plafonds</h3>
+                        <h3 className="text-base font-medium mb-3">Plafond</h3>
                         <div className="space-y-4">
                           <div className="space-y-2">
                             <Label htmlFor={`pieces.${pieceIndex}.plafonds.nature`} className="text-sm font-medium">
@@ -4054,17 +4044,17 @@ export function EtatDesLieuxForm({
                           <div className="border-b pb-3">
                             <h4 className="text-sm font-medium mb-2">Spots</h4>
                             <div className="space-y-3">
-                              <div className="space-y-2">
+                          <div className="space-y-2">
                                 <Label htmlFor={`pieces.${pieceIndex}.luminaires.spots.nombre`} className="text-xs font-medium">
                                   Nombre
-                                </Label>
-                                <Input
-                                  type="number"
+                            </Label>
+                            <Input
+                              type="number"
                                   id={`pieces.${pieceIndex}.luminaires.spots.nombre`}
                                   name={`pieces.${pieceIndex}.luminaires.spots.nombre`}
                                   value={piece.luminaires?.spots?.nombre || "0"}
-                                  onChange={(e) => {
-                                    const newPieces = [...formData.pieces];
+                              onChange={(e) => {
+                                const newPieces = [...formData.pieces];
                                     if (!newPieces[pieceIndex].luminaires) {
                                       newPieces[pieceIndex].luminaires = {
                                         spots: { nombre: e.target.value, etat: "", observations: "" },
@@ -4078,23 +4068,23 @@ export function EtatDesLieuxForm({
                                     } else {
                                       newPieces[pieceIndex].luminaires.spots.nombre = e.target.value;
                                     }
-                                    updateFormField("pieces", newPieces);
-                                  }}
-                                  className="w-full text-sm"
-                                  min="0"
-                                />
-                              </div>
-                              
-                              <div className="space-y-2">
+                                updateFormField("pieces", newPieces);
+                              }}
+                              className="w-full text-sm"
+                              min="0"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
                                 <Label htmlFor={`pieces.${pieceIndex}.luminaires.spots.etat`} className="text-xs font-medium">
-                                  État
-                                </Label>
-                                <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                              État
+                            </Label>
+                            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
                               <Button
                                 type="button"
                                     className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.spots?.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                    onClick={() => {
-                                      const newPieces = [...formData.pieces];
+                                onClick={() => {
+                                  const newPieces = [...formData.pieces];
                                       if (!newPieces[pieceIndex].luminaires) {
                                         newPieces[pieceIndex].luminaires = {
                                           spots: { nombre: "0", etat: "Très bon état", observations: "" },
@@ -4108,16 +4098,16 @@ export function EtatDesLieuxForm({
                                       } else {
                                         newPieces[pieceIndex].luminaires.spots.etat = "Très bon état";
                                       }
-                                      updateFormField("pieces", newPieces);
-                                    }}
-                                  >
-                                    Très bon
-                                  </Button>
-                                  <Button
-                                    type="button"
+                                  updateFormField("pieces", newPieces);
+                                }}
+                              >
+                                Très bon
+                              </Button>
+                              <Button
+                                type="button"
                                     className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.spots?.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                    onClick={() => {
-                                      const newPieces = [...formData.pieces];
+                                onClick={() => {
+                                  const newPieces = [...formData.pieces];
                                       if (!newPieces[pieceIndex].luminaires) {
                                         newPieces[pieceIndex].luminaires = {
                                           spots: { nombre: "0", etat: "Bon état", observations: "" },
@@ -4131,16 +4121,16 @@ export function EtatDesLieuxForm({
                                       } else {
                                         newPieces[pieceIndex].luminaires.spots.etat = "Bon état";
                                       }
-                                      updateFormField("pieces", newPieces);
-                                    }}
-                                  >
-                                    Bon
-                                  </Button>
-                                  <Button
-                                    type="button"
+                                  updateFormField("pieces", newPieces);
+                                }}
+                              >
+                                Bon
+                              </Button>
+                              <Button
+                                type="button"
                                     className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.spots?.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                    onClick={() => {
-                                      const newPieces = [...formData.pieces];
+                                onClick={() => {
+                                  const newPieces = [...formData.pieces];
                                       if (!newPieces[pieceIndex].luminaires) {
                                         newPieces[pieceIndex].luminaires = {
                                           spots: { nombre: "0", etat: "État d'usage", observations: "" },
@@ -4154,16 +4144,16 @@ export function EtatDesLieuxForm({
                                       } else {
                                         newPieces[pieceIndex].luminaires.spots.etat = "État d'usage";
                                       }
-                                      updateFormField("pieces", newPieces);
-                                    }}
-                                  >
-                                    Usage
-                                  </Button>
-                                  <Button
-                                    type="button"
+                                  updateFormField("pieces", newPieces);
+                                }}
+                              >
+                                Usage
+                              </Button>
+                              <Button
+                                type="button"
                                     className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.spots?.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                    onClick={() => {
-                                      const newPieces = [...formData.pieces];
+                                onClick={() => {
+                                  const newPieces = [...formData.pieces];
                                       if (!newPieces[pieceIndex].luminaires) {
                                         newPieces[pieceIndex].luminaires = {
                                           spots: { nombre: "0", etat: "Mauvais état", observations: "" },
@@ -4177,24 +4167,24 @@ export function EtatDesLieuxForm({
                                       } else {
                                         newPieces[pieceIndex].luminaires.spots.etat = "Mauvais état";
                                       }
-                                      updateFormField("pieces", newPieces);
-                                    }}
-                                  >
-                                    Mauvais
+                                  updateFormField("pieces", newPieces);
+                                }}
+                              >
+                                Mauvais
                               </Button>
-                                </div>
                             </div>
-                            
-                              <div className="space-y-2">
+                          </div>
+                          
+                          <div className="space-y-2">
                                 <Label htmlFor={`pieces.${pieceIndex}.luminaires.spots.observations`} className="text-xs font-medium">
-                                  Observations
-                                </Label>
-                                <Textarea
+                              Observations
+                            </Label>
+                            <Textarea
                                   id={`pieces.${pieceIndex}.luminaires.spots.observations`}
                                   name={`pieces.${pieceIndex}.luminaires.spots.observations`}
                                   value={piece.luminaires?.spots?.observations || ""}
-                                  onChange={(e) => {
-                                    const newPieces = [...formData.pieces];
+                              onChange={(e) => {
+                                const newPieces = [...formData.pieces];
                                     if (!newPieces[pieceIndex].luminaires) {
                                       newPieces[pieceIndex].luminaires = {
                                         spots: { nombre: "0", etat: "", observations: e.target.value },
@@ -4245,12 +4235,12 @@ export function EtatDesLieuxForm({
                                     } else {
                                       newPieces[pieceIndex].luminaires.suspensions.nombre = e.target.value;
                                     }
-                                    updateFormField("pieces", newPieces);
-                                  }}
-                                  className="w-full text-sm"
+                                updateFormField("pieces", newPieces);
+                              }}
+                              className="w-full text-sm"
                                   min="0"
-                                />
-                              </div>
+                            />
+                          </div>
                               
                               <div className="space-y-2">
                                 <Label htmlFor={`pieces.${pieceIndex}.luminaires.suspensions.etat`} className="text-xs font-medium">
@@ -4349,9 +4339,9 @@ export function EtatDesLieuxForm({
                                   >
                                     Mauvais
                                   </Button>
-                                </div>
-                              </div>
-                              
+                        </div>
+                      </div>
+                      
                               <div className="space-y-2">
                                 <Label htmlFor={`pieces.${pieceIndex}.luminaires.suspensions.observations`} className="text-xs font-medium">
                                   Observations
@@ -4424,8 +4414,8 @@ export function EtatDesLieuxForm({
                                   État
                                 </Label>
                                 <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
-                        <Button
-                          type="button"
+                              <Button
+                                type="button"
                                     className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.dallesLumineuses?.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
                                     onClick={() => {
                                       const newPieces = [...formData.pieces];
@@ -4515,10 +4505,10 @@ export function EtatDesLieuxForm({
                                     }}
                                   >
                                     Mauvais
-                        </Button>
+                              </Button>
                                 </div>
-                      </div>
-                      
+                            </div>
+                            
                               <div className="space-y-2">
                                 <Label htmlFor={`pieces.${pieceIndex}.luminaires.dallesLumineuses.observations`} className="text-xs font-medium">
                                   Observations
@@ -4558,7 +4548,7 @@ export function EtatDesLieuxForm({
                       <div className="space-y-2">
                                 <Label htmlFor={`pieces.${pieceIndex}.luminaires.neons.nombre`} className="text-xs font-medium">
                                   Nombre
-                        </Label>
+                                </Label>
                                 <Input
                                   type="number"
                                   id={`pieces.${pieceIndex}.luminaires.neons.nombre`}
@@ -4592,7 +4582,7 @@ export function EtatDesLieuxForm({
                                 </Label>
                                 <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
                                   <Button
-                                type="button"
+                                    type="button"
                                     className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.luminaires?.neons?.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
                                     onClick={() => {
                                       const newPieces = [...formData.pieces];
@@ -4683,7 +4673,7 @@ export function EtatDesLieuxForm({
                                   >
                                     Mauvais
                                   </Button>
-                            </div>
+                                </div>
                               </div>
                               
                               <div className="space-y-2">
@@ -4694,7 +4684,7 @@ export function EtatDesLieuxForm({
                                   id={`pieces.${pieceIndex}.luminaires.neons.observations`}
                                   name={`pieces.${pieceIndex}.luminaires.neons.observations`}
                                   value={piece.luminaires?.neons?.observations || ""}
-                                onChange={(e) => {
+                                  onChange={(e) => {
                                     const newPieces = [...formData.pieces];
                                     if (!newPieces[pieceIndex].luminaires) {
                                       newPieces[pieceIndex].luminaires = {
@@ -4741,23 +4731,236 @@ export function EtatDesLieuxForm({
                                   } else {
                                     newPieces[pieceIndex].luminaires.observations = e.target.value;
                                   }
-                                  updateFormField("pieces", newPieces);
-                                }}
-                                className="w-full text-sm"
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                  className="w-full text-sm"
                                 placeholder="Observations générales sur les luminaires"
-                              />
+                                />
+                              </div>
                             </div>
                           </div>
-                        </div>
                       </div>
 
                       {/* Équipements personnalisés */}
                       <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="text-base font-medium mb-3">Équipements personnalisés</h3>
+                        <h3 className="text-base font-medium mb-3">Autres éléments</h3>
                         <div className="space-y-4">
-                          {/* ... existing code ... */}
+                          {/* Liste des équipements existants */}
+                          {piece.equipements && piece.equipements.length > 0 && (
+                            <div className="space-y-4 mb-4">
+                              {piece.equipements.map((equipment, equipIndex) => (
+                                <div key={equipment.id} className="border rounded-md p-3 relative">
+                                  <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="icon"
+                                    className="absolute top-2 right-2 h-6 w-6 rounded-full"
+                                    onClick={() => handleRemoveEquipment(pieceIndex, equipIndex)}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                  
+                                  <div className="space-y-3">
+                                    <div>
+                                      <Label htmlFor={`pieces.${pieceIndex}.equipements.${equipIndex}.nom`} className="text-sm font-medium">
+                                        Nom de l'élément
+                                      </Label>
+                                      <Input
+                                        type="text"
+                                        id={`pieces.${pieceIndex}.equipements.${equipIndex}.nom`}
+                                        value={equipment.nom || ""}
+                                        onChange={(e) => {
+                                          const newPieces = [...formData.pieces];
+                                          newPieces[pieceIndex].equipements[equipIndex].nom = e.target.value;
+                                          updateFormField("pieces", newPieces);
+                                        }}
+                                        className="mt-1"
+                                        placeholder="Ex: Radiateur, Climatiseur, etc."
+                                      />
+                                    </div>
+                                    
+                                    <div>
+                                      <Label htmlFor={`pieces.${pieceIndex}.equipements.${equipIndex}.nature`} className="text-sm font-medium">
+                                        Nature
+                                      </Label>
+                                      <Input
+                                        type="text"
+                                        id={`pieces.${pieceIndex}.equipements.${equipIndex}.nature`}
+                                        value={equipment.nature || ""}
+                                        onChange={(e) => {
+                                          const newPieces = [...formData.pieces];
+                                          if (!newPieces[pieceIndex].equipements[equipIndex].nature) {
+                                            newPieces[pieceIndex].equipements[equipIndex].nature = e.target.value;
+                                          } else {
+                                            newPieces[pieceIndex].equipements[equipIndex].nature = e.target.value;
+                                          }
+                                          updateFormField("pieces", newPieces);
+                                        }}
+                                        className="mt-1"
+                                        placeholder="Ex: Acier, Plastique, Bois, etc."
+                                      />
+                                    </div>
+                                    
+                                    <div>
+                                      <Label htmlFor={`pieces.${pieceIndex}.equipements.${equipIndex}.etat`} className="text-sm font-medium">
+                                        État
+                                      </Label>
+                                      <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                                        <Button
+                                          type="button"
+                                          className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${equipment.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                          onClick={() => {
+                                            const newPieces = [...formData.pieces];
+                                            newPieces[pieceIndex].equipements[equipIndex].etat = "Très bon état";
+                                            updateFormField("pieces", newPieces);
+                                          }}
+                                        >
+                                          Très bon
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${equipment.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                          onClick={() => {
+                                            const newPieces = [...formData.pieces];
+                                            newPieces[pieceIndex].equipements[equipIndex].etat = "Bon état";
+                                            updateFormField("pieces", newPieces);
+                                          }}
+                                        >
+                                          Bon
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${equipment.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                          onClick={() => {
+                                            const newPieces = [...formData.pieces];
+                                            newPieces[pieceIndex].equipements[equipIndex].etat = "État d'usage";
+                                            updateFormField("pieces", newPieces);
+                                          }}
+                                        >
+                                          État d'usage
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${equipment.etat === "À rénover" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                          onClick={() => {
+                                            const newPieces = [...formData.pieces];
+                                            newPieces[pieceIndex].equipements[equipIndex].etat = "À rénover";
+                                            updateFormField("pieces", newPieces);
+                                          }}
+                                        >
+                                          À rénover
+                        </Button>
+                                      </div>
+                      </div>
+                      
+                                    <div>
+                                      <Label htmlFor={`pieces.${pieceIndex}.equipements.${equipIndex}.observations`} className="text-sm font-medium">
+                                        Observations
+                                      </Label>
+                        <Textarea
+                                        id={`pieces.${pieceIndex}.equipements.${equipIndex}.observations`}
+                                        value={equipment.observations || ""}
+                          onChange={(e) => {
+                            const newPieces = [...formData.pieces];
+                                          newPieces[pieceIndex].equipements[equipIndex].observations = e.target.value;
+                            updateFormField("pieces", newPieces);
+                          }}
+                                        className="mt-1"
+                                        placeholder="Observations sur l'élément..."
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Bouton pour ajouter un nouvel équipement */}
+                          <Button
+                            type="button"
+                            onClick={() => handleAddEquipment(pieceIndex)}
+                            className="w-full flex items-center justify-center"
+                            variant="outline"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Ajouter un élément
+                          </Button>
                         </div>
                       </div>
+                      
+                      {/* Photos de la pièce */}
+                      <div className="bg-white p-4 rounded-lg shadow-sm mt-4">
+                        <h3 className="text-base font-medium mb-3">Photos de la pièce</h3>
+                        <div className="space-y-4">
+                          {/* Affichage des photos existantes */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                            {(piece.photos || []).map((photo, index) => (
+                              <div key={`piece-${pieceIndex}-photo-${index}`} className="relative">
+                              <Image
+                                src={
+                                  typeof photo === 'string' 
+                                    ? photo 
+                                    : ((photo as any)?.type === 'base64_metadata' || (photo as any)?.type === 'file_metadata') 
+                                      ? ((photo as any)?.downloadUrl 
+                                        ? (photo as any).downloadUrl 
+                                          : (photo as any)?.preview 
+                                            ? (photo as any).preview
+                                            : '')
+                                        : URL.createObjectURL(photo)
+                                  }
+                                  alt={`Photo ${index + 1}`}
+                                  width={100}
+                                  height={100}
+                                  className="w-full h-24 object-cover rounded-md"
+                                onError={(e) => handleImageError(e, photo)}
+                              />
+                                <Button
+                                type="button"
+                                  variant="destructive"
+                                  size="icon"
+                                  className="absolute top-1 right-1 h-5 w-5 rounded-full"
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    if (newPieces[pieceIndex].photos) {
+                                      newPieces[pieceIndex].photos = newPieces[pieceIndex].photos.filter((_, i) => i !== index);
+                                      updateFormField("pieces", newPieces);
+                                    }
+                                  }}
+                              >
+                                <X className="h-3 w-3" />
+                                </Button>
+                            </div>
+                          ))}
+                          </div>
+                          
+                          {/* Upload de nouvelles photos */}
+                          <div>
+                            <Label
+                              htmlFor={`piece-${pieceIndex}-photos-upload`}
+                              className="cursor-pointer flex items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-md hover:border-primary"
+                            >
+                              <div className="flex flex-col items-center space-y-1">
+                                <Camera className="h-6 w-6 text-gray-400" />
+                                <span className="text-xs text-gray-500">Ajouter des photos</span>
+                              </div>
+                              <Input
+                                id={`piece-${pieceIndex}-photos-upload`}
+                                type="file"
+                                multiple
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  if (e.target.files && e.target.files.length > 0) {
+                                    // Utiliser handlePhotoUpload pour un traitement cohérent des photos
+                                    handlePhotoUpload(`pieces.${pieceIndex}.photos`, e);
+                                  }
+                                }}
+                              />
+                            </Label>
+                          </div>
+                        </div>
+                      </div>
+                      
                     </div>
                   </div>
                 ))}

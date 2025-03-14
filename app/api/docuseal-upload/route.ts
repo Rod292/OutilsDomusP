@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     
     const templateIdParam = formData.get('templateId') as string || 'new'
     
-    const DOCUSEAL_API_URL = process.env.DOCUSEAL_API_URL || 'https://api.docuseal.co'
+    const DOCUSEAL_API_URL = process.env.DOCUSEAL_API_URL || 'https://api.docuseal.com'
     const apiKey = process.env.DOCUSEAL_TEST_MODE === 'true'
       ? process.env.DOCUSEAL_TEST_API_KEY
       : process.env.DOCUSEAL_API_KEY
