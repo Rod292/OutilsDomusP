@@ -482,13 +482,13 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
   // Fonction pour obtenir le badge cliquable du type de communication
   const getTypeBadge = (type: string, taskId: string, commIndex: number) => {
     const iconMap: Record<string, React.ReactNode> = {
-      'newsletter': <MailIcon className="h-3 w-3 mr-1" />,
-      'panneau': <SignpostIcon className="h-3 w-3 mr-1" />,
-      'flyer': <FileTextIcon className="h-3 w-3 mr-1" />,
-      'post_site': <GlobeIcon className="h-3 w-3 mr-1" />,
-      'post_linkedin': <LinkedinIcon className="h-3 w-3 mr-1" />,
-      'post_instagram': <InstagramIcon className="h-3 w-3 mr-1" />,
-      'autre': <FileIcon className="h-3 w-3 mr-1" />
+      'newsletter': <MailIcon className="h-2.5 w-2.5 mr-0.5" />,
+      'panneau': <SignpostIcon className="h-2.5 w-2.5 mr-0.5" />,
+      'flyer': <FileTextIcon className="h-2.5 w-2.5 mr-0.5" />,
+      'post_site': <GlobeIcon className="h-2.5 w-2.5 mr-0.5" />,
+      'post_linkedin': <LinkedinIcon className="h-2.5 w-2.5 mr-0.5" />,
+      'post_instagram': <InstagramIcon className="h-2.5 w-2.5 mr-0.5" />,
+      'autre': <FileIcon className="h-2.5 w-2.5 mr-0.5" />
     };
     
     // Libellés pour l'affichage
@@ -506,40 +506,40 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="p-0 h-auto">
-            <Badge className={`text-xs font-medium px-2 py-0.5 rounded-md cursor-pointer hover:bg-opacity-80 flex items-center ${getBadgeColor(type)}`}>
-              {iconMap[type] || <FileIcon className="h-3 w-3 mr-1" />}
+            <Badge className={`text-xs font-medium px-1.5 py-0.5 rounded-md cursor-pointer hover:bg-opacity-80 flex items-center ${getBadgeColor(type)}`}>
+              {iconMap[type] || <FileIcon className="h-2.5 w-2.5 mr-0.5" />}
               {labels[type] || type}
-              <ChevronDownIcon className="h-3 w-3 ml-1 opacity-70" />
+              <ChevronDownIcon className="h-2.5 w-2.5 ml-0.5 opacity-70" />
             </Badge>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           <DropdownMenuItem onClick={() => updateCommunicationType(taskId, commIndex, 'newsletter')}>
-            <MailIcon className="h-4 w-4 mr-2 text-purple-600" />
+            <MailIcon className="h-3.5 w-3.5 mr-2 text-purple-600" />
             <span>Newsletter</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => updateCommunicationType(taskId, commIndex, 'panneau')}>
-            <SignpostIcon className="h-4 w-4 mr-2 text-yellow-600" />
+            <SignpostIcon className="h-3.5 w-3.5 mr-2 text-yellow-600" />
             <span>Panneau</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => updateCommunicationType(taskId, commIndex, 'flyer')}>
-            <FileTextIcon className="h-4 w-4 mr-2 text-emerald-600" />
+            <FileTextIcon className="h-3.5 w-3.5 mr-2 text-emerald-600" />
             <span>Flyer</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => updateCommunicationType(taskId, commIndex, 'post_site')}>
-            <GlobeIcon className="h-4 w-4 mr-2 text-indigo-600" />
+            <GlobeIcon className="h-3.5 w-3.5 mr-2 text-indigo-600" />
             <span>Site Web</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => updateCommunicationType(taskId, commIndex, 'post_linkedin')}>
-            <LinkedinIcon className="h-4 w-4 mr-2 text-sky-600" />
+            <LinkedinIcon className="h-3.5 w-3.5 mr-2 text-sky-600" />
             <span>LinkedIn</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => updateCommunicationType(taskId, commIndex, 'post_instagram')}>
-            <InstagramIcon className="h-4 w-4 mr-2 text-pink-600" />
+            <InstagramIcon className="h-3.5 w-3.5 mr-2 text-pink-600" />
             <span>Instagram</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => updateCommunicationType(taskId, commIndex, 'autre')}>
-            <FileIcon className="h-4 w-4 mr-2 text-gray-600" />
+            <FileIcon className="h-3.5 w-3.5 mr-2 text-gray-600" />
             <span>Autre</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -612,7 +612,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     
     return (
       <Select value={status} onValueChange={handleStatusChange}>
-        <SelectTrigger className={`px-2 py-1 rounded-md w-full max-w-[180px] ${statusColors[status] || 'bg-gray-100 text-gray-800'} border-0 focus:ring-1 focus:ring-offset-0`}>
+        <SelectTrigger className={`px-1.5 py-0.5 text-xs rounded-md w-full max-w-[150px] h-6 ${statusColors[status] || 'bg-gray-100 text-gray-800'} border-0 focus:ring-1 focus:ring-offset-0`}>
           <SelectValue>{status}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -665,7 +665,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     
     return (
       <Select value={priority} onValueChange={handlePriorityChange}>
-        <SelectTrigger className={`px-2 py-1 rounded-md w-full max-w-[120px] ${priorityColors[priority] || 'bg-gray-100 text-gray-800'} border-0 focus:ring-1 focus:ring-offset-0`}>
+        <SelectTrigger className={`px-1.5 py-0.5 text-xs rounded-md w-full max-w-[100px] h-6 ${priorityColors[priority] || 'bg-gray-100 text-gray-800'} border-0 focus:ring-1 focus:ring-offset-0`}>
           <SelectValue>{priority}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -714,8 +714,8 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       'newsletter': 'bg-purple-100 text-purple-800',
       'panneau': 'bg-blue-100 text-blue-800',
       'flyer': 'bg-green-100 text-green-800',
-      'carousel': 'bg-yellow-100 text-yellow-800',
-      'video': 'bg-red-100 text-red-800',
+      'carousel': 'bg-purple-100 text-purple-800',
+      'video': 'bg-orange-100 text-orange-800',
       'post_site': 'bg-indigo-100 text-indigo-800',
       'post_linkedin': 'bg-sky-100 text-sky-800',
       'post_instagram': 'bg-pink-100 text-pink-800',
@@ -747,14 +747,14 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     
     return (
       <div onClick={(e) => e.stopPropagation()}>
-        <div className="flex flex-wrap gap-1 mb-1">
+        <div className="flex flex-wrap items-center gap-1">
           {assignedConsultants.map(consultant => (
             <Badge 
               key={consultant.email} 
               variant="outline" 
-              className="flex items-center gap-1 px-2 py-1 bg-gray-50"
+              className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-50 text-xs"
             >
-              <UserIcon className="h-3 w-3 text-gray-500" />
+              <UserIcon className="h-2.5 w-2.5 text-gray-500" />
               <span>{consultant.name}</span>
               <Button
                 variant="ghost"
@@ -766,45 +766,44 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                     removeAssignee(taskId, consultant.email);
                   }
                 }}
-                className="h-4 w-4 p-0 ml-1 text-gray-400 hover:text-red-500"
+                className="h-3.5 w-3.5 p-0 ml-0.5 text-gray-400 hover:text-red-500"
               >
-                <XIcon className="h-3 w-3" />
+                <XIcon className="h-2.5 w-2.5" />
               </Button>
             </Badge>
           ))}
-        </div>
-        
-        {availableConsultants.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="h-6 text-xs px-2 py-0 bg-transparent"
-              >
-                <PlusIcon className="h-3 w-3 mr-1" />
-                Ajouter
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              {availableConsultants.map(consultant => (
-                <DropdownMenuItem 
-                  key={consultant.email} 
-                  onClick={() => {
-                    if (isCommunication && commIndex >= 0) {
-                      addCommunicationAssignee(taskId, commIndex, consultant.email);
-                    } else {
-                      addAssignee(taskId, consultant.email);
-                    }
-                  }}
+          
+          {availableConsultants.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-5 text-xs px-1 py-0 bg-transparent"
                 >
-                  <UserIcon className="h-4 w-4 mr-2 text-gray-500" />
-                  {consultant.name}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+                  <PlusIcon className="h-2.5 w-2.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {availableConsultants.map(consultant => (
+                  <DropdownMenuItem 
+                    key={consultant.email} 
+                    onClick={() => {
+                      if (isCommunication && commIndex >= 0) {
+                        addCommunicationAssignee(taskId, commIndex, consultant.email);
+                      } else {
+                        addAssignee(taskId, consultant.email);
+                      }
+                    }}
+                  >
+                    <UserIcon className="h-3.5 w-3.5 mr-2 text-gray-500" />
+                    {consultant.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
     );
   };
@@ -814,12 +813,12 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     if (!platform) return null;
     
     const icons: Record<string, React.ReactNode> = {
-      'site': <GlobeIcon className="h-4 w-4 text-indigo-500" />,
-      'linkedin': <LinkedinIcon className="h-4 w-4 text-sky-500" />,
-      'instagram': <InstagramIcon className="h-4 w-4 text-pink-500" />
+      'site': <GlobeIcon className="h-2.5 w-2.5 text-indigo-500" />,
+      'linkedin': <LinkedinIcon className="h-2.5 w-2.5 text-sky-500" />,
+      'instagram': <InstagramIcon className="h-2.5 w-2.5 text-pink-500" />
     };
     
-    return icons[platform] || <MonitorIcon className="h-4 w-4 text-gray-500" />;
+    return icons[platform] || <MonitorIcon className="h-2.5 w-2.5 text-gray-500" />;
   };
 
   // Fonction pour obtenir le badge de plateforme
@@ -841,8 +840,8 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     };
     
     return (
-      <Badge className={`${colors[platform] || 'bg-gray-100 text-gray-800'} mr-1`}>
-        <div className="flex items-center gap-1">
+      <Badge className={`${colors[platform] || 'bg-gray-100 text-gray-800'} mr-1 text-xs px-1.5 py-0.5`}>
+        <div className="flex items-center gap-0.5">
           {getPlatformIcon(platform)}
           <span>{labels[platform] || platform}</span>
         </div>
@@ -858,9 +857,9 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
         <PopoverTrigger asChild>
           <Button 
             variant="ghost" 
-            className="px-2 py-1 h-auto flex items-center gap-2 justify-start min-w-[150px] hover:bg-gray-100 rounded"
+            className="px-1.5 py-0.5 h-auto flex items-center gap-1 justify-start min-w-[140px] hover:bg-gray-100 rounded text-xs"
           >
-            <CalendarIcon className="h-4 w-4 text-gray-500" />
+            <CalendarIcon className="h-3.5 w-3.5 text-gray-500" />
             {date ? format(new Date(date), "dd MMM yyyy", { locale: fr }) : "Date non définie"}
           </Button>
         </PopoverTrigger>
@@ -1081,10 +1080,10 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     
     // Icônes pour les différents types de média
     const iconMap: Record<string, React.ReactNode> = {
-      'photo': <ImageIcon className="h-3 w-3 mr-1" />,
-      'video': <VideoIcon className="h-3 w-3 mr-1" />,
-      'texte': <FileTextIcon className="h-3 w-3 mr-1" />,
-      'autre': <FileIcon className="h-3 w-3 mr-1" />,
+      'photo': <ImageIcon className="h-2.5 w-2.5 mr-0.5" />,
+      'video': <VideoIcon className="h-2.5 w-2.5 mr-0.5" />,
+      'texte': <FileTextIcon className="h-2.5 w-2.5 mr-0.5" />,
+      'autre': <FileIcon className="h-2.5 w-2.5 mr-0.5" />,
     };
     
     // Couleurs plus contrastées pour les badges
@@ -1099,21 +1098,21 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="p-0 h-auto">
-            <Badge className={`text-xs font-medium px-2 py-0.5 rounded-md cursor-pointer hover:bg-opacity-80 flex items-center ${
+            <Badge className={`text-xs font-medium px-1.5 py-0.5 rounded-md cursor-pointer hover:bg-opacity-80 flex items-center ${
               mediaType ? colorMap[mediaType] || 'bg-gray-200 text-gray-900' : 'bg-gray-200 text-gray-900 border border-dashed border-gray-400'
             }`}>
               {mediaType ? (
                 <>
-                  {iconMap[mediaType] || <FileIcon className="h-3 w-3 mr-1" />}
-                  {mediaType.charAt(0).toUpperCase() + mediaType.slice(1)}
+                  {iconMap[mediaType] || <FileIcon className="h-2.5 w-2.5 mr-0.5" />}
+                  {mediaType}
                 </>
               ) : (
                 <>
-                  <CameraIcon className="h-3 w-3 mr-1 text-gray-500" />
-                  <span className="text-gray-700">{defaultValue}</span>
-                  <ChevronDownIcon className="h-3 w-3 ml-1 text-gray-500" />
+                  <CameraIcon className="h-2.5 w-2.5 mr-0.5" />
+                  {defaultValue}
                 </>
               )}
+              <ChevronDownIcon className="h-2.5 w-2.5 ml-0.5 opacity-70" />
             </Badge>
           </Button>
         </DropdownMenuTrigger>
@@ -1177,7 +1176,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     
     return (
       <Select value={priority} onValueChange={handlePriorityChange}>
-        <SelectTrigger className={`px-2 py-1 rounded-md w-full max-w-[120px] ${priorityColors[priority] || 'bg-gray-100 text-gray-800'} border-0 focus:ring-1 focus:ring-offset-0`}>
+        <SelectTrigger className={`px-1 py-0 text-xs rounded-md w-full max-w-[90px] h-5 ${priorityColors[priority] || 'bg-gray-100 text-gray-800'} border-0 focus:ring-1 focus:ring-offset-0`}>
           <SelectValue>{priority}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -1241,41 +1240,41 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       <div className="rounded-md border overflow-hidden">
         <Table className="border">
           <TableHeader>
-            <TableRow>
-              <TableHead className="w-[300px] font-bold">Contenu</TableHead>
+            <TableRow className="h-8">
+              <TableHead className="w-[280px] font-bold py-2">Contenu</TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-gray-50 font-bold"
+                className="cursor-pointer hover:bg-gray-50 font-bold py-2 w-[120px]"
                 onClick={() => handleSort('status')}
               >
                 <div className="flex items-center gap-1">
                   Statut
                   {sortField === 'status' && (
                     sortDirection === 'asc' 
-                      ? <ChevronUpIcon className="h-4 w-4" /> 
-                      : <ChevronDownIcon className="h-4 w-4" />
+                      ? <ChevronUpIcon className="h-3.5 w-3.5" /> 
+                      : <ChevronDownIcon className="h-3.5 w-3.5" />
                   )}
                 </div>
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-gray-50 font-bold" 
+                className="cursor-pointer hover:bg-gray-50 font-bold py-2 w-[100px]" 
                 onClick={() => handleSort('priority')}
               >
                 <div className="flex items-center gap-1">
                   Priorité
                   {sortField === 'priority' && (
                     sortDirection === 'asc' 
-                      ? <ChevronUpIcon className="h-4 w-4" /> 
-                      : <ChevronDownIcon className="h-4 w-4" />
+                      ? <ChevronUpIcon className="h-3.5 w-3.5" /> 
+                      : <ChevronDownIcon className="h-3.5 w-3.5" />
                   )}
                 </div>
               </TableHead>
-              <TableHead className="font-bold">
+              <TableHead className="font-bold py-2 w-[180px]">
                 <div className="flex items-center gap-1">
                   <span>Assigné à</span>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                        <SlidersHorizontalIcon className="h-4 w-4" />
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                        <SlidersHorizontalIcon className="h-3.5 w-3.5" />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[200px] p-2" align="start">
@@ -1306,25 +1305,25 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                 </div>
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-gray-50 font-bold"
+                className="cursor-pointer hover:bg-gray-50 font-bold py-2 w-[150px]"
                 onClick={() => handleSort('dueDate')}
               >
                 <div className="flex items-center gap-1">
                   Date
                   {sortField === 'dueDate' && (
                     sortDirection === 'asc' 
-                      ? <ChevronUpIcon className="h-4 w-4" /> 
-                      : <ChevronDownIcon className="h-4 w-4" />
+                      ? <ChevronUpIcon className="h-3.5 w-3.5" /> 
+                      : <ChevronDownIcon className="h-3.5 w-3.5" />
                   )}
                 </div>
               </TableHead>
-              <TableHead className="text-right w-[120px] font-bold">Actions</TableHead>
+              <TableHead className="text-right w-[90px] font-bold py-2">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredTasks.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={6} className="text-center py-4 text-gray-500">
                   Aucune tâche pour le moment. Cliquez sur "Ajouter" pour créer une nouvelle tâche.
                 </TableCell>
               </TableRow>
@@ -1341,90 +1340,86 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                     className={`cursor-pointer hover:bg-gray-50 ${isExpanded ? 'border-b-0' : ''}`}
                     onClick={() => toggleTaskExpansion(task.id)}
                   >
-                    <TableCell>
-                      <div className="flex items-start gap-2">
+                    <TableCell className="py-1.5">
+                      <div className="flex items-start gap-1">
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="px-1 py-1 h-6 mt-1"
+                          className="px-0.5 py-0 h-4 mt-0.5"
                           onClick={(e) => {
                             e.stopPropagation();
                             toggleTaskExpansion(task.id);
                           }}
                         >
                           {isExpanded ? 
-                            <ChevronDownIcon className="h-4 w-4" /> : 
-                            <ChevronRightIcon className="h-4 w-4" />}
+                            <ChevronDownIcon className="h-3 w-3" /> : 
+                            <ChevronRightIcon className="h-3 w-3" />}
                         </Button>
-                        <div className="flex-1">
-                          <div className="font-medium">{task.title}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate">{task.title}</div>
                           {task.description && (
-                            <div className="text-sm text-gray-500 line-clamp-1">
+                            <div className="text-xs text-gray-500 line-clamp-1">
                               {task.description}
                             </div>
                           )}
-                          {task.dossierNumber && (
-                            <div className="text-xs text-gray-400">
-                              N° logi-pro: {task.dossierNumber}
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2 mt-1">
+                          <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                            {task.dossierNumber && (
+                              <span className="text-xs text-gray-400">
+                                N° {task.dossierNumber}
+                              </span>
+                            )}
                             {task.mandatSigne ? (
-                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs py-0 px-1">
                                 Mandat signé
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs py-0 px-1">
                                 Mandat non signé
                               </Badge>
                             )}
+                            {task.tags && task.tags.length > 0 && task.tags.slice(0, 2).map(tag => (
+                              <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">
+                                {tag}
+                              </Badge>
+                            ))}
+                            {task.tags && task.tags.length > 2 && (
+                              <Badge variant="secondary" className="text-xs px-1 py-0">
+                                +{task.tags.length - 2}
+                              </Badge>
+                            )}
                           </div>
-                          {task.tags && task.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {task.tags.slice(0, 3).map(tag => (
-                                <Badge key={tag} variant="secondary" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
-                              {task.tags.length > 3 && (
-                                <Badge variant="secondary" className="text-xs">
-                                  +{task.tags.length - 3}
-                                </Badge>
-                              )}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
+                    <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5">
                       {getStatusBadge(task.status, task.id)}
                     </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
+                    <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5">
                       {getPriorityBadge(task.priority, task.id)}
                     </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
+                    <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5">
                       {getAssignedToDisplay(task.assignedTo || [], task.id)}
                     </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
+                    <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5">
                       <DatePickerCell date={task.dueDate} taskId={task.id} />
                     </TableCell>
-                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end space-x-2">
+                    <TableCell className="text-right py-1.5" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end">
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="h-8 w-8 p-0 text-gray-500 hover:text-gray-900"
+                          className="h-6 w-6 p-0 text-gray-500 hover:text-gray-900"
                           onClick={() => onEditTask(task)}
                         >
-                          <PencilIcon className="h-4 w-4" />
+                          <PencilIcon className="h-3.5 w-3.5" />
                         </Button>
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="h-8 w-8 p-0 text-gray-500 hover:text-red-600"
+                          className="h-6 w-6 p-0 text-gray-500 hover:text-red-600"
                           onClick={() => onDeleteTask(task.id)}
                         >
-                          <TrashIcon className="h-4 w-4" />
+                          <TrashIcon className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </TableCell>
@@ -1438,12 +1433,12 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                     key={`${task.id}-add-comm`} 
                     className="bg-gray-50 border-b"
                   >
-                    <TableCell colSpan={6} className="pl-16 py-2">
-                      <div className="flex items-center justify-start gap-2">
+                    <TableCell colSpan={6} className="pl-10 py-0.5">
+                      <div className="flex items-center justify-start">
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          className="h-8 text-xs flex items-center"
+                          className="h-5 text-xs flex items-center px-1 py-0"
                           onClick={(e) => {
                             e.stopPropagation();
                             addCommunicationType(task.id, 'autre');
@@ -1469,22 +1464,22 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                           key={`${task.id}-comm-${index}`} 
                           className="bg-gray-50 hover:bg-gray-100"
                         >
-                          <TableCell className="pl-16">
-                            <div className="flex flex-wrap items-center gap-2">
+                          <TableCell className="pl-10 py-1">
+                            <div className="flex flex-wrap items-center gap-1">
                               {getTypeBadge(comm.type, task.id, index)}
                               {getPlatformBadge(comm.platform)}
                               {getMediaTypeBadge(comm.mediaType, task.id, index)}
                               {comm.details && (
-                                <span className="text-sm text-gray-500">{comm.details}</span>
+                                <span className="text-xs text-gray-500">{comm.details}</span>
                               )}
                             </div>
                           </TableCell>
-                          <TableCell onClick={(e) => e.stopPropagation()}>
+                          <TableCell onClick={(e) => e.stopPropagation()} className="py-1">
                             <Select 
                               value={comm.status} 
                               onValueChange={(value) => updateCommunicationStatus(task.id, index, value)}
                             >
-                              <SelectTrigger className={`px-2 py-1 rounded-md w-full max-w-[180px] ${
+                              <SelectTrigger className={`px-1.5 py-0.5 text-xs rounded-md w-full max-w-[150px] h-5 ${
                                 comm.status === 'idée' ? 'bg-purple-100 text-purple-800' :
                                 comm.status === 'en développement' ? 'bg-indigo-200 text-indigo-900' :
                                 comm.status === 'à faire' ? 'bg-yellow-100 text-yellow-800' :
@@ -1515,39 +1510,39 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                               </SelectContent>
                             </Select>
                           </TableCell>
-                          <TableCell onClick={(e) => e.stopPropagation()}>
+                          <TableCell onClick={(e) => e.stopPropagation()} className="py-1">
                             {getCommunicationPriorityBadge(comm.priority || 'moyenne', task.id, index)}
                           </TableCell>
-                          <TableCell onClick={(e) => e.stopPropagation()}>
+                          <TableCell onClick={(e) => e.stopPropagation()} className="py-1">
                             {getAssignedToDisplay(comm.assignedTo || [], task.id, true, index)}
                           </TableCell>
-                          <TableCell onClick={(e) => e.stopPropagation()}>
+                          <TableCell onClick={(e) => e.stopPropagation()} className="py-1">
                             <DatePickerCell date={comm.deadline} taskId={task.id} isCommunication={true} commIndex={index} />
                           </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end space-x-2">
+                          <TableCell className="text-right py-1">
+                            <div className="flex items-center justify-end">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 text-gray-500 hover:text-gray-900"
+                                className="h-5 w-5 p-0 text-gray-500 hover:text-gray-900"
                                 onClick={() => onEditTask(task)}
                               >
-                                <PencilIcon className="h-4 w-4" />
+                                <PencilIcon className="h-3 w-3" />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 text-gray-500 hover:text-red-600"
+                                className="h-5 w-5 p-0 text-gray-500 hover:text-red-600"
                                 onClick={() => removeCommunication(task.id, index)}
                               >
-                                <TrashIcon className="h-4 w-4" />
+                                <TrashIcon className="h-3 w-3" />
                               </Button>
                             </div>
                           </TableCell>
                         </TableRow>
                       ))
                     : [<TableRow key={`${task.id}-no-comm`} className="bg-gray-50">
-                        <TableCell colSpan={6} className="pl-16 text-sm text-gray-500 italic py-4">
+                        <TableCell colSpan={6} className="pl-10 text-xs text-gray-500 italic py-1">
                           Aucun détail de communication. Utilisez le bouton + pour en ajouter.
                         </TableCell>
                       </TableRow>]
@@ -1561,4 +1556,4 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       </div>
     </div>
   );
-} // Commentaire de test pour forcer un push
+}
