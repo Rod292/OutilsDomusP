@@ -44,8 +44,8 @@ const AnimatedCharacter = ({
   const leftPawRef = useRef<SVGPathElement>(null);
   const rightPawRef = useRef<SVGPathElement>(null);
   
-  // Couleurs Arthur Lloyd
-  const primaryColor = "#DC0032"; // Rouge Arthur Lloyd
+  // Couleurs Arthur Loyd
+  const primaryColor = "#DC0032"; // Rouge Arthur Loyd
   const secondaryColor = "#333333"; // Couleur foncée pour détails
   const pawColor = "#B9002A"; // Couleur légèrement différente pour les pattes (pour le contraste)
   
@@ -201,7 +201,7 @@ const AnimatedCharacter = ({
         
         {/* Groupe de la tête pour l'animation de rotation */}
         <g ref={headRef} className="head character-body">
-          {/* Tête avec la couleur rouge Arthur Lloyd */}
+          {/* Tête avec la couleur rouge Arthur Loyd */}
           <circle cx="65" cy="65" r="42" fill={primaryColor} />
           
           {/* Oreilles */}

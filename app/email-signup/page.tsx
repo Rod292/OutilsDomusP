@@ -11,7 +11,7 @@ export default function EmailSignupPage() {
         <div className="text-center mb-8">
           <Image
             src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Screenshot%202025-01-20%20at%2015.22.07-XcaUpl2kmkXGPWq4GoS5Mvl5RpKRc1.png"
-            alt="Arthur Lloyd"
+            alt="Arthur Loyd"
             width={240}
             height={64}
             className="mx-auto mb-4"

@@ -1,21 +1,18 @@
-"use client"
-
-import Image from "next/image"
-import Link from "next/link"
-import { RefreshCw, ChevronLeft, LogOut, Menu, X, FileSpreadsheet, Home, ClipboardCheck, Star, UserIcon, BookOpen, Mail } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { useCallback, useEffect, useState } from "react"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { auth } from "@/app/lib/firebase"
-import type { User } from "firebase/auth"
+import React, { useState, useEffect } from 'react';
+import Image from "next/image";
+import Link from "next/link";
+import { ChevronLeft, Menu, X, User, ClipboardCheck, FileSpreadsheet, Star, BookOpen, Mail, LogOut, Sun, Moon } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { usePathname, useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from "framer-motion";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { motion, AnimatePresence } from "framer-motion"
-import { ThemeToggle } from "../../components/ui/theme-toggle"
+} from "@/components/ui/dropdown-menu";
+import { useTheme } from "next-themes";
+import { auth } from "@/app/lib/firebase";
 
 // Variantes d'animation pour le menu
 const menuVariants = {
@@ -54,62 +51,53 @@ const menuItemVariants = {
   }
 };
 
-export function Header() {
-  const [isStandalone, setIsStandalone] = useState(false)
-  const [user, setUser] = useState<User | null>(null)
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const pathname = usePathname()
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const consultant = searchParams.get('consultant')
+interface NotionHeaderProps {
+  consultant: string | null | undefined;
+}
+
+export default function NotionHeader({ consultant }: NotionHeaderProps) {
+  const { user } = useAuth();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
-    setIsStandalone(window.matchMedia("(display-mode: standalone)").matches)
-    if (auth) {
-      const unsubscribe = auth.onAuthStateChanged((user) => {
-        setUser(user)
-      })
-      return () => unsubscribe()
-    }
-  }, [])
-
-  const handleRefresh = useCallback(() => {
-    window.location.reload()
-  }, [])
+    setIsStandalone(window.matchMedia("(display-mode: standalone)").matches);
+  }, []);
 
   const handleBack = () => {
-    router.back()
-  }
-
-  const handleSignOut = async () => {
-    if (!auth) return;
-    
-    try {
-      await auth.signOut()
-      router.push("/")
-    } catch (error) {
-      console.error("Erreur lors de la déconnexion:", error)
-    }
-  }
+    router.back();
+  };
 
   const navigateTo = (path: string) => {
-    setIsMenuOpen(false)
+    setIsMenuOpen(false);
     
     // Ajouter le consultant au chemin
     if (path === "/") {
-      router.push("/")
+      router.push("/");
     } else if (path.startsWith("/consultant")) {
-      router.push(`${path}/${consultant}`)
+      router.push(`${path}/${consultant}`);
     } else {
-      router.push(`${path}?consultant=${consultant}`)
+      router.push(`${path}?consultant=${consultant}`);
     }
-  }
+  };
 
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen)
-  }
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
 
-  const showBackButton = pathname !== "/"
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      router.push("/");
+    } catch (error) {
+      console.error("Erreur lors de la déconnexion:", error);
+    }
+  };
+
+  const showBackButton = pathname !== "/";
 
   return (
     <header className={`bg-[#DC0032] dark:bg-[#9A0023] shadow-md ${isStandalone ? 'standalone-header' : ''}`}>
@@ -136,19 +124,7 @@ export function Header() {
                   className="h-7 sm:h-8 w-auto"
                 />
               </Link>
-              {pathname.includes('/plan-communication') ? (
-                <h1 className="text-white text-sm sm:text-lg font-semibold tracking-wide truncate max-w-[120px] sm:max-w-none">Plan de Communication</h1>
-              ) : pathname.includes('/selection-outil') ? (
-                <h1 className="text-white text-sm sm:text-lg font-semibold tracking-wide truncate max-w-[120px] sm:max-w-none">Sélection d'Outil</h1>
-              ) : pathname.includes('/avis-google') ? (
-                <h1 className="text-white text-sm sm:text-lg font-semibold tracking-wide truncate max-w-[120px] sm:max-w-none">Avis Google</h1>
-              ) : pathname.includes('/guides-immobilier') ? (
-                <h1 className="text-white text-sm sm:text-lg font-semibold tracking-wide truncate max-w-[120px] sm:max-w-none">Guides Immobilier</h1>
-              ) : pathname.includes('/newsletter') ? (
-                <h1 className="text-white text-sm sm:text-lg font-semibold tracking-wide truncate max-w-[120px] sm:max-w-none">Newsletter</h1>
-              ) : (
-                <h1 className="text-white text-sm sm:text-lg font-semibold tracking-wide truncate max-w-[120px] sm:max-w-none">État des Lieux</h1>
-              )}
+              <h1 className="text-white text-sm sm:text-lg font-semibold tracking-wide truncate max-w-[120px] sm:max-w-none">Plan de Communication</h1>
               {consultant && (
                 <motion.span 
                   className="text-white text-xs sm:text-sm bg-white/20 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded truncate max-w-[80px] sm:max-w-none"
@@ -164,7 +140,18 @@ export function Header() {
           
           <div className="flex items-center space-x-1 sm:space-x-3">
             {/* Bouton de basculement de thème */}
-            <ThemeToggle />
+            <motion.button
+              onClick={toggleTheme}
+              className="text-white hover:bg-white/20 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 p-1.5 sm:p-2 rounded-full"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              {theme === "dark" ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
+            </motion.button>
             
             {/* Menu de navigation */}
             {user && (
@@ -205,7 +192,7 @@ export function Header() {
                       >
                         <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
                           <DropdownMenuItem onClick={() => navigateTo("/")} className="flex items-center p-2 cursor-pointer">
-                            <UserIcon className="mr-2 h-4 w-4 text-[#DC0032]" />
+                            <User className="mr-2 h-4 w-4 text-[#DC0032]" />
                             <span className="dark:text-gray-200">Profil</span>
                           </DropdownMenuItem>
                         </motion.div>
@@ -216,7 +203,7 @@ export function Header() {
                           </DropdownMenuItem>
                         </motion.div>
                         <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
-                          <DropdownMenuItem onClick={() => navigateTo("/notion-plan")} className="flex items-center p-2 cursor-pointer">
+                          <DropdownMenuItem onClick={() => navigateTo("/plan-communication")} className="flex items-center p-2 cursor-pointer">
                             <FileSpreadsheet className="mr-2 h-4 w-4 text-[#DC0032]" />
                             <span className="dark:text-gray-200">Plan de Communication</span>
                           </DropdownMenuItem>
@@ -239,6 +226,12 @@ export function Header() {
                             <span className="dark:text-gray-200">Newsletter</span>
                           </DropdownMenuItem>
                         </motion.div>
+                        <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors border-t border-gray-200 dark:border-gray-700 mt-1 pt-1">
+                          <DropdownMenuItem onClick={handleSignOut} className="flex items-center p-2 cursor-pointer text-red-500">
+                            <LogOut className="mr-2 h-4 w-4" />
+                            <span className="dark:text-red-400">Déconnexion</span>
+                          </DropdownMenuItem>
+                        </motion.div>
                       </motion.div>
                     </DropdownMenuContent>
                   )}
@@ -249,33 +242,9 @@ export function Header() {
             {user && (
               <span className="text-white text-sm mr-2 hidden md:inline-block">{user.displayName || user.email}</span>
             )}
-            {isStandalone && (
-              <motion.button
-                onClick={handleRefresh}
-                className="text-white hover:bg-white/20 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 p-1.5 sm:p-2 rounded-full"
-                aria-label="Rafraîchir la page"
-                whileHover={{ scale: 1.1, rotate: 180 }}
-                whileTap={{ scale: 0.9 }}
-                transition={{ duration: 0.3 }}
-              >
-                <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5" />
-              </motion.button>
-            )}
-            {user && (
-              <motion.button
-                onClick={handleSignOut}
-                className="text-white hover:bg-white/20 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 p-1.5 sm:p-2 rounded-full"
-                aria-label="Se déconnecter"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
-              </motion.button>
-            )}
           </div>
         </div>
       </div>
     </header>
-  )
-}
-
+  );
+} 

@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { generateEtatDesLieuxPDF } from "@/app/utils/generateEtatDesLieuxPDF"
 import { Download, Printer, FileText, ExternalLink, Check, AlertCircle, Edit, Send, Settings } from "lucide-react"
 import { formatDate, getTypeBienLabel } from "@/app/utils/format-helpers"
 import { SignatureConfigModal } from "./signature-config-modal"
 import { toast } from "@/components/ui/use-toast"
+import Confetti from "react-confetti"
 
 interface RapportPreviewProps {
   formData: any
@@ -21,6 +22,38 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
   const [editModeModalOpen, setEditModeModalOpen] = useState(false)
   const [templateId, setTemplateId] = useState<string | undefined>(undefined)
   const [numericTemplateId, setNumericTemplateId] = useState<string | undefined>(undefined)
+  const [showConfetti, setShowConfetti] = useState(false)
+  const [windowDimension, setWindowDimension] = useState<{ width: number, height: number }>({ width: 0, height: 0 })
+
+  // Calculer les dimensions de la fenêtre pour les confettis
+  useEffect(() => {
+    setWindowDimension({
+      width: window.innerWidth,
+      height: window.innerHeight
+    })
+
+    const handleResize = () => {
+      setWindowDimension({
+        width: window.innerWidth,
+        height: window.innerHeight
+      })
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Effet de confettis au chargement
+  useEffect(() => {
+    if (!loading) {
+      setShowConfetti(true)
+      // Arrêter les confettis après quelques secondes
+      const timer = setTimeout(() => {
+        setShowConfetti(false)
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [loading])
 
   // Ajout de logs pour déboguer
   useEffect(() => {
@@ -341,6 +374,19 @@ export function RapportPreview({ formData, onEdit }: RapportPreviewProps) {
 
   return (
     <div className="container mx-auto p-4">
+      {showConfetti && (
+        <Confetti
+          width={windowDimension.width}
+          height={windowDimension.height}
+          recycle={false}
+          numberOfPieces={700}
+          gravity={0.2}
+          initialVelocityY={10}
+          initialVelocityX={4}
+          colors={['#DC0032', '#336699', '#FF9900', '#67b7e1', '#FF4081']}
+          tweenDuration={5000}
+        />
+      )}
       <div className="bg-card rounded-lg shadow-md p-6 max-w-4xl mx-auto">
         <div className="flex flex-col gap-6">
           {/* En-tête avec titre et boutons */}

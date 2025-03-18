@@ -1484,7 +1484,7 @@ export function EtatDesLieuxForm({
   
   // Rendu du formulaire
   return (
-    <div className="container mx-auto pb-safe main-content">
+    <div className="container mx-auto px-4 py-8 sm:py-6 max-w-5xl">
       <div className="flex flex-col gap-6 p-2 sm:p-4">
         {/* Navigation par onglets */}
         <div className="flex overflow-x-auto py-2 gap-1 sm:gap-3 no-scrollbar -mx-2 px-2 section-navigation section-tabs">
@@ -1516,7 +1516,7 @@ export function EtatDesLieuxForm({
                 <h2 className="text-xl font-bold text-gray-900">Type d'état des lieux</h2>
               </div>
               <div className="p-6 space-y-6">
-          {/* Type d'état des lieux */}
+        {/* Type d'état des lieux */}
                 <div className="space-y-3">
                     <Label className="text-base font-medium">Type d'état des lieux</Label>
                     <RadioGroup
@@ -2424,1484 +2424,1578 @@ export function EtatDesLieuxForm({
                         </Label>
                         <Textarea
                           id="compteurs.electricite.observations"
-                          name="compteurs.electricite.observations"
-                          value={formData.compteurs?.electricite?.observations || ""}
-                          onChange={handleInputChange}
-                          className="w-full text-base"
-                          placeholder="Notes sur l'état du compteur, accessibilité, etc."
-                        />
-                      </div>
-                      
-                      <div className="space-y-2 mt-4">
-                        <Label className="text-base font-medium">
-                          Photos du compteur
-                        </Label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                          {(formData.compteurs?.electricite?.photos || []).map((photo, index) => (
-                            <div key={`electricite-photo-${index}`} className="relative">
-                              <Image
-                                src={
-                                  typeof photo === 'string' 
-                                    ? photo 
-                                    : ((photo as any)?.type === 'base64_metadata' || (photo as any)?.type === 'file_metadata') 
-                                      ? ((photo as any)?.downloadUrl 
-                                        ? (photo as any).downloadUrl 
-                                        : (photo as any)?.preview 
-                                          ? (photo as any).preview
-                                          : PLACEHOLDER_IMAGE)
-                                        : PLACEHOLDER_IMAGE
-                                }
-                                alt={`Photo ${index + 1}`}
-                                width={120}
-                                height={120}
-                                className="object-cover rounded-md w-full h-24"
-                                unoptimized={true}
-                                onError={(e) => handleImageError(e, photo)}
-                              />
-                              <button
-                                type="button"
-                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md"
-                                onClick={() => handleRemovePhoto('compteurs.electricite.photos', index)}
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          ))}
-                          {/* Bouton d'ajout de photo toujours visible */}
-                          <div className="flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md w-full h-24">
-                            <label className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-gray-700 cursor-pointer">
-                              <Camera className="h-8 w-8 mb-1" />
-                              <span className="text-xs">Ajouter</span>
-                              <span className="text-[10px] text-gray-400 text-center">Sélection multiple possible</span>
-                              <input
-                                type="file"
-                                className="hidden"
-                                accept="image/*"
-                                multiple
-                                onChange={(e) => {
-                                  if (e.target.files && e.target.files.length > 0) {
-                                    handlePhotoUpload('compteurs.electricite.photos', e);
+            {/* Compteurs */}
+            {activeTab === 5 && (
+              <div className="bg-card p-4 rounded-lg shadow-sm space-y-6">
+                <h2 className="text-xl font-semibold text-center mb-4">Relevés des compteurs</h2>
+                
+                <div className="space-y-8">
+                  {/* Compteur électricité */}
+                  <div className="border rounded-lg p-4 bg-muted/30">
+                    <div className="flex items-center mb-4">
+                      <Checkbox 
+                        id="compteurs.electricite.presence" 
+                        checked={formData.compteurs?.electricite?.presence || false}
+                        onCheckedChange={(checked) => 
+                          updateFormField("compteurs.electricite.presence", checked === true)
+                        }
+                        className="mr-2"
+                      />
+                      <Label htmlFor="compteurs.electricite.presence" className="text-lg font-medium">
+                        Compteur d'électricité
+                      </Label>
+                    </div>
+                    
+                    {formData.compteurs?.electricite?.presence && (
+                      <div className="space-y-4 pl-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="compteurs.electricite.numero" className="text-base font-medium">
+                              Numéro du compteur
+                            </Label>
+                            <Input
+                              type="text"
+                              id="compteurs.electricite.numero"
+                              name="compteurs.electricite.numero"
+                              value={formData.compteurs?.electricite?.numero || ""}
+                              onChange={handleInputChange}
+                              className="w-full text-base"
+                              placeholder="Ex: 123456789"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="compteurs.electricite.releve" className="text-base font-medium">
+                              Relevé (kWh)
+                            </Label>
+                            <Input
+                              type="text"
+                              id="compteurs.electricite.releve"
+                              name="compteurs.electricite.releve"
+                              value={formData.compteurs?.electricite?.releve || ""}
+                              onChange={handleInputChange}
+                              className="w-full text-base"
+                              placeholder="Ex: 12345"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="compteurs.electricite.puissance" className="text-base font-medium">
+                              Puissance souscrite (kVA)
+                            </Label>
+                            <Input
+                              type="text"
+                              id="compteurs.electricite.puissance"
+                              name="compteurs.electricite.puissance"
+                              value={formData.compteurs?.electricite?.puissance || ""}
+                              onChange={handleInputChange}
+                              className="w-full text-base"
+                              placeholder="Ex: 9"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="compteurs.electricite.localisation" className="text-base font-medium">
+                              Localisation
+                            </Label>
+                            <Input
+                              type="text"
+                              id="compteurs.electricite.localisation"
+                              name="compteurs.electricite.localisation"
+                              value={formData.compteurs?.electricite?.localisation || ""}
+                              onChange={handleInputChange}
+                              className="w-full text-base"
+                              placeholder="Ex: Dans l'entrée"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="compteurs.electricite.observations" className="text-base font-medium">
+                            Observations
+                          </Label>
+                          <Textarea
+                            id="compteurs.electricite.observations"
+                            name="compteurs.electricite.observations"
+                            value={formData.compteurs?.electricite?.observations || ""}
+                            onChange={handleInputChange}
+                            className="w-full text-base"
+                            placeholder="Notes sur l'état du compteur, accessibilité, etc."
+                          />
+                        </div>
+                        
+                        <div className="space-y-2 mt-4">
+                          <Label className="text-base font-medium">
+                            Photos du compteur
+                          </Label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                            {(formData.compteurs?.electricite?.photos || []).map((photo, index) => (
+                              <div key={`electricite-photo-${index}`} className="relative">
+                                <Image
+                                  src={
+                                    typeof photo === 'string' 
+                                      ? photo 
+                                      : ((photo as any)?.type === 'base64_metadata' || (photo as any)?.type === 'file_metadata') 
+                                        ? ((photo as any)?.downloadUrl 
+                                          ? (photo as any).downloadUrl 
+                                          : (photo as any)?.preview 
+                                            ? (photo as any).preview
+                                            : PLACEHOLDER_IMAGE)
+                                          : PLACEHOLDER_IMAGE
                                   }
-                                }}
-                              />
-                            </label>
+                                  alt={`Photo ${index + 1}`}
+                                  width={120}
+                                  height={120}
+                                  className="object-cover rounded-md w-full h-24"
+                                  unoptimized={true}
+                                  onError={(e) => handleImageError(e, photo)}
+                                />
+                                <button
+                                  type="button"
+                                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md"
+                                  onClick={() => handleRemovePhoto('compteurs.electricite.photos', index)}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ))}
+                            {/* Bouton d'ajout de photo toujours visible */}
+                            <div className="flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md w-full h-24">
+                              <label className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-gray-700 cursor-pointer">
+                                <Camera className="h-8 w-8 mb-1" />
+                                <span className="text-xs">Ajouter</span>
+                                <span className="text-[10px] text-gray-400 text-center">Sélection multiple possible</span>
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept="image/*"
+                                  multiple
+                                  onChange={(e) => {
+                                    if (e.target.files && e.target.files.length > 0) {
+                                      handlePhotoUpload('compteurs.electricite.photos', e);
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Compteur eau */}
-                <div className="border rounded-lg p-4 bg-muted/30">
-                  <div className="flex items-center mb-4">
-                    <Checkbox 
-                      id="compteurs.eau.presence" 
-                      checked={formData.compteurs?.eau?.presence || false}
-                      onCheckedChange={(checked) => 
-                        updateFormField("compteurs.eau.presence", checked === true)
-                      }
-                      className="mr-2"
-                    />
-                    <Label htmlFor="compteurs.eau.presence" className="text-lg font-medium">
-                      Compteur d'eau
-                    </Label>
+                    )}
                   </div>
                   
-                  {formData.compteurs?.eau?.presence && (
-                    <div className="space-y-4 pl-6">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Compteur eau */}
+                  <div className="border rounded-lg p-4 bg-muted/30">
+                    <div className="flex items-center mb-4">
+                      <Checkbox 
+                        id="compteurs.eau.presence" 
+                        checked={formData.compteurs?.eau?.presence || false}
+                        onCheckedChange={(checked) => 
+                          updateFormField("compteurs.eau.presence", checked === true)
+                        }
+                        className="mr-2"
+                      />
+                      <Label htmlFor="compteurs.eau.presence" className="text-lg font-medium">
+                        Compteur d'eau
+                      </Label>
+                    </div>
+                    
+                    {formData.compteurs?.eau?.presence && (
+                      <div className="space-y-4 pl-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="compteurs.eau.numero" className="text-base font-medium">
+                              Numéro de compteur
+                            </Label>
+                            <Input
+                              type="text"
+                              id="compteurs.eau.numero"
+                              name="compteurs.eau.numero"
+                              value={formData.compteurs?.eau?.numero || ""}
+                              onChange={handleInputChange}
+                              className="w-full text-base"
+                              placeholder="Numéro du compteur"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="compteurs.eau.releve" className="text-base font-medium">
+                              Relevé
+                            </Label>
+                            <Input
+                              type="text"
+                              id="compteurs.eau.releve"
+                              name="compteurs.eau.releve"
+                              value={formData.compteurs?.eau?.releve || ""}
+                              onChange={handleInputChange}
+                              className="w-full text-base"
+                              placeholder="Relevé du compteur"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="compteurs.eau.localisation" className="text-base font-medium">
+                              Localisation
+                            </Label>
+                            <Input
+                              type="text"
+                              id="compteurs.eau.localisation"
+                              name="compteurs.eau.localisation"
+                              value={formData.compteurs?.eau?.localisation || ""}
+                              onChange={handleInputChange}
+                              className="w-full text-base"
+                              placeholder="Localisation du compteur"
+                            />
+                          </div>
+                        </div>
+                        
                         <div className="space-y-2">
-                          <Label htmlFor="compteurs.eau.numero" className="text-base font-medium">
-                            Numéro de compteur
+                          <Label htmlFor="compteurs.eau.observations" className="text-base font-medium">
+                            Observations
                           </Label>
-                          <Input
-                            type="text"
-                            id="compteurs.eau.numero"
-                            name="compteurs.eau.numero"
-                            value={formData.compteurs?.eau?.numero || ""}
+                          <Textarea
+                            id="compteurs.eau.observations"
+                            name="compteurs.eau.observations"
+                            value={formData.compteurs?.eau?.observations || ""}
                             onChange={handleInputChange}
                             className="w-full text-base"
-                            placeholder="Numéro du compteur"
+                            placeholder="Observations sur le compteur d'eau"
                           />
                         </div>
                         
                         <div className="space-y-2">
-                          <Label htmlFor="compteurs.eau.releve" className="text-base font-medium">
-                            Relevé
+                          <Label className="text-base font-medium">
+                            Photos du compteur
                           </Label>
-                          <Input
-                            type="text"
-                            id="compteurs.eau.releve"
-                            name="compteurs.eau.releve"
-                            value={formData.compteurs?.eau?.releve || ""}
-                            onChange={handleInputChange}
-                            className="w-full text-base"
-                            placeholder="Relevé du compteur"
-                          />
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                            {(formData.compteurs?.eau?.photos || []).map((photo, index) => (
+                              <div key={`eau-photo-${index}`} className="relative">
+                                <Image
+                                  src={
+                                    typeof photo === 'string' 
+                                      ? photo 
+                                      : ((photo as any)?.type === 'base64_metadata' || (photo as any)?.type === 'file_metadata') 
+                                        ? ((photo as any)?.downloadUrl 
+                                          ? (photo as any).downloadUrl 
+                                          : (photo as any)?.preview 
+                                            ? (photo as any).preview
+                                            : PLACEHOLDER_IMAGE)
+                                          : PLACEHOLDER_IMAGE
+                                  }
+                                  alt={`Photo ${index + 1}`}
+                                  width={120}
+                                  height={120}
+                                  className="object-cover rounded-md w-full h-24"
+                                  unoptimized={true}
+                                  onError={(e) => handleImageError(e, photo)}
+                                />
+                                <button
+                                  type="button"
+                                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md"
+                                  onClick={() => handleRemovePhoto('compteurs.eau.photos', index)}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ))}
+                            {/* Bouton d'ajout de photo toujours visible */}
+                            <div className="flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md w-full h-24">
+                              <label className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-gray-700 cursor-pointer">
+                                <Camera className="h-8 w-8 mb-1" />
+                                <span className="text-xs">Ajouter</span>
+                                <span className="text-[10px] text-gray-400 text-center">Sélection multiple possible</span>
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept="image/*"
+                                  multiple
+                                  onChange={(e) => {
+                                    if (e.target.files && e.target.files.length > 0) {
+                                      handlePhotoUpload('compteurs.eau.photos', e);
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Compteur gaz */}
+                  <div className="border rounded-lg p-4 bg-muted/30">
+                    <div className="flex items-center mb-4">
+                      <Checkbox 
+                        id="compteurs.gaz.presence" 
+                        checked={formData.compteurs?.gaz?.presence || false}
+                        onCheckedChange={(checked) => 
+                          updateFormField("compteurs.gaz.presence", checked === true)
+                        }
+                        className="mr-2"
+                      />
+                      <Label htmlFor="compteurs.gaz.presence" className="text-lg font-medium">
+                        Compteur de gaz
+                      </Label>
+                    </div>
+                    
+                    {formData.compteurs?.gaz?.presence && (
+                      <div className="space-y-4 pl-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="compteurs.gaz.numero" className="text-base font-medium">
+                              Numéro du compteur
+                            </Label>
+                            <Input
+                              type="text"
+                              id="compteurs.gaz.numero"
+                              name="compteurs.gaz.numero"
+                              value={formData.compteurs?.gaz?.numero}
+                              onChange={handleInputChange}
+                              className="w-full text-base"
+                              placeholder="Ex: 123456789"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="compteurs.gaz.releve" className="text-base font-medium">
+                              Relevé (m³)
+                            </Label>
+                            <Input
+                              type="text"
+                              id="compteurs.gaz.releve"
+                              name="compteurs.gaz.releve"
+                              value={formData.compteurs?.gaz?.releve}
+                              onChange={handleInputChange}
+                              className="w-full text-base"
+                              placeholder="Ex: 1234"
+                            />
+                          </div>
                         </div>
                         
                         <div className="space-y-2">
-                          <Label htmlFor="compteurs.eau.localisation" className="text-base font-medium">
+                          <Label htmlFor="compteurs.gaz.localisation" className="text-base font-medium">
                             Localisation
                           </Label>
                           <Input
                             type="text"
-                            id="compteurs.eau.localisation"
-                            name="compteurs.eau.localisation"
-                            value={formData.compteurs?.eau?.localisation || ""}
+                            id="compteurs.gaz.localisation"
+                            name="compteurs.gaz.localisation"
+                            value={formData.compteurs?.gaz?.localisation}
                             onChange={handleInputChange}
                             className="w-full text-base"
-                            placeholder="Localisation du compteur"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="compteurs.eau.observations" className="text-base font-medium">
-                          Observations
-                        </Label>
-                        <Textarea
-                          id="compteurs.eau.observations"
-                          name="compteurs.eau.observations"
-                          value={formData.compteurs?.eau?.observations || ""}
-                          onChange={handleInputChange}
-                          className="w-full text-base"
-                          placeholder="Observations sur le compteur d'eau"
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label className="text-base font-medium">
-                          Photos du compteur
-                        </Label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                          {(formData.compteurs?.eau?.photos || []).map((photo, index) => (
-                            <div key={`eau-photo-${index}`} className="relative">
-                              <Image
-                                src={
-                                  typeof photo === 'string' 
-                                    ? photo 
-                                    : ((photo as any)?.type === 'base64_metadata' || (photo as any)?.type === 'file_metadata') 
-                                      ? ((photo as any)?.downloadUrl 
-                                        ? (photo as any).downloadUrl 
-                                        : (photo as any)?.preview 
-                                          ? (photo as any).preview
-                                          : PLACEHOLDER_IMAGE)
-                                        : PLACEHOLDER_IMAGE
-                                }
-                                alt={`Photo ${index + 1}`}
-                                width={120}
-                                height={120}
-                                className="object-cover rounded-md w-full h-24"
-                                unoptimized={true}
-                                onError={(e) => handleImageError(e, photo)}
-                              />
-                              <button
-                                type="button"
-                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md"
-                                onClick={() => handleRemovePhoto('compteurs.eau.photos', index)}
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          ))}
-                          {/* Bouton d'ajout de photo toujours visible */}
-                          <div className="flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md w-full h-24">
-                            <label className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-gray-700 cursor-pointer">
-                              <Camera className="h-8 w-8 mb-1" />
-                              <span className="text-xs">Ajouter</span>
-                              <span className="text-[10px] text-gray-400 text-center">Sélection multiple possible</span>
-                              <input
-                                type="file"
-                                className="hidden"
-                                accept="image/*"
-                                multiple
-                                onChange={(e) => {
-                                  if (e.target.files && e.target.files.length > 0) {
-                                    handlePhotoUpload('compteurs.eau.photos', e);
-                                  }
-                                }}
-                              />
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Compteur gaz */}
-                <div className="border rounded-lg p-4 bg-muted/30">
-                  <div className="flex items-center mb-4">
-                    <Checkbox 
-                      id="compteurs.gaz.presence" 
-                      checked={formData.compteurs?.gaz?.presence || false}
-                      onCheckedChange={(checked) => 
-                        updateFormField("compteurs.gaz.presence", checked === true)
-                      }
-                      className="mr-2"
-                    />
-                    <Label htmlFor="compteurs.gaz.presence" className="text-lg font-medium">
-                      Compteur de gaz
-                    </Label>
-                  </div>
-                  
-                  {formData.compteurs?.gaz?.presence && (
-                    <div className="space-y-4 pl-6">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="compteurs.gaz.numero" className="text-base font-medium">
-                            Numéro du compteur
-                          </Label>
-                          <Input
-                            type="text"
-                            id="compteurs.gaz.numero"
-                            name="compteurs.gaz.numero"
-                            value={formData.compteurs?.gaz?.numero}
-                            onChange={handleInputChange}
-                            className="w-full text-base"
-                            placeholder="Ex: 123456789"
+                            placeholder="Ex: Dans le local technique"
                           />
                         </div>
                         
                         <div className="space-y-2">
-                          <Label htmlFor="compteurs.gaz.releve" className="text-base font-medium">
-                            Relevé (m³)
+                          <Label htmlFor="compteurs.gaz.observations" className="text-base font-medium">
+                            Observations
                           </Label>
-                          <Input
-                            type="text"
-                            id="compteurs.gaz.releve"
-                            name="compteurs.gaz.releve"
-                            value={formData.compteurs?.gaz?.releve}
+                          <Textarea
+                            id="compteurs.gaz.observations"
+                            name="compteurs.gaz.observations"
+                            value={formData.compteurs?.gaz?.observations}
                             onChange={handleInputChange}
                             className="w-full text-base"
-                            placeholder="Ex: 1234"
+                            placeholder="Notes sur l'état du compteur, accessibilité, etc."
                           />
                         </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="compteurs.gaz.localisation" className="text-base font-medium">
-                          Localisation
-                        </Label>
-                        <Input
-                          type="text"
-                          id="compteurs.gaz.localisation"
-                          name="compteurs.gaz.localisation"
-                          value={formData.compteurs?.gaz?.localisation}
-                          onChange={handleInputChange}
-                          className="w-full text-base"
-                          placeholder="Ex: Dans le local technique"
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="compteurs.gaz.observations" className="text-base font-medium">
-                          Observations
-                        </Label>
-                        <Textarea
-                          id="compteurs.gaz.observations"
-                          name="compteurs.gaz.observations"
-                          value={formData.compteurs?.gaz?.observations}
-                          onChange={handleInputChange}
-                          className="w-full text-base"
-                          placeholder="Notes sur l'état du compteur, accessibilité, etc."
-                        />
-                      </div>
-                      
-                      <div className="space-y-2 mt-4">
-                        <Label className="text-base font-medium">
-                          Photos du compteur
-                        </Label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                          {(formData.compteurs?.gaz?.photos || []).map((photo, index) => (
-                            <div key={`gaz-photo-${index}`} className="relative">
-                              <Image
-                                src={
-                                  typeof photo === 'string' 
-                                    ? photo 
-                                    : ((photo as any)?.type === 'base64_metadata' || (photo as any)?.type === 'file_metadata') 
-                                      ? ((photo as any)?.downloadUrl 
-                                        ? (photo as any).downloadUrl 
-                                        : (photo as any)?.preview 
-                                          ? (photo as any).preview
-                                          : PLACEHOLDER_IMAGE)
-                                        : PLACEHOLDER_IMAGE
-                                }
-                                alt={`Photo ${index + 1}`}
-                                width={120}
-                                height={120}
-                                className="object-cover rounded-md w-full h-24"
-                                unoptimized={true}
-                                onError={(e) => handleImageError(e, photo)}
-                              />
-                              <button
-                                type="button"
-                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md"
-                                onClick={() => handleRemovePhoto('compteurs.gaz.photos', index)}
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          ))}
-                          {/* Bouton d'ajout de photo toujours visible */}
-                          <div className="flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md w-full h-24">
-                            <label className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-gray-700 cursor-pointer">
-                              <Camera className="h-8 w-8 mb-1" />
-                              <span className="text-xs">Ajouter</span>
-                              <input
-                                type="file"
-                                className="hidden"
-                                accept="image/*"
-                                multiple
-                                onChange={(e) => {
-                                  if (e.target.files && e.target.files.length > 0) {
-                                    handlePhotoUpload('compteurs.gaz.photos', e);
+                        
+                        <div className="space-y-2 mt-4">
+                          <Label className="text-base font-medium">
+                            Photos du compteur
+                          </Label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                            {(formData.compteurs?.gaz?.photos || []).map((photo, index) => (
+                              <div key={`gaz-photo-${index}`} className="relative">
+                                <Image
+                                  src={
+                                    typeof photo === 'string' 
+                                      ? photo 
+                                      : ((photo as any)?.type === 'base64_metadata' || (photo as any)?.type === 'file_metadata') 
+                                        ? ((photo as any)?.downloadUrl 
+                                          ? (photo as any).downloadUrl 
+                                          : (photo as any)?.preview 
+                                            ? (photo as any).preview
+                                            : PLACEHOLDER_IMAGE)
+                                          : PLACEHOLDER_IMAGE
                                   }
-                                }}
-                              />
-                            </label>
+                                  alt={`Photo ${index + 1}`}
+                                  width={120}
+                                  height={120}
+                                  className="object-cover rounded-md w-full h-24"
+                                  unoptimized={true}
+                                  onError={(e) => handleImageError(e, photo)}
+                                />
+                                <button
+                                  type="button"
+                                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md"
+                                  onClick={() => handleRemovePhoto('compteurs.gaz.photos', index)}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ))}
+                            {/* Bouton d'ajout de photo toujours visible */}
+                            <div className="flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md w-full h-24">
+                              <label className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-gray-700 cursor-pointer">
+                                <Camera className="h-8 w-8 mb-1" />
+                                <span className="text-xs">Ajouter</span>
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept="image/*"
+                                  multiple
+                                  onChange={(e) => {
+                                    if (e.target.files && e.target.files.length > 0) {
+                                      handlePhotoUpload('compteurs.gaz.photos', e);
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Pièces */}
-          {activeTab === 6 && (
-            <div className="bg-card p-4 rounded-lg shadow-sm space-y-6">
-              <h2 className="text-xl font-semibold text-center mb-4">État des lieux par pièce</h2>
-              
-              <div className="space-y-8">
-                {/* Liste des pièces */}
-                {Array.isArray(formData.pieces) && formData.pieces.map((piece, pieceIndex) => (
-                  <div key={piece.id} className="border rounded-lg p-4 bg-muted/30">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-medium">{piece.nom}</span>
-                        <Input
-                          type="text"
-                          value={piece.nom}
-                          onChange={(e) => {
-                            const newPieces = Array.isArray(formData.pieces) ? [...formData.pieces] : [];
-                            newPieces[pieceIndex].nom = e.target.value;
-                            updateFormField("pieces", newPieces);
-                          }}
-                          className="ml-2 w-40 text-base"
-                          placeholder="Nom de la pièce"
-                        />
-                      </div>
-                      
-                      {pieceIndex > 0 && (
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleRemoveRoom(pieceIndex)}
-                        >
-                          Supprimer
-                        </Button>
-                      )}
-                    </div>
-                    
-                    <div className="space-y-6">
-                      {/* Sols */}
-                      <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="text-base font-medium mb-3">Sols</h3>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.sols.nature`} className="text-sm font-medium">
-                              Nature
-                            </Label>
-                            <Input
-                              type="text"
-                              id={`pieces.${pieceIndex}.sols.nature`}
-                              name={`pieces.${pieceIndex}.sols.nature`}
-                              value={piece.sols.nature}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].sols.nature = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              placeholder="Ex: Carrelage, parquet, etc."
-                            />
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.sols.etat`} className="text-sm font-medium">
-                              État
-                            </Label>
-                            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.sols.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].sols.etat = "Très bon état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Très bon
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.sols.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].sols.etat = "Bon état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Bon
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.sols.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].sols.etat = "État d'usage";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Usage
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.sols.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].sols.etat = "Mauvais état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Mauvais
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.sols.observations`} className="text-sm font-medium">
-                              Observations
-                            </Label>
-                            <Textarea
-                              id={`pieces.${pieceIndex}.sols.observations`}
-                              name={`pieces.${pieceIndex}.sols.observations`}
-                              value={piece.sols.observations}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].sols.observations = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              placeholder="Observations sur l'état des sols"
-                            />
-                          </div>
+            {/* Pièces */}
+            {activeTab === 6 && (
+              <div className="bg-card p-4 rounded-lg shadow-sm space-y-6">
+                <h2 className="text-xl font-semibold text-center mb-4">État des lieux par pièce</h2>
+                
+                <div className="space-y-8">
+                  {/* Liste des pièces */}
+                  {Array.isArray(formData.pieces) && formData.pieces.map((piece, pieceIndex) => (
+                    <div key={piece.id} className="border rounded-lg p-4 bg-muted/30">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-medium">{piece.nom}</span>
+                          <Input
+                            type="text"
+                            value={piece.nom}
+                            onChange={(e) => {
+                              const newPieces = Array.isArray(formData.pieces) ? [...formData.pieces] : [];
+                              newPieces[pieceIndex].nom = e.target.value;
+                              updateFormField("pieces", newPieces);
+                            }}
+                            className="ml-2 w-40 text-base"
+                            placeholder="Nom de la pièce"
+                          />
                         </div>
+                        
+                        {pieceIndex > 0 && (
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleRemoveRoom(pieceIndex)}
+                          >
+                            Supprimer
+                          </Button>
+                        )}
                       </div>
                       
-                      {/* Murs */}
-                      <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="text-base font-medium mb-3">Murs</h3>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.murs.nature`} className="text-sm font-medium">
-                              Nature
-                            </Label>
-                            <Input
-                              type="text"
-                              id={`pieces.${pieceIndex}.murs.nature`}
-                              name={`pieces.${pieceIndex}.murs.nature`}
-                              value={piece.murs.nature}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].murs.nature = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              placeholder="Ex: Peinture, papier peint, etc."
-                            />
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.murs.etat`} className="text-sm font-medium">
-                              État
-                            </Label>
-                            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.murs.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
+                      <div className="space-y-6">
+                        {/* Sols */}
+                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                          <h3 className="text-base font-medium mb-3">Sols</h3>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.sols.nature`} className="text-sm font-medium">
+                                Nature
+                              </Label>
+                              <Input
+                                type="text"
+                                id={`pieces.${pieceIndex}.sols.nature`}
+                                name={`pieces.${pieceIndex}.sols.nature`}
+                                value={piece.sols.nature}
+                                onChange={(e) => {
                                   const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].murs.etat = "Très bon état";
+                                  newPieces[pieceIndex].sols.nature = e.target.value;
                                   updateFormField("pieces", newPieces);
                                 }}
-                              >
-                                Très bon
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.murs.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].murs.etat = "Bon état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Bon
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.murs.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].murs.etat = "État d'usage";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Usage
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.murs.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].murs.etat = "Mauvais état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Mauvais
-                              </Button>
+                                className="w-full text-sm"
+                                placeholder="Ex: Carrelage, parquet, etc."
+                              />
                             </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.murs.observations`} className="text-sm font-medium">
-                              Observations
-                            </Label>
-                            <Textarea
-                              id={`pieces.${pieceIndex}.murs.observations`}
-                              name={`pieces.${pieceIndex}.murs.observations`}
-                              value={piece.murs.observations}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].murs.observations = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              placeholder="Observations sur l'état des murs"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Plafonds */}
-                      <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="text-base font-medium mb-3">Plafond</h3>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.plafonds.nature`} className="text-sm font-medium">
-                              Nature
-                            </Label>
-                            <Input
-                              type="text"
-                              id={`pieces.${pieceIndex}.plafonds.nature`}
-                              name={`pieces.${pieceIndex}.plafonds.nature`}
-                              value={piece.plafonds.nature}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].plafonds.nature = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              placeholder="Ex: Peinture, dalles, etc."
-                            />
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.plafonds.etat`} className="text-sm font-medium">
-                              État
-                            </Label>
-                            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.plafonds.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].plafonds.etat = "Très bon état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Très bon
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.plafonds.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].plafonds.etat = "Bon état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Bon
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.plafonds.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].plafonds.etat = "État d'usage";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Usage
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.plafonds.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].plafonds.etat = "Mauvais état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Mauvais
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.plafonds.observations`} className="text-sm font-medium">
-                              Observations
-                            </Label>
-                            <Textarea
-                              id={`pieces.${pieceIndex}.plafonds.observations`}
-                              name={`pieces.${pieceIndex}.plafonds.observations`}
-                              value={piece.plafonds.observations}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].plafonds.observations = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              placeholder="Observations sur l'état des plafonds"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Plinthes */}
-                      <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="text-base font-medium mb-3">Plinthes</h3>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.plinthes.nature`} className="text-sm font-medium">
-                              Nature
-                            </Label>
-                            <Input
-                              type="text"
-                              id={`pieces.${pieceIndex}.plinthes.nature`}
-                              name={`pieces.${pieceIndex}.plinthes.nature`}
-                              value={piece.plinthes.nature}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].plinthes.nature = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              placeholder="Ex: Bois, carrelage, etc."
-                            />
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.plinthes.etat`} className="text-sm font-medium">
-                              État
-                            </Label>
-                            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.plinthes.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].plinthes.etat = "Très bon état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Très bon
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.plinthes.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].plinthes.etat = "Bon état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Bon
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.plinthes.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].plinthes.etat = "État d'usage";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Usage
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.plinthes.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].plinthes.etat = "Mauvais état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Mauvais
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.plinthes.observations`} className="text-sm font-medium">
-                              Observations
-                            </Label>
-                            <Textarea
-                              id={`pieces.${pieceIndex}.plinthes.observations`}
-                              name={`pieces.${pieceIndex}.plinthes.observations`}
-                              value={piece.plinthes.observations}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].plinthes.observations = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              placeholder="Observations sur l'état des plinthes"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Fenêtres */}
-                      <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="text-base font-medium mb-3">Fenêtres</h3>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.fenetres.nature`} className="text-sm font-medium">
-                              Nature
-                            </Label>
-                            <Input
-                              type="text"
-                              id={`pieces.${pieceIndex}.fenetres.nature`}
-                              name={`pieces.${pieceIndex}.fenetres.nature`}
-                              value={piece.fenetres.nature}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].fenetres.nature = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              placeholder="Ex: PVC, aluminium, bois, double vitrage, etc."
-                            />
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.fenetres.etat`} className="text-sm font-medium">
-                              État
-                            </Label>
-                            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.fenetres.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].fenetres.etat = "Très bon état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Très bon
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.fenetres.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].fenetres.etat = "Bon état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Bon
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.fenetres.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].fenetres.etat = "État d'usage";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Usage
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.fenetres.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].fenetres.etat = "Mauvais état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Mauvais
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.fenetres.observations`} className="text-sm font-medium">
-                              Observations
-                            </Label>
-                            <Textarea
-                              id={`pieces.${pieceIndex}.fenetres.observations`}
-                              name={`pieces.${pieceIndex}.fenetres.observations`}
-                              value={piece.fenetres.observations}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].fenetres.observations = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              placeholder="Observations sur l'état des fenêtres"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Portes */}
-                      <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="text-base font-medium mb-3">Portes</h3>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.portes.nature`} className="text-sm font-medium">
-                              Nature
-                            </Label>
-                            <Input
-                              type="text"
-                              id={`pieces.${pieceIndex}.portes.nature`}
-                              name={`pieces.${pieceIndex}.portes.nature`}
-                              value={piece.portes.nature}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].portes.nature = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              placeholder="Ex: Bois, métal, vitrée, etc."
-                            />
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.portes.etat`} className="text-sm font-medium">
-                              État
-                            </Label>
-                            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.portes.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].portes.etat = "Très bon état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Très bon
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.portes.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].portes.etat = "Bon état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Bon
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.portes.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].portes.etat = "État d'usage";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Usage
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.portes.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].portes.etat = "Mauvais état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Mauvais
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.portes.observations`} className="text-sm font-medium">
-                              Observations
-                            </Label>
-                            <Textarea
-                              id={`pieces.${pieceIndex}.portes.observations`}
-                              name={`pieces.${pieceIndex}.portes.observations`}
-                              value={piece.portes.observations}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].portes.observations = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              placeholder="Observations sur l'état des portes"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Chauffage */}
-                      <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="text-base font-medium mb-3">Chauffage</h3>
-                        <div className="space-y-4">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <Checkbox 
-                              id={`pieces.${pieceIndex}.chauffage.testable`} 
-                              checked={piece.chauffage.testable || false}
-                              onCheckedChange={(checked) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].chauffage.testable = checked === true;
-                                updateFormField("pieces", newPieces);
-                              }}
-                            />
-                            <Label htmlFor={`pieces.${pieceIndex}.chauffage.testable`} className="text-sm font-medium">
-                              Installation testable
-                            </Label>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.chauffage.nature`} className="text-sm font-medium">
-                              Type de chauffage
-                            </Label>
-                            <Input
-                              type="text"
-                              id={`pieces.${pieceIndex}.chauffage.nature`}
-                              name={`pieces.${pieceIndex}.chauffage.nature`}
-                              value={piece.chauffage.nature}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].chauffage.nature = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              placeholder="Ex: Radiateur électrique, gaz, climatisation, etc."
-                            />
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.chauffage.etat`} className="text-sm font-medium">
-                              État
-                            </Label>
-                            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.chauffage.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].chauffage.etat = "Très bon état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Très bon
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.chauffage.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].chauffage.etat = "Bon état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Bon
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.chauffage.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].chauffage.etat = "État d'usage";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Usage
-                              </Button>
-                              <Button
-                                type="button"
-                                className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.chauffage.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                  newPieces[pieceIndex].chauffage.etat = "Mauvais état";
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Mauvais
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`pieces.${pieceIndex}.chauffage.observations`} className="text-sm font-medium">
-                              Observations
-                            </Label>
-                            <Textarea
-                              id={`pieces.${pieceIndex}.chauffage.observations`}
-                              name={`pieces.${pieceIndex}.chauffage.observations`}
-                              value={piece.chauffage.observations}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                newPieces[pieceIndex].chauffage.observations = e.target.value;
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              placeholder="Observations sur l'état du chauffage"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Électricité */}
-                      <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="text-base font-medium mb-3">Électricité</h3>
-                        <div className="space-y-4">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <Checkbox 
-                              id={`pieces.${pieceIndex}.electricite.testable`} 
-                              checked={piece.electricite?.testable || false}
-                              onCheckedChange={(checked) => {
-                                const newPieces = [...formData.pieces];
-                                if (!newPieces[pieceIndex].electricite) {
-                                  newPieces[pieceIndex].electricite = {
-                                    testable: checked === true,
-                                    prisesMurales: { nombre: "0", etat: "", observations: "" },
-                                    prisesRJ45: { nombre: "0", etat: "", observations: "" },
-                                    interrupteurs: { nombre: "0", etat: "", observations: "" },
-                                    observations: ""
-                                  };
-                                } else {
-                                  newPieces[pieceIndex].electricite.testable = checked === true;
-                                }
-                                updateFormField("pieces", newPieces);
-                              }}
-                            />
-                            <Label htmlFor={`pieces.${pieceIndex}.electricite.testable`} className="text-sm font-medium">
-                              Installation testable
-                            </Label>
-                          </div>
-
-                          {/* Prises murales */}
-                          <div className="border-t pt-3">
-                            <h4 className="text-sm font-medium mb-2">Prises murales</h4>
-                            <div className="space-y-3">
-                          <div className="space-y-2">
-                                <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesMurales.nombre`} className="text-xs font-medium">
-                                  Nombre
-                            </Label>
-                            <Input
-                              type="number"
-                                  id={`pieces.${pieceIndex}.electricite.prisesMurales.nombre`}
-                                  name={`pieces.${pieceIndex}.electricite.prisesMurales.nombre`}
-                                  value={piece.electricite?.prisesMurales?.nombre || "0"}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                    if (!newPieces[pieceIndex].electricite) {
-                                      newPieces[pieceIndex].electricite = {
-                                        testable: false,
-                                        prisesMurales: { nombre: e.target.value, etat: "", observations: "" },
-                                        prisesRJ45: { nombre: "0", etat: "", observations: "" },
-                                        interrupteurs: { nombre: "0", etat: "", observations: "" },
-                                        observations: ""
-                                      };
-                                    } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
-                                      newPieces[pieceIndex].electricite.prisesMurales = { nombre: e.target.value, etat: "", observations: "" };
-                                    } else {
-                                      newPieces[pieceIndex].electricite.prisesMurales.nombre = e.target.value;
-                                    }
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              min="0"
-                            />
-                          </div>
-                          
-                          <div className="space-y-2">
-                                <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesMurales.etat`} className="text-xs font-medium">
-                              État
-                            </Label>
-                            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
-                              <Button
-                                type="button"
-                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesMurales?.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                      if (!newPieces[pieceIndex].electricite) {
-                                        newPieces[pieceIndex].electricite = {
-                                          testable: false,
-                                          prisesMurales: { nombre: "0", etat: "Très bon état", observations: "" },
-                                          prisesRJ45: { nombre: "0", etat: "", observations: "" },
-                                          interrupteurs: { nombre: "0", etat: "", observations: "" },
-                                          observations: ""
-                                        };
-                                      } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
-                                        newPieces[pieceIndex].electricite.prisesMurales = { nombre: "0", etat: "Très bon état", observations: "" };
-                                      } else {
-                                        newPieces[pieceIndex].electricite.prisesMurales.etat = "Très bon état";
-                                      }
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Très bon
-                              </Button>
-                              <Button
-                                type="button"
-                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesMurales?.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                      if (!newPieces[pieceIndex].electricite) {
-                                        newPieces[pieceIndex].electricite = {
-                                          testable: false,
-                                          prisesMurales: { nombre: "0", etat: "Bon état", observations: "" },
-                                          prisesRJ45: { nombre: "0", etat: "", observations: "" },
-                                          interrupteurs: { nombre: "0", etat: "", observations: "" },
-                                          observations: ""
-                                        };
-                                      } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
-                                        newPieces[pieceIndex].electricite.prisesMurales = { nombre: "0", etat: "Bon état", observations: "" };
-                                      } else {
-                                        newPieces[pieceIndex].electricite.prisesMurales.etat = "Bon état";
-                                      }
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Bon
-                              </Button>
-                              <Button
-                                type="button"
-                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesMurales?.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                      if (!newPieces[pieceIndex].electricite) {
-                                        newPieces[pieceIndex].electricite = {
-                                          testable: false,
-                                          prisesMurales: { nombre: "0", etat: "État d'usage", observations: "" },
-                                          prisesRJ45: { nombre: "0", etat: "", observations: "" },
-                                          interrupteurs: { nombre: "0", etat: "", observations: "" },
-                                          observations: ""
-                                        };
-                                      } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
-                                        newPieces[pieceIndex].electricite.prisesMurales = { nombre: "0", etat: "État d'usage", observations: "" };
-                                      } else {
-                                        newPieces[pieceIndex].electricite.prisesMurales.etat = "État d'usage";
-                                      }
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Usage
-                              </Button>
-                              <Button
-                                type="button"
-                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesMurales?.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
-                                  const newPieces = [...formData.pieces];
-                                      if (!newPieces[pieceIndex].electricite) {
-                                        newPieces[pieceIndex].electricite = {
-                                          testable: false,
-                                          prisesMurales: { nombre: "0", etat: "Mauvais état", observations: "" },
-                                          prisesRJ45: { nombre: "0", etat: "", observations: "" },
-                                          interrupteurs: { nombre: "0", etat: "", observations: "" },
-                                          observations: ""
-                                        };
-                                      } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
-                                        newPieces[pieceIndex].electricite.prisesMurales = { nombre: "0", etat: "Mauvais état", observations: "" };
-                                      } else {
-                                        newPieces[pieceIndex].electricite.prisesMurales.etat = "Mauvais état";
-                                      }
-                                  updateFormField("pieces", newPieces);
-                                }}
-                              >
-                                Mauvais
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                                <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesMurales.observations`} className="text-xs font-medium">
-                              Observations
-                            </Label>
-                            <Textarea
-                                  id={`pieces.${pieceIndex}.electricite.prisesMurales.observations`}
-                                  name={`pieces.${pieceIndex}.electricite.prisesMurales.observations`}
-                                  value={piece.electricite?.prisesMurales?.observations || ""}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                    if (!newPieces[pieceIndex].electricite) {
-                                      newPieces[pieceIndex].electricite = {
-                                        testable: false,
-                                        prisesMurales: { nombre: "0", etat: "", observations: e.target.value },
-                                        prisesRJ45: { nombre: "0", etat: "", observations: "" },
-                                        interrupteurs: { nombre: "0", etat: "", observations: "" },
-                                        observations: ""
-                                      };
-                                    } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
-                                      newPieces[pieceIndex].electricite.prisesMurales = { nombre: "0", etat: "", observations: e.target.value };
-                                    } else {
-                                      newPieces[pieceIndex].electricite.prisesMurales.observations = e.target.value;
-                                    }
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.sols.etat`} className="text-sm font-medium">
+                                État
+                              </Label>
+                              <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.sols.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].sols.etat = "Très bon état";
                                     updateFormField("pieces", newPieces);
                                   }}
-                                  className="w-full text-xs"
-                                  placeholder="Observations sur les prises murales"
-                                />
+                                >
+                                  Très bon
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.sols.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].sols.etat = "Bon état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Bon
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.sols.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].sols.etat = "État d'usage";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Usage
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.sols.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].sols.etat = "Mauvais état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Mauvais
+                                </Button>
                               </div>
                             </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.sols.observations`} className="text-sm font-medium">
+                                Observations
+                              </Label>
+                              <Textarea
+                                id={`pieces.${pieceIndex}.sols.observations`}
+                                name={`pieces.${pieceIndex}.sols.observations`}
+                                value={piece.sols.observations}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
+                                  newPieces[pieceIndex].sols.observations = e.target.value;
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                placeholder="Observations sur l'état des sols"
+                              />
+                            </div>
                           </div>
-
-                          {/* Prises RJ45 */}
-                          <div className="border-t pt-3">
-                            <h4 className="text-sm font-medium mb-2">Prises RJ45</h4>
-                            <div className="space-y-3">
-                              <div className="space-y-2">
-                                <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesRJ45.nombre`} className="text-xs font-medium">
-                                  Nombre
-                                </Label>
-                                <Input
-                                  type="number"
-                                  id={`pieces.${pieceIndex}.electricite.prisesRJ45.nombre`}
-                                  name={`pieces.${pieceIndex}.electricite.prisesRJ45.nombre`}
-                                  value={piece.electricite?.prisesRJ45?.nombre || "0"}
-                                  onChange={(e) => {
+                        </div>
+                        
+                        {/* Murs */}
+                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                          <h3 className="text-base font-medium mb-3">Murs</h3>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.murs.nature`} className="text-sm font-medium">
+                                Nature
+                              </Label>
+                              <Input
+                                type="text"
+                                id={`pieces.${pieceIndex}.murs.nature`}
+                                name={`pieces.${pieceIndex}.murs.nature`}
+                                value={piece.murs.nature}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
+                                  newPieces[pieceIndex].murs.nature = e.target.value;
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                placeholder="Ex: Peinture, papier peint, etc."
+                              />
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.murs.etat`} className="text-sm font-medium">
+                                État
+                              </Label>
+                              <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.murs.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
                                     const newPieces = [...formData.pieces];
-                                    if (!newPieces[pieceIndex].electricite) {
-                                      newPieces[pieceIndex].electricite = {
-                                        testable: false,
-                                        prisesMurales: { nombre: "0", etat: "", observations: "" },
-                                        prisesRJ45: { nombre: e.target.value, etat: "", observations: "" },
-                                        interrupteurs: { nombre: "0", etat: "", observations: "" },
-                                        observations: ""
-                                      };
-                                    } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
-                                      newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: e.target.value, etat: "", observations: "" };
-                                    } else {
-                                      newPieces[pieceIndex].electricite.prisesRJ45.nombre = e.target.value;
-                                    }
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                                  min="0"
-                                />
+                                    newPieces[pieceIndex].murs.etat = "Très bon état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Très bon
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.murs.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].murs.etat = "Bon état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Bon
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.murs.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].murs.etat = "État d'usage";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Usage
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.murs.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].murs.etat = "Mauvais état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Mauvais
+                                </Button>
                               </div>
-                              
-                              <div className="space-y-2">
-                                <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesRJ45.etat`} className="text-xs font-medium">
-                                  État
-                                </Label>
-                                <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
-                                  <Button
-                                    type="button"
-                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesRJ45?.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                    onClick={() => {
-                                      const newPieces = [...formData.pieces];
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.murs.observations`} className="text-sm font-medium">
+                                Observations
+                              </Label>
+                              <Textarea
+                                id={`pieces.${pieceIndex}.murs.observations`}
+                                name={`pieces.${pieceIndex}.murs.observations`}
+                                value={piece.murs.observations}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
+                                  newPieces[pieceIndex].murs.observations = e.target.value;
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                placeholder="Observations sur l'état des murs"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Plafonds */}
+                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                          <h3 className="text-base font-medium mb-3">Plafond</h3>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.plafonds.nature`} className="text-sm font-medium">
+                                Nature
+                              </Label>
+                              <Input
+                                type="text"
+                                id={`pieces.${pieceIndex}.plafonds.nature`}
+                                name={`pieces.${pieceIndex}.plafonds.nature`}
+                                value={piece.plafonds.nature}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
+                                  newPieces[pieceIndex].plafonds.nature = e.target.value;
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                placeholder="Ex: Peinture, dalles, etc."
+                              />
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.plafonds.etat`} className="text-sm font-medium">
+                                État
+                              </Label>
+                              <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.plafonds.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].plafonds.etat = "Très bon état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Très bon
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.plafonds.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].plafonds.etat = "Bon état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Bon
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.plafonds.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].plafonds.etat = "État d'usage";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Usage
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.plafonds.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].plafonds.etat = "Mauvais état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Mauvais
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.plafonds.observations`} className="text-sm font-medium">
+                                Observations
+                              </Label>
+                              <Textarea
+                                id={`pieces.${pieceIndex}.plafonds.observations`}
+                                name={`pieces.${pieceIndex}.plafonds.observations`}
+                                value={piece.plafonds.observations}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
+                                  newPieces[pieceIndex].plafonds.observations = e.target.value;
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                placeholder="Observations sur l'état des plafonds"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Plinthes */}
+                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                          <h3 className="text-base font-medium mb-3">Plinthes</h3>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.plinthes.nature`} className="text-sm font-medium">
+                                Nature
+                              </Label>
+                              <Input
+                                type="text"
+                                id={`pieces.${pieceIndex}.plinthes.nature`}
+                                name={`pieces.${pieceIndex}.plinthes.nature`}
+                                value={piece.plinthes.nature}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
+                                  newPieces[pieceIndex].plinthes.nature = e.target.value;
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                placeholder="Ex: Bois, carrelage, etc."
+                              />
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.plinthes.etat`} className="text-sm font-medium">
+                                État
+                              </Label>
+                              <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.plinthes.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].plinthes.etat = "Très bon état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Très bon
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.plinthes.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].plinthes.etat = "Bon état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Bon
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.plinthes.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].plinthes.etat = "État d'usage";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Usage
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.plinthes.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].plinthes.etat = "Mauvais état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Mauvais
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.plinthes.observations`} className="text-sm font-medium">
+                                Observations
+                              </Label>
+                              <Textarea
+                                id={`pieces.${pieceIndex}.plinthes.observations`}
+                                name={`pieces.${pieceIndex}.plinthes.observations`}
+                                value={piece.plinthes.observations}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
+                                  newPieces[pieceIndex].plinthes.observations = e.target.value;
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                placeholder="Observations sur l'état des plinthes"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Fenêtres */}
+                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                          <h3 className="text-base font-medium mb-3">Fenêtres</h3>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.fenetres.nature`} className="text-sm font-medium">
+                                Nature
+                              </Label>
+                              <Input
+                                type="text"
+                                id={`pieces.${pieceIndex}.fenetres.nature`}
+                                name={`pieces.${pieceIndex}.fenetres.nature`}
+                                value={piece.fenetres.nature}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
+                                  newPieces[pieceIndex].fenetres.nature = e.target.value;
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                placeholder="Ex: PVC, aluminium, bois, double vitrage, etc."
+                              />
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.fenetres.etat`} className="text-sm font-medium">
+                                État
+                              </Label>
+                              <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.fenetres.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].fenetres.etat = "Très bon état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Très bon
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.fenetres.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].fenetres.etat = "Bon état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Bon
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.fenetres.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].fenetres.etat = "État d'usage";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Usage
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.fenetres.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].fenetres.etat = "Mauvais état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Mauvais
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.fenetres.observations`} className="text-sm font-medium">
+                                Observations
+                              </Label>
+                              <Textarea
+                                id={`pieces.${pieceIndex}.fenetres.observations`}
+                                name={`pieces.${pieceIndex}.fenetres.observations`}
+                                value={piece.fenetres.observations}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
+                                  newPieces[pieceIndex].fenetres.observations = e.target.value;
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                placeholder="Observations sur l'état des fenêtres"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Portes */}
+                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                          <h3 className="text-base font-medium mb-3">Portes</h3>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.portes.nature`} className="text-sm font-medium">
+                                Nature
+                              </Label>
+                              <Input
+                                type="text"
+                                id={`pieces.${pieceIndex}.portes.nature`}
+                                name={`pieces.${pieceIndex}.portes.nature`}
+                                value={piece.portes.nature}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
+                                  newPieces[pieceIndex].portes.nature = e.target.value;
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                placeholder="Ex: Bois, métal, vitrée, etc."
+                              />
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.portes.etat`} className="text-sm font-medium">
+                                État
+                              </Label>
+                              <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.portes.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].portes.etat = "Très bon état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Très bon
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.portes.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].portes.etat = "Bon état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Bon
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.portes.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].portes.etat = "État d'usage";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Usage
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.portes.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].portes.etat = "Mauvais état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Mauvais
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.portes.observations`} className="text-sm font-medium">
+                                Observations
+                              </Label>
+                              <Textarea
+                                id={`pieces.${pieceIndex}.portes.observations`}
+                                name={`pieces.${pieceIndex}.portes.observations`}
+                                value={piece.portes.observations}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
+                                  newPieces[pieceIndex].portes.observations = e.target.value;
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                placeholder="Observations sur l'état des portes"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Chauffage */}
+                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                          <h3 className="text-base font-medium mb-3">Chauffage</h3>
+                          <div className="space-y-4">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <Checkbox 
+                                id={`pieces.${pieceIndex}.chauffage.testable`} 
+                                checked={piece.chauffage.testable || false}
+                                onCheckedChange={(checked) => {
+                                  const newPieces = [...formData.pieces];
+                                  newPieces[pieceIndex].chauffage.testable = checked === true;
+                                  updateFormField("pieces", newPieces);
+                                }}
+                              />
+                              <Label htmlFor={`pieces.${pieceIndex}.chauffage.testable`} className="text-sm font-medium">
+                                Installation testable
+                              </Label>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.chauffage.nature`} className="text-sm font-medium">
+                                Type de chauffage
+                              </Label>
+                              <Input
+                                type="text"
+                                id={`pieces.${pieceIndex}.chauffage.nature`}
+                                name={`pieces.${pieceIndex}.chauffage.nature`}
+                                value={piece.chauffage.nature}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
+                                  newPieces[pieceIndex].chauffage.nature = e.target.value;
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                placeholder="Ex: Radiateur électrique, gaz, climatisation, etc."
+                              />
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.chauffage.etat`} className="text-sm font-medium">
+                                État
+                              </Label>
+                              <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.chauffage.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].chauffage.etat = "Très bon état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Très bon
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.chauffage.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].chauffage.etat = "Bon état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Bon
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.chauffage.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].chauffage.etat = "État d'usage";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Usage
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className={`min-w-0 h-auto py-1.5 px-1.5 sm:px-2.5 text-[10px] sm:text-xs font-medium rounded ${piece.chauffage.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                    newPieces[pieceIndex].chauffage.etat = "Mauvais état";
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Mauvais
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor={`pieces.${pieceIndex}.chauffage.observations`} className="text-sm font-medium">
+                                Observations
+                              </Label>
+                              <Textarea
+                                id={`pieces.${pieceIndex}.chauffage.observations`}
+                                name={`pieces.${pieceIndex}.chauffage.observations`}
+                                value={piece.chauffage.observations}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
+                                  newPieces[pieceIndex].chauffage.observations = e.target.value;
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                placeholder="Observations sur l'état du chauffage"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Électricité */}
+                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                          <h3 className="text-base font-medium mb-3">Électricité</h3>
+                          <div className="space-y-4">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <Checkbox 
+                                id={`pieces.${pieceIndex}.electricite.testable`} 
+                                checked={piece.electricite?.testable || false}
+                                onCheckedChange={(checked) => {
+                                  const newPieces = [...formData.pieces];
+                                  if (!newPieces[pieceIndex].electricite) {
+                                    newPieces[pieceIndex].electricite = {
+                                      testable: checked === true,
+                                      prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                      prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                      interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                      observations: ""
+                                    };
+                                  } else {
+                                    newPieces[pieceIndex].electricite.testable = checked === true;
+                                  }
+                                  updateFormField("pieces", newPieces);
+                                }}
+                              />
+                              <Label htmlFor={`pieces.${pieceIndex}.electricite.testable`} className="text-sm font-medium">
+                                Installation testable
+                              </Label>
+                            </div>
+
+                            {/* Prises murales */}
+                            <div className="border-t pt-3">
+                              <h4 className="text-sm font-medium mb-2">Prises murales</h4>
+                              <div className="space-y-3">
+                            <div className="space-y-2">
+                                  <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesMurales.nombre`} className="text-xs font-medium">
+                                    Nombre
+                              </Label>
+                              <Input
+                                type="number"
+                                    id={`pieces.${pieceIndex}.electricite.prisesMurales.nombre`}
+                                    name={`pieces.${pieceIndex}.electricite.prisesMurales.nombre`}
+                                    value={piece.electricite?.prisesMurales?.nombre || "0"}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
                                       if (!newPieces[pieceIndex].electricite) {
                                         newPieces[pieceIndex].electricite = {
                                           testable: false,
-                                          prisesMurales: { nombre: "0", etat: "", observations: "" },
-                                          prisesRJ45: { nombre: "0", etat: "Très bon état", observations: "" },
+                                          prisesMurales: { nombre: e.target.value, etat: "", observations: "" },
+                                          prisesRJ45: { nombre: "0", etat: "", observations: "" },
                                           interrupteurs: { nombre: "0", etat: "", observations: "" },
                                           observations: ""
                                         };
-                                      } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
-                                        newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: "0", etat: "Très bon état", observations: "" };
+                                      } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
+                                        newPieces[pieceIndex].electricite.prisesMurales = { nombre: e.target.value, etat: "", observations: "" };
                                       } else {
-                                        newPieces[pieceIndex].electricite.prisesRJ45.etat = "Très bon état";
+                                        newPieces[pieceIndex].electricite.prisesMurales.nombre = e.target.value;
                                       }
-                                      updateFormField("pieces", newPieces);
-                                    }}
-                                  >
-                                    Très bon
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesRJ45?.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                    onClick={() => {
-                                      const newPieces = [...formData.pieces];
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                min="0"
+                              />
+                            </div>
+                            
+                            <div className="space-y-2">
+                                  <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesMurales.etat`} className="text-xs font-medium">
+                                État
+                              </Label>
+                              <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                                <Button
+                                  type="button"
+                                      className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesMurales?.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                        if (!newPieces[pieceIndex].electricite) {
+                                          newPieces[pieceIndex].electricite = {
+                                            testable: false,
+                                            prisesMurales: { nombre: "0", etat: "Très bon état", observations: "" },
+                                            prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                            interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                            observations: ""
+                                          };
+                                        } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
+                                          newPieces[pieceIndex].electricite.prisesMurales = { nombre: "0", etat: "Très bon état", observations: "" };
+                                        } else {
+                                          newPieces[pieceIndex].electricite.prisesMurales.etat = "Très bon état";
+                                        }
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Très bon
+                                </Button>
+                                <Button
+                                  type="button"
+                                      className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesMurales?.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                        if (!newPieces[pieceIndex].electricite) {
+                                          newPieces[pieceIndex].electricite = {
+                                            testable: false,
+                                            prisesMurales: { nombre: "0", etat: "Bon état", observations: "" },
+                                            prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                            interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                            observations: ""
+                                          };
+                                        } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
+                                          newPieces[pieceIndex].electricite.prisesMurales = { nombre: "0", etat: "Bon état", observations: "" };
+                                        } else {
+                                          newPieces[pieceIndex].electricite.prisesMurales.etat = "Bon état";
+                                        }
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Bon
+                                </Button>
+                                <Button
+                                  type="button"
+                                      className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesMurales?.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                        if (!newPieces[pieceIndex].electricite) {
+                                          newPieces[pieceIndex].electricite = {
+                                            testable: false,
+                                            prisesMurales: { nombre: "0", etat: "État d'usage", observations: "" },
+                                            prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                            interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                            observations: ""
+                                          };
+                                        } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
+                                          newPieces[pieceIndex].electricite.prisesMurales = { nombre: "0", etat: "État d'usage", observations: "" };
+                                        } else {
+                                          newPieces[pieceIndex].electricite.prisesMurales.etat = "État d'usage";
+                                        }
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Usage
+                                </Button>
+                                <Button
+                                  type="button"
+                                      className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesMurales?.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                        if (!newPieces[pieceIndex].electricite) {
+                                          newPieces[pieceIndex].electricite = {
+                                            testable: false,
+                                            prisesMurales: { nombre: "0", etat: "Mauvais état", observations: "" },
+                                            prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                            interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                            observations: ""
+                                          };
+                                        } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
+                                          newPieces[pieceIndex].electricite.prisesMurales = { nombre: "0", etat: "Mauvais état", observations: "" };
+                                        } else {
+                                          newPieces[pieceIndex].electricite.prisesMurales.etat = "Mauvais état";
+                                        }
+                                    updateFormField("pieces", newPieces);
+                                  }}
+                                >
+                                  Mauvais
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                                  <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesMurales.observations`} className="text-xs font-medium">
+                                Observations
+                              </Label>
+                              <Textarea
+                                    id={`pieces.${pieceIndex}.electricite.prisesMurales.observations`}
+                                    name={`pieces.${pieceIndex}.electricite.prisesMurales.observations`}
+                                    value={piece.electricite?.prisesMurales?.observations || ""}
+                                onChange={(e) => {
+                                  const newPieces = [...formData.pieces];
                                       if (!newPieces[pieceIndex].electricite) {
                                         newPieces[pieceIndex].electricite = {
                                           testable: false,
-                                          prisesMurales: { nombre: "0", etat: "", observations: "" },
-                                          prisesRJ45: { nombre: "0", etat: "Bon état", observations: "" },
+                                          prisesMurales: { nombre: "0", etat: "", observations: e.target.value },
+                                          prisesRJ45: { nombre: "0", etat: "", observations: "" },
                                           interrupteurs: { nombre: "0", etat: "", observations: "" },
                                           observations: ""
                                         };
-                                      } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
-                                        newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: "0", etat: "Bon état", observations: "" };
+                                      } else if (!newPieces[pieceIndex].electricite.prisesMurales) {
+                                        newPieces[pieceIndex].electricite.prisesMurales = { nombre: "0", etat: "", observations: e.target.value };
                                       } else {
-                                        newPieces[pieceIndex].electricite.prisesRJ45.etat = "Bon état";
+                                        newPieces[pieceIndex].electricite.prisesMurales.observations = e.target.value;
                                       }
                                       updateFormField("pieces", newPieces);
                                     }}
-                                  >
-                                    Bon
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesRJ45?.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                    onClick={() => {
-                                      const newPieces = [...formData.pieces];
-                                      if (!newPieces[pieceIndex].electricite) {
-                                        newPieces[pieceIndex].electricite = {
-                                          testable: false,
-                                          prisesMurales: { nombre: "0", etat: "", observations: "" },
-                                          prisesRJ45: { nombre: "0", etat: "État d'usage", observations: "" },
-                                          interrupteurs: { nombre: "0", etat: "", observations: "" },
-                                          observations: ""
-                                        };
-                                      } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
-                                        newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: "0", etat: "État d'usage", observations: "" };
-                                      } else {
-                                        newPieces[pieceIndex].electricite.prisesRJ45.etat = "État d'usage";
-                                      }
-                                      updateFormField("pieces", newPieces);
-                                    }}
-                                  >
-                                    Usage
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesRJ45?.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                    onClick={() => {
-                                      const newPieces = [...formData.pieces];
-                                      if (!newPieces[pieceIndex].electricite) {
-                                        newPieces[pieceIndex].electricite = {
-                                          testable: false,
-                                          prisesMurales: { nombre: "0", etat: "", observations: "" },
-                                          prisesRJ45: { nombre: "0", etat: "Mauvais état", observations: "" },
-                                          interrupteurs: { nombre: "0", etat: "", observations: "" },
-                                          observations: ""
-                                        };
-                                      } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
-                                        newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: "0", etat: "Mauvais état", observations: "" };
-                                      } else {
-                                        newPieces[pieceIndex].electricite.prisesRJ45.etat = "Mauvais état";
-                                      }
-                                      updateFormField("pieces", newPieces);
-                                    }}
-                                  >
-                                    Mauvais
-                                  </Button>
+                                    className="w-full text-xs"
+                                    placeholder="Observations sur les prises murales"
+                                  />
                                 </div>
                               </div>
-                              
-                              <div className="space-y-2">
-                                <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesRJ45.observations`} className="text-xs font-medium">
-                                  Observations
-                                </Label>
-                                <Textarea
-                                  id={`pieces.${pieceIndex}.electricite.prisesRJ45.observations`}
-                                  name={`pieces.${pieceIndex}.electricite.prisesRJ45.observations`}
-                                  value={piece.electricite?.prisesRJ45?.observations || ""}
-                                  onChange={(e) => {
-                                    const newPieces = [...formData.pieces];
-                                    if (!newPieces[pieceIndex].electricite) {
-                                      newPieces[pieceIndex].electricite = {
-                                        testable: false,
-                                        prisesMurales: { nombre: "0", etat: "", observations: "" },
-                                        prisesRJ45: { nombre: "0", etat: "", observations: e.target.value },
-                                        interrupteurs: { nombre: "0", etat: "", observations: "" },
-                                        observations: ""
-                                      };
-                                    } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
-                                      newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: "0", etat: "", observations: e.target.value };
-                                    } else {
-                                      newPieces[pieceIndex].electricite.prisesRJ45.observations = e.target.value;
-                                    }
-                                    updateFormField("pieces", newPieces);
-                                  }}
-                                  className="w-full text-xs"
-                                  placeholder="Observations sur les prises RJ45"
-                            />
+                            </div>
+
+                            {/* Prises RJ45 */}
+                            <div className="border-t pt-3">
+                              <h4 className="text-sm font-medium mb-2">Prises RJ45</h4>
+                              <div className="space-y-3">
+                                <div className="space-y-2">
+                                  <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesRJ45.nombre`} className="text-xs font-medium">
+                                    Nombre
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    id={`pieces.${pieceIndex}.electricite.prisesRJ45.nombre`}
+                                    name={`pieces.${pieceIndex}.electricite.prisesRJ45.nombre`}
+                                    value={piece.electricite?.prisesRJ45?.nombre || "0"}
+                                    onChange={(e) => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].electricite) {
+                                        newPieces[pieceIndex].electricite = {
+                                          testable: false,
+                                          prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                          prisesRJ45: { nombre: e.target.value, etat: "", observations: "" },
+                                          interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
+                                        newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: e.target.value, etat: "", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].electricite.prisesRJ45.nombre = e.target.value;
+                                      }
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                    min="0"
+                                  />
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesRJ45.etat`} className="text-xs font-medium">
+                                    État
+                                  </Label>
+                                  <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                                    <Button
+                                      type="button"
+                                      className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesRJ45?.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                      onClick={() => {
+                                        const newPieces = [...formData.pieces];
+                                        if (!newPieces[pieceIndex].electricite) {
+                                          newPieces[pieceIndex].electricite = {
+                                            testable: false,
+                                            prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                            prisesRJ45: { nombre: "0", etat: "Très bon état", observations: "" },
+                                            interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                            observations: ""
+                                          };
+                                        } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
+                                          newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: "0", etat: "Très bon état", observations: "" };
+                                        } else {
+                                          newPieces[pieceIndex].electricite.prisesRJ45.etat = "Très bon état";
+                                        }
+                                        updateFormField("pieces", newPieces);
+                                      }}
+                                    >
+                                      Très bon
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesRJ45?.etat === "Bon état" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                      onClick={() => {
+                                        const newPieces = [...formData.pieces];
+                                        if (!newPieces[pieceIndex].electricite) {
+                                          newPieces[pieceIndex].electricite = {
+                                            testable: false,
+                                            prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                            prisesRJ45: { nombre: "0", etat: "Bon état", observations: "" },
+                                            interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                            observations: ""
+                                          };
+                                        } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
+                                          newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: "0", etat: "Bon état", observations: "" };
+                                        } else {
+                                          newPieces[pieceIndex].electricite.prisesRJ45.etat = "Bon état";
+                                        }
+                                        updateFormField("pieces", newPieces);
+                                      }}
+                                    >
+                                      Bon
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesRJ45?.etat === "État d'usage" ? "bg-orange-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                      onClick={() => {
+                                        const newPieces = [...formData.pieces];
+                                        if (!newPieces[pieceIndex].electricite) {
+                                          newPieces[pieceIndex].electricite = {
+                                            testable: false,
+                                            prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                            prisesRJ45: { nombre: "0", etat: "État d'usage", observations: "" },
+                                            interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                            observations: ""
+                                          };
+                                        } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
+                                          newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: "0", etat: "État d'usage", observations: "" };
+                                        } else {
+                                          newPieces[pieceIndex].electricite.prisesRJ45.etat = "État d'usage";
+                                        }
+                                        updateFormField("pieces", newPieces);
+                                      }}
+                                    >
+                                      Usage
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.prisesRJ45?.etat === "Mauvais état" ? "bg-red-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                      onClick={() => {
+                                        const newPieces = [...formData.pieces];
+                                        if (!newPieces[pieceIndex].electricite) {
+                                          newPieces[pieceIndex].electricite = {
+                                            testable: false,
+                                            prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                            prisesRJ45: { nombre: "0", etat: "Mauvais état", observations: "" },
+                                            interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                            observations: ""
+                                          };
+                                        } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
+                                          newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: "0", etat: "Mauvais état", observations: "" };
+                                        } else {
+                                          newPieces[pieceIndex].electricite.prisesRJ45.etat = "Mauvais état";
+                                        }
+                                        updateFormField("pieces", newPieces);
+                                      }}
+                                    >
+                                      Mauvais
+                                    </Button>
+                                  </div>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <Label htmlFor={`pieces.${pieceIndex}.electricite.prisesRJ45.observations`} className="text-xs font-medium">
+                                    Observations
+                                  </Label>
+                                  <Textarea
+                                    id={`pieces.${pieceIndex}.electricite.prisesRJ45.observations`}
+                                    name={`pieces.${pieceIndex}.electricite.prisesRJ45.observations`}
+                                    value={piece.electricite?.prisesRJ45?.observations || ""}
+                                    onChange={(e) => {
+                                      const newPieces = [...formData.pieces];
+                                      if (!newPieces[pieceIndex].electricite) {
+                                        newPieces[pieceIndex].electricite = {
+                                          testable: false,
+                                          prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                          prisesRJ45: { nombre: "0", etat: "", observations: e.target.value },
+                                          interrupteurs: { nombre: "0", etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].electricite.prisesRJ45) {
+                                        newPieces[pieceIndex].electricite.prisesRJ45 = { nombre: "0", etat: "", observations: e.target.value };
+                                      } else {
+                                        newPieces[pieceIndex].electricite.prisesRJ45.observations = e.target.value;
+                                      }
+                                      updateFormField("pieces", newPieces);
+                                    }}
+                                    className="w-full text-xs"
+                                    placeholder="Observations sur les prises RJ45"
+                              />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      
-                      {/* Interrupteurs */}
-                          <div className="border-t pt-3">
-                            <h4 className="text-sm font-medium mb-2">Interrupteurs</h4>
-                            <div className="space-y-3">
-                          <div className="space-y-2">
-                                <Label htmlFor={`pieces.${pieceIndex}.electricite.interrupteurs.nombre`} className="text-xs font-medium">
-                                  Nombre
-                            </Label>
-                            <Input
-                              type="number"
-                                  id={`pieces.${pieceIndex}.electricite.interrupteurs.nombre`}
-                                  name={`pieces.${pieceIndex}.electricite.interrupteurs.nombre`}
-                                  value={piece.electricite?.interrupteurs?.nombre || "0"}
-                              onChange={(e) => {
-                                const newPieces = [...formData.pieces];
-                                    if (!newPieces[pieceIndex].electricite) {
-                                      newPieces[pieceIndex].electricite = {
-                                        testable: false,
-                                        prisesMurales: { nombre: "0", etat: "", observations: "" },
-                                        prisesRJ45: { nombre: "0", etat: "", observations: "" },
-                                        interrupteurs: { nombre: e.target.value, etat: "", observations: "" },
-                                        observations: ""
-                                      };
-                                    } else if (!newPieces[pieceIndex].electricite.interrupteurs) {
-                                      newPieces[pieceIndex].electricite.interrupteurs = { nombre: e.target.value, etat: "", observations: "" };
-                                    } else {
-                                      newPieces[pieceIndex].electricite.interrupteurs.nombre = e.target.value;
-                                    }
-                                updateFormField("pieces", newPieces);
-                              }}
-                              className="w-full text-sm"
-                              min="0"
-                            />
-                          </div>
-                          
-                          <div className="space-y-2">
-                                <Label htmlFor={`pieces.${pieceIndex}.electricite.interrupteurs.etat`} className="text-xs font-medium">
-                              État
-                            </Label>
-                            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
-                              <Button
-                                type="button"
-                                    className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.interrupteurs?.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
-                                onClick={() => {
+                        
+                        {/* Interrupteurs */}
+                            <div className="border-t pt-3">
+                              <h4 className="text-sm font-medium mb-2">Interrupteurs</h4>
+                              <div className="space-y-3">
+                            <div className="space-y-2">
+                                  <Label htmlFor={`pieces.${pieceIndex}.electricite.interrupteurs.nombre`} className="text-xs font-medium">
+                                    Nombre
+                              </Label>
+                              <Input
+                                type="number"
+                                    id={`pieces.${pieceIndex}.electricite.interrupteurs.nombre`}
+                                    name={`pieces.${pieceIndex}.electricite.interrupteurs.nombre`}
+                                    value={piece.electricite?.interrupteurs?.nombre || "0"}
+                                onChange={(e) => {
                                   const newPieces = [...formData.pieces];
                                       if (!newPieces[pieceIndex].electricite) {
                                         newPieces[pieceIndex].electricite = {
                                           testable: false,
                                           prisesMurales: { nombre: "0", etat: "", observations: "" },
+                                          prisesRJ45: { nombre: "0", etat: "", observations: "" },
+                                          interrupteurs: { nombre: e.target.value, etat: "", observations: "" },
+                                          observations: ""
+                                        };
+                                      } else if (!newPieces[pieceIndex].electricite.interrupteurs) {
+                                        newPieces[pieceIndex].electricite.interrupteurs = { nombre: e.target.value, etat: "", observations: "" };
+                                      } else {
+                                        newPieces[pieceIndex].electricite.interrupteurs.nombre = e.target.value;
+                                      }
+                                  updateFormField("pieces", newPieces);
+                                }}
+                                className="w-full text-sm"
+                                min="0"
+                              />
+                            </div>
+                            
+                            <div className="space-y-2">
+                                  <Label htmlFor={`pieces.${pieceIndex}.electricite.interrupteurs.etat`} className="text-xs font-medium">
+                                État
+                              </Label>
+                              <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                                <Button
+                                  type="button"
+                                      className={`min-w-0 h-auto py-1 px-1.5 text-[10px] font-medium rounded ${piece.electricite?.interrupteurs?.etat === "Très bon état" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                                  onClick={() => {
+                                    const newPieces = [...formData.pieces];
+                                        if (!newPieces[pieceIndex].electricite) {
+                                          newPieces[pieceIndex].electricite = {
+                                            testable: false,
+                                            prisesMurales: { nombre: "0", etat: "", observations: "" },
                                           prisesRJ45: { nombre: "0", etat: "", observations: "" },
                                           interrupteurs: { nombre: "0", etat: "Très bon état", observations: "" },
                                           observations: ""
@@ -5074,4 +5168,4 @@ export function EtatDesLieuxForm({
       </div>
     </div>
   )
-} 
+}

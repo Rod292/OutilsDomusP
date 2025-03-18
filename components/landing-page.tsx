@@ -40,7 +40,7 @@ export function LandingPage() {
         <div className="text-center mb-8">
           <Image
             src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Capture%20d%E2%80%99e%CC%81cran%202025-02-13%20a%CC%80%2016.16.55-xk5xXEckPhEaDJHYcO6QQJJZwRm6Dc.png"
-            alt="Arthur Lloyd"
+            alt="Arthur Loyd"
             width={240}
             height={64}
             className="mx-auto mb-4"

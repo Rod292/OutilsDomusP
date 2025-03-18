@@ -1,7 +1,7 @@
 {
-  "name": "État des Lieux - Arthur Lloyd",
+  "name": "État des Lieux - Arthur Loyd",
   "short_name": "État des Lieux",
-  "description": "Application d'état des lieux par Arthur Lloyd",
+  "description": "Application d'état des lieux par Arthur Loyd",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#DC0032",
