@@ -1,11 +1,26 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import NotionPlanWorkspace from './components/NotionPlanWorkspace';
 
+// Composant principal avec Suspense pour résoudre l'erreur de déploiement
 export default function NotionPlanPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#DC0032] mx-auto"></div>
+          <p className="mt-4 text-gray-600">Chargement...</p>
+        </div>
+      </div>}>
+      <NotionPlanContent />
+    </Suspense>
+  );
+}
+
+// Composant effectif qui utilise useSearchParams
+function NotionPlanContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, loading } = useAuth();
@@ -29,16 +44,16 @@ export default function NotionPlanPage() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#DC0032] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#DC0032] mx-auto"></div>
+          <p className="mt-4 text-gray-600">Chargement...</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-white">
-      <NotionPlanWorkspace consultant={consultant} />
-    </div>
-  );
+  if (!user || !consultant) {
+    return null;
+  }
+
+  return <NotionPlanWorkspace consultant={consultant} />;
 } 

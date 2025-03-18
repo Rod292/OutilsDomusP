@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Header } from '@/app/components/header';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,16 @@ import { useTheme } from "next-themes";
 type MessageType = 'user' | 'assistant';
 type AttachmentType = 'image' | 'document' | 'other';
 
+// Composant principal avec Suspense pour résoudre l'erreur de déploiement
+export default function IAAssistantPage() {
+  return (
+    <Suspense fallback={<div>Chargement...</div>}>
+      <IAAssistant />
+    </Suspense>
+  );
+}
+
+// Types pour les messages
 interface Attachment {
   id: string;
   type: AttachmentType;
@@ -55,7 +65,8 @@ interface Conversation {
   updatedAt: Date;
 }
 
-export default function IAAssistant() {
+// Composant effectif qui utilise useSearchParams
+function IAAssistant() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const consultant = searchParams.get('consultant');
