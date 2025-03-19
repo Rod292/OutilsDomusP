@@ -123,6 +123,10 @@ export const saveNotificationToken = async (userId: string, token: string): Prom
 
     console.log(`Enregistrement du token pour l'utilisateur: ${userId}`);
     
+    // Extraire l'email de l'utilisateur depuis userId (format: email_consultant)
+    const email = userId.includes('_') ? userId.split('_')[0] : userId;
+    console.log(`Email extrait: ${email}`);
+    
     // Vérifier si ce token existe déjà pour cet utilisateur
     const db = getFirestore();
     const tokensRef = collection(db, 'notificationTokens');
@@ -138,7 +142,8 @@ export const saveNotificationToken = async (userId: string, token: string): Prom
       const docRef = querySnapshot.docs[0].ref;
       await updateDoc(docRef, {
         timestamp: Date.now(),
-        lastUpdated: serverTimestamp()
+        lastUpdated: serverTimestamp(),
+        email // Ajouter/mettre à jour l'email
       });
       console.log(`Token existant mis à jour pour l'utilisateur: ${userId}`);
       return true;
@@ -147,17 +152,18 @@ export const saveNotificationToken = async (userId: string, token: string): Prom
     // Sinon, créer un nouveau document pour ce token
     const tokenData = {
       userId,
+      email, // Stocker l'email séparément pour faciliter les requêtes
       token,
       timestamp: Date.now(),
       createdAt: serverTimestamp(),
       lastUpdated: serverTimestamp(),
-      // Extraire l'email et le consultant depuis userId (format: email_consultant)
-      consultant: userId.includes('_') ? userId.split('_')[1] : null,
-      email: userId.includes('_') ? userId.split('_')[0] : userId
+      platform: typeof navigator !== 'undefined' ? navigator.platform : 'unknown',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
     };
     
-    await addDoc(tokensRef, tokenData);
-    console.log(`Token de notification enregistré pour l'utilisateur: ${userId}`);
+    await addDoc(collection(db, 'notificationTokens'), tokenData);
+    console.log(`Nouveau token enregistré pour l'utilisateur: ${userId}`);
+    
     return true;
   } catch (error) {
     console.error('Erreur lors de l\'enregistrement du token:', error);
@@ -561,6 +567,18 @@ export const sendTaskAssignedNotification = async (
       return false;
     }
 
+    // Vérifier que task est défini et qu'il a un ID
+    if (!task) {
+      console.error('Tâche non définie pour l\'envoi de notification');
+      return false;
+    }
+
+    // S'assurer que task.id existe
+    if (!task.id) {
+      console.error('ID de tâche manquant pour l\'envoi de notification');
+      return false;
+    }
+
     // Extraire le nom du consultant à partir de l'email
     const consultantName = assignee.split('@')[0] || assignee;
     
@@ -569,7 +587,7 @@ export const sendTaskAssignedNotification = async (
     const notificationId = `${currentUserEmail}_${consultantName}`;
     
     console.log(`CORRECTION: Envoi d'une notification à ${notificationId} pour la tâche assignée à ${consultantName}.`);
-    console.log(`Utilisateur actuel: ${currentUserEmail}, Consultant surveillé: ${consultantName}`);
+    console.log(`Détails : userEmail=${currentUserEmail}, consultantEmail=${assignee}, taskId=${task.id}`);
     
     // Préparer les données de la notification avec un message adapté
     const title = isCommunication 
@@ -590,7 +608,7 @@ export const sendTaskAssignedNotification = async (
       title,
       body,
       type: notificationType as "task_assigned" | "task_reminder" | "system" | "communication_assigned",
-      taskId: task.id
+      taskId: task.id  // S'assurer que taskId est bien transmis
     };
 
     console.log(`Préparation de la notification:`, notificationData);

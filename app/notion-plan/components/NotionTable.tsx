@@ -633,10 +633,11 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
   // Fonction pour ajouter un consultant à une sous-tâche de communication
   const addCommunicationAssignee = async (taskId: string, commIndex: number, email: string) => {
     try {
-      // Utiliser sessionStorage pour récupérer l'email de l'utilisateur connecté
+      // CORRECTION: ne pas importer depuis @/app/lib/auth qui n'existe pas
+      // À la place, utiliser sessionStorage ou localStorage
       const userEmail = sessionStorage.getItem('userEmail') || localStorage.getItem('userEmail');
       
-      console.log(`Ajout d'un consultant à une communication: userEmail=${userEmail}, consultantEmail=${email}`);
+      console.log(`Ajout consultant - userEmail: ${userEmail}, consultantEmail: ${email}, taskId: ${taskId}`);
       
       if (!userEmail) {
         console.error('Email de l\'utilisateur non disponible dans sessionStorage ou localStorage');
@@ -686,24 +687,26 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       // Envoyer une notification si l'email de l'utilisateur est disponible
       if (userEmail) {
         try {
-          // Créer une copie de la communication avec l'ID de la tâche pour l'envoi de notification
-          const commWithId = {
+          // S'assurer que la communication a un ID pour l'envoi de notification
+          const communicationWithId = {
             ...existingComm,
-            id: taskId // S'assurer que l'ID est défini pour éviter l'erreur Firestore
+            id: taskId // Utiliser l'ID de la tâche parente
           };
+          
+          console.log('Communication avec ID pour notification:', communicationWithId);
           
           const { sendTaskAssignedNotification } = await import('@/app/services/notificationService');
           
           // Envoyer une notification spécifique pour une communication
-          await sendTaskAssignedNotification(
-            commWithId,
+          const notificationResult = await sendTaskAssignedNotification(
+            communicationWithId,
             email,
             userEmail,
             true, // Indiquer qu'il s'agit d'une communication
             task.title // Passer le titre de la tâche parente
           );
           
-          console.log(`Notification de communication envoyée à ${userEmail} pour le consultant ${email}`);
+          console.log(`Notification envoyée: ${notificationResult ? 'succès' : 'échec'}`);
         } catch (notifError) {
           console.error('Erreur lors de l\'envoi de la notification de communication:', notifError);
         }
