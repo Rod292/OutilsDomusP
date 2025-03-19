@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import NotionPlanWorkspace from './components/NotionPlanWorkspace';
-import NotificationDebugButton from './components/NotificationDebugButton';
+import { useTheme } from 'next-themes';
+import { useSearchParams } from 'next/navigation';
 
 // Composant principal qui ne contient pas useSearchParams()
 export default function NotionPlanPage() {
@@ -20,15 +21,19 @@ export default function NotionPlanPage() {
 }
 
 // Composant interne qui utilise useSearchParams()
-import { useSearchParams } from 'next/navigation';
-
 function NotionPlanContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
+  const { setTheme } = useTheme();
   
   // Récupérer le consultant depuis l'URL
   const consultant = searchParams.get('consultant') || '';
+  
+  // Définir le thème clair pour cette page
+  useEffect(() => {
+    setTheme('light');
+  }, [setTheme]);
   
   // Si l'utilisateur n'est pas connecté, rediriger vers la page de connexion
   if (!loading && !user) {
@@ -38,7 +43,6 @@ function NotionPlanContent() {
   
   return (
     <>
-      <NotificationDebugButton />
       <NotionPlanWorkspace consultant={consultant} />
     </>
   );

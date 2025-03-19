@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, onSnapshot, deleteDoc, serverTimestamp, orderBy, Firestore, Timestamp, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { PlusIcon, CalendarIcon, ListChecksIcon, TagIcon, ChevronDownIcon, MenuIcon, FilterIcon, SearchIcon, XIcon, UserIcon } from 'lucide-react';
+import { PlusIcon, CalendarIcon, ListChecksIcon, TagIcon, ChevronDownIcon, MenuIcon, FilterIcon, SearchIcon, XIcon, UserIcon, UsersIcon, TableIcon, LayoutIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -44,6 +44,7 @@ import { Header } from '../../components/header';
 import { Task, TeamMember, CommunicationDetail } from '../types';
 import GlobalNotificationButton from '@/app/components/notifications/GlobalNotificationButton';
 import { sendTaskAssignedNotification } from '@/app/services/notificationService';
+import NotificationDebugButton from './NotificationDebugButton';
 
 // Types
 interface NotionPlanWorkspaceProps {
@@ -840,6 +841,10 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
     window.history.pushState({ path: newUrl }, '', newUrl);
   }, [showAssignedTasksOnly]);
 
+  const toggleAssignedFilter = () => {
+    setShowAssignedTasksOnly(!showAssignedTasksOnly);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -879,10 +884,76 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
                     size="default"
                     className="mr-1"
                   />
-                  <Button variant="default" onClick={handleNewTask}>
-                    <PlusIcon className="h-4 w-4 mr-2" />
-                    Nouvelle tâche
-                  </Button>
+                  <div className="mb-4 flex justify-between items-center">
+                    {/* Bouton pour filtrer par tâches assignées */}
+                    <div className="flex items-center">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={toggleAssignedFilter}
+                        className="mr-2 text-xs"
+                      >
+                        {showAssignedTasksOnly ? (
+                          <>
+                            <UsersIcon className="h-4 w-4 mr-1" />
+                            Voir toutes les tâches
+                          </>
+                        ) : (
+                          <>
+                            <UserIcon className="h-4 w-4 mr-1" />
+                            Voir tâches assignées
+                          </>
+                        )}
+                      </Button>
+                      
+                      {/* Sélection de vue */}
+                      <div className="flex border rounded-md overflow-hidden">
+                        <Button 
+                          variant={activeView === 'table' ? "default" : "ghost"} 
+                          size="sm" 
+                          onClick={() => setActiveView('table')}
+                          className="rounded-none border-0 text-xs px-2"
+                        >
+                          <TableIcon className="h-4 w-4 mr-1" />
+                          Tableau
+                        </Button>
+                        <Button 
+                          variant={activeView === 'board' ? "default" : "ghost"} 
+                          size="sm" 
+                          onClick={() => setActiveView('board')}
+                          className="rounded-none border-0 text-xs px-2"
+                        >
+                          <LayoutIcon className="h-4 w-4 mr-1" />
+                          Kanban
+                        </Button>
+                        <Button 
+                          variant={activeView === 'calendar' ? "default" : "ghost"} 
+                          size="sm" 
+                          onClick={() => setActiveView('calendar')}
+                          className="rounded-none border-0 text-xs px-2"
+                        >
+                          <CalendarIcon className="h-4 w-4 mr-1" />
+                          Calendrier
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Bouton pour créer une nouvelle tâche et tester les notifications */}
+                    <div className="flex items-center space-x-2">
+                      {/* Bouton test notifications */}
+                      <NotificationDebugButton />
+                      
+                      {/* Bouton de création de tâche */}
+                      <Button 
+                        onClick={handleNewTask} 
+                        size="sm"
+                        className="bg-[#DC0032] hover:bg-[#B8002A] text-white"
+                      >
+                        <PlusIcon className="h-4 w-4 mr-1" />
+                        Nouvelle tâche
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
 

@@ -35,9 +35,9 @@ export default function NotificationDebugButton({ className = '' }: Notification
       const result = await debugNotifications(userEmail, 'nathalie');
       
       if (result) {
-        setSuccess('Notification envoyée avec succès. Vérifiez la console pour plus de détails.');
+        setSuccess('Notification envoyée avec succès.');
       } else {
-        setError('Échec de l\'envoi de notification. Vérifiez la console pour plus de détails.');
+        setError('Échec de l\'envoi de notification.');
       }
     } catch (error) {
       console.error('Erreur lors du débogage des notifications:', error);
@@ -54,20 +54,20 @@ export default function NotificationDebugButton({ className = '' }: Notification
           <Button
             variant={error ? "destructive" : success ? "default" : "outline"}
             size="sm"
-            className={`${className} rounded-full h-8 w-auto text-xs px-2 absolute top-2 right-2 z-10`}
+            className={`${className} h-9 px-3 text-xs inline-flex items-center gap-1.5`}
             onClick={handleResetNotifications}
             disabled={loading}
           >
             {loading ? (
-              <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+              <RefreshCw className="h-4 w-4" />
             ) : error ? (
-              <AlertCircle className="h-3 w-3 mr-1" />
+              <AlertCircle className="h-4 w-4" />
             ) : success ? (
-              <BellRing className="h-3 w-3 mr-1" />
+              <BellRing className="h-4 w-4" />
             ) : (
-              <Bell className="h-3 w-3 mr-1" />
+              <Bell className="h-4 w-4" />
             )}
-            Test notifications
+            Test notif
           </Button>
         </TooltipTrigger>
         <TooltipContent>
@@ -76,7 +76,7 @@ export default function NotificationDebugButton({ className = '' }: Notification
               ? error 
               : success 
                 ? success 
-                : 'Cliquez pour tester et réinitialiser les notifications'}
+                : 'Cliquez pour tester les notifications'}
           </p>
         </TooltipContent>
       </Tooltip>
