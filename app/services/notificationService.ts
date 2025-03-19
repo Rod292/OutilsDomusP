@@ -426,6 +426,99 @@ export const requestNotificationPermission = async (userId: string): Promise<boo
   }
 };
 
+/**
+ * Fonction de débogage pour tester l'envoi de notifications
+ * Cette fonction peut être appelée depuis la console du navigateur
+ * @param email Email de l'utilisateur qui recevra la notification
+ * @param consultantName Nom du consultant pour lequel la notification sera envoyée
+ */
+export const debugNotifications = async (email: string, consultantName: string): Promise<boolean> => {
+  try {
+    // Vérifier si nous sommes côté client
+    if (typeof window === 'undefined') {
+      console.log('Impossible de déboguer les notifications côté serveur');
+      return false;
+    }
+    
+    console.log(`Débogage des notifications pour email=${email}, consultant=${consultantName}`);
+    
+    // Vérifier les permissions actuelles
+    const permissionStatus = Notification.permission;
+    console.log(`Statut actuel des permissions: ${permissionStatus}`);
+    
+    // Vérifier l'enregistrement dans Firestore
+    try {
+      const notificationId = `${email}_${consultantName}`;
+      console.log(`ID de notification à vérifier: ${notificationId}`);
+      
+      // Vérifier si un token existe
+      const db = getFirestore();
+      const q = query(
+        collection(db, 'notificationTokens'),
+        where('userId', '==', notificationId)
+      );
+      
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        console.log(`Aucun token trouvé pour ${notificationId}, tentative d'enregistrement...`);
+        
+        // Essayer d'enregistrer un token
+        const success = await requestNotificationPermission(notificationId);
+        console.log(`Résultat de l'enregistrement: ${success ? 'Succès' : 'Échec'}`);
+      } else {
+        console.log(`${snapshot.size} token(s) trouvé(s) pour ${notificationId}`);
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          console.log(`Token: ${data.token ? (data.token.substring(0, 10) + '...') : 'null'}`);
+          console.log(`Date: ${data.timestamp ? new Date(data.timestamp).toLocaleString() : 'inconnue'}`);
+        });
+      }
+    } catch (dbError) {
+      console.error('Erreur lors de la vérification Firestore:', dbError);
+    }
+    
+    // Tester une notification locale
+    console.log('Test de notification locale...');
+    const localSuccess = await sendLocalNotification({
+      title: 'Test de notification locale',
+      body: `Test pour ${consultantName} à ${new Date().toLocaleTimeString()}`,
+      data: {
+        userId: `${email}_${consultantName}`,
+        type: 'system',
+        taskId: 'debug-' + Date.now()
+      }
+    });
+    
+    console.log(`Résultat notification locale: ${localSuccess ? 'Succès' : 'Échec'}`);
+    
+    // Tester via l'API de notification
+    try {
+      console.log('Test via API...');
+      const response = await fetch('/api/notifications/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email,
+          consultantName
+        })
+      });
+      
+      const result = await response.json();
+      console.log('Résultat du test API:', result);
+      
+      return true;
+    } catch (apiError) {
+      console.error('Erreur lors du test via API:', apiError);
+      return false;
+    }
+  } catch (error) {
+    console.error('Erreur globale lors du débogage des notifications:', error);
+    return false;
+  }
+};
+
 // Fonction pour journaliser l'état des permissions de notification
 export const logNotificationPermissionStatus = () => {
   if (typeof window === 'undefined') {
@@ -438,6 +531,12 @@ export const logNotificationPermissionStatus = () => {
   
   return Notification.permission;
 };
+
+// Ajouter debugNotifications à window pour pouvoir l'appeler depuis la console
+if (typeof window !== 'undefined') {
+  (window as any).debugNotifications = debugNotifications;
+  (window as any).sendLocalNotification = sendLocalNotification;
+}
 
 /**
  * Envoie une notification pour une tâche assignée à un consultant
