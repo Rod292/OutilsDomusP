@@ -43,6 +43,7 @@ import NotionTabs from './NotionTabs';
 import { Header } from '../../components/header';
 import { Task, TeamMember, CommunicationDetail } from '../types';
 import GlobalNotificationButton from '@/app/components/notifications/GlobalNotificationButton';
+import { sendTaskAssignedNotification } from '@/app/services/notificationService';
 
 // Types
 interface NotionPlanWorkspaceProps {
@@ -120,109 +121,6 @@ const getActionTypeColor = (type: string): string => {
     'autre': 'bg-gray-500 hover:bg-gray-600'
   };
   return colors[type] || 'bg-gray-500 hover:bg-gray-600';
-};
-
-// Fonction pour envoyer une notification de tâche assignée
-const sendTaskAssignedNotification = async (task: any, assignee: string, currentUserEmail: string) => {
-  try {
-    // Extraire le nom du consultant à partir de l'email
-    const consultantName = assignee.split('@')[0] || assignee;
-    
-    // Construire l'ID de notification (email_consultant)
-    // C'est l'utilisateur connecté qui doit recevoir la notification concernant le consultant
-    const notificationId = `${currentUserEmail}_${consultantName}`;
-    
-    // Préparer les données de la notification avec un message qui indique clairement qu'il s'agit d'une notification 
-    // pour le consultant suivi par l'utilisateur connecté
-    const notificationData = {
-      userId: notificationId,
-      title: "📋 Nouvelle tâche assignée",
-      body: `${consultantName}, une nouvelle tâche "${task.title}" vous a été assignée.`,
-      type: "task_assigned" as "task_assigned" | "task_reminder" | "system",
-      taskId: task.id
-    };
-
-    console.log(`Envoi d'une notification à ${notificationId} pour la tâche assignée à ${consultantName}.`);
-    
-    try {
-      // Essayer d'envoyer la notification via l'API
-      const response = await fetch('/api/notifications/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(notificationData),
-      });
-
-      // Si l'API échoue, essayer d'envoyer en mode local
-      if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      console.log('Résultat de l\'envoi de notification:', result);
-      
-      if (result.error) {
-        throw new Error(result.error);
-      }
-      
-      // Vérifier si le serveur nous suggère d'utiliser le mode local
-      if (result.useLocalMode && typeof window !== 'undefined') {
-        console.log('Mode local suggéré par le serveur, envoi direct d\'une notification...');
-        const { sendLocalNotification } = await import('../../services/notificationService');
-        
-        const success = await sendLocalNotification({
-          title: notificationData.title,
-          body: notificationData.body,
-          data: { 
-            taskId: notificationData.taskId, 
-            type: notificationData.type,
-            userId: notificationData.userId
-          }
-        });
-        
-        console.log('Résultat de l\'envoi de notification locale:', success);
-      }
-    } catch (apiError) {
-      console.error('Erreur lors de l\'envoi via API, tentative d\'envoi local:', apiError);
-      
-      // Fallback: utiliser les notifications locales
-      const { sendLocalNotification, createNotification } = await import('../../services/notificationService');
-      
-      // S'assurer que la notification est enregistrée dans Firestore
-      try {
-        await createNotification({
-          userId: notificationId,
-          title: notificationData.title,
-          body: notificationData.body,
-          type: notificationData.type,
-          taskId: notificationData.taskId,
-          read: false
-        });
-        
-        console.log('Notification enregistrée dans Firestore manuellement après échec API');
-      } catch (firestoreError) {
-        console.error('Échec également de l\'enregistrement dans Firestore:', firestoreError);
-        // Continue quand même pour essayer d'envoyer la notification locale
-      }
-      
-      // Dernier recours: envoyer une notification locale directement
-      console.log('Tentative d\'envoi de notification locale en dernier recours...');
-      const localSuccess = await sendLocalNotification({
-        title: notificationData.title,
-        body: notificationData.body,
-        data: { 
-          taskId: notificationData.taskId, 
-          type: notificationData.type,
-          userId: notificationData.userId
-        }
-      });
-      
-      console.log('Résultat de l\'envoi de notification locale en dernier recours:', localSuccess);
-    }
-  } catch (error) {
-    console.error('Erreur globale lors de l\'envoi de la notification:', error);
-  }
 };
 
 export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceProps) {
@@ -529,8 +427,49 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
         // 3. Pour chaque nouvelle communication dans la mise à jour
         let updatedComms = [...normalizedCurrentComms]; // Copie de travail
         
+        // CORRECTION pour la suppression: Vérifier si des communications ont été supprimées
+        // On le fait en comparant la longueur et en vérifiant les index originaux
+        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Détection de suppressions éventuelles`);
+        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Anciennes communications:`, normalizedCurrentComms.length);
+        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Nouvelles communications:`, task.communicationDetails.length);
+        
+        // Récupérer les index originaux des communications existantes
+        const existingIndexes = normalizedCurrentComms.map((comm: any, idx: number) => 
+          comm.originalIndex !== undefined ? comm.originalIndex : idx
+        );
+        
+        // Récupérer les index originaux des communications dans la mise à jour
+        const updatedIndexes = task.communicationDetails.map((comm: any) => 
+          comm.originalIndex !== undefined ? comm.originalIndex : null
+        ).filter((idx: number | null) => idx !== null);
+        
+        // Trouver les index qui existaient mais qui ne sont plus dans la mise à jour (supprimés)
+        const deletedIndexes = existingIndexes.filter(idx => !updatedIndexes.includes(idx));
+        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Index supprimés:`, deletedIndexes);
+        
+        // Si des index ont été supprimés, filtrer les communications correspondantes
+        if (deletedIndexes.length > 0) {
+          updatedComms = updatedComms.filter((comm: any) => {
+            const commIndex = comm.originalIndex !== undefined ? comm.originalIndex : -1;
+            const shouldKeep = !deletedIndexes.includes(commIndex);
+            if (!shouldKeep) {
+              console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Suppression de la communication à l'index ${commIndex}`);
+            }
+            return shouldKeep;
+          });
+          
+          // Réaffecter les index originaux si nécessaire pour maintenir la continuité
+          updatedComms = updatedComms.map((comm: any, newIdx: number) => ({
+            ...comm,
+            // Conserver l'index original ou l'assigner au nouvel index si non défini
+            originalIndex: comm.originalIndex !== undefined ? comm.originalIndex : newIdx
+          }));
+          
+          console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Après suppression, il reste ${updatedComms.length} communications`);
+        }
+        
         // Vérifier si nous avons de nouvelles communications à ajouter
-        const hasNewCommunications = task.communicationDetails.length > normalizedCurrentComms.length;
+        const hasNewCommunications = task.communicationDetails.length > updatedComms.length;
         
         task.communicationDetails.forEach((updatedComm, updatedIdx) => {
           // Si cette communication a un index original, l'utiliser pour la localiser
@@ -538,7 +477,7 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
             const originalIdx = updatedComm.originalIndex;
             
             // Si l'index est valide
-            if (originalIdx >= 0 && originalIdx < normalizedCurrentComms.length) {
+            if (originalIdx >= 0 && originalIdx < updatedComms.length) {
               console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour de la communication à l'index original ${originalIdx}`);
               
               // Mettre à jour cette communication spécifique
@@ -553,7 +492,7 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
             }
           } else {
             // Cas où nous ajoutons une nouvelle communication (sans index original)
-            if (updatedIdx >= normalizedCurrentComms.length) {
+            if (updatedIdx >= updatedComms.length) {
               console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Ajout d'une nouvelle communication à la position ${updatedIdx}`);
               
               // Ajouter la nouvelle communication à la fin du tableau
