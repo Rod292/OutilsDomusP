@@ -305,6 +305,14 @@ const DroppableDay = ({
         
         // Cas 1: Mise à jour d'une communication spécifique
         if (taskToUpdate.communicationDetails && item.uuid) {
+          console.log(`Recherche de la communication avec UUID: ${item.uuid}`);
+          console.log(`Détails de communications disponibles:`, 
+            taskToUpdate.communicationDetails.map((comm, idx) => {
+              const uuid = getOrCreateCommunicationUUID(taskToUpdate.id, comm.type, idx);
+              return `${idx}: ${comm.type} (UUID: ${uuid})`;
+            })
+          );
+          
           // Rechercher la communication par UUID
           const commIndexToUpdate = taskToUpdate.communicationDetails.findIndex((comm, idx) => {
             const commUUID = getOrCreateCommunicationUUID(taskToUpdate.id, comm.type, idx);
@@ -316,21 +324,23 @@ const DroppableDay = ({
             return;
           }
           
-          // APPROCHE ULTRA-SIMPLIFIÉE:
-          // Au lieu de modifier nous-mêmes le tableau des communications,
-          // nous créons une simple communication modifiée avec l'index original
-          // et laissons handleUpdateTask faire le travail de fusion
-          const simpleCommunication = {
-            type: taskToUpdate.communicationDetails[commIndexToUpdate].type,
+          console.log(`Communication trouvée à l'index ${commIndexToUpdate}`);
+          
+          // Créer une copie profonde des communications existantes
+          const updatedCommunications = JSON.parse(JSON.stringify(taskToUpdate.communicationDetails));
+          
+          // Mettre à jour uniquement la date de la communication spécifique
+          updatedCommunications[commIndexToUpdate] = {
+            ...updatedCommunications[commIndexToUpdate],
             deadline: date,
-            originalIndex: commIndexToUpdate
+            originalIndex: commIndexToUpdate // Conserver l'index original
           };
           
-          // Créer un tableau avec cette seule communication
-          const updatedCommunications = [simpleCommunication];
+          console.log(`Communications mises à jour:`, updatedCommunications.map((c: any, i: number) => 
+            `${i}: ${c.type} - ${c.deadline ? new Date(c.deadline).toLocaleDateString() : 'non définie'}`
+          ));
           
-          // Envoyer uniquement l'ID et la communication modifiée
-          // handleUpdateTask s'occupera de fusionner correctement avec les données existantes
+          // Envoyer toutes les communications pour s'assurer qu'aucune n'est perdue
           await onUpdateTask({
             id: item.id,
             communicationDetails: updatedCommunications
