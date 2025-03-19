@@ -6,7 +6,7 @@ import NewsletterEditorVisual from './components/NewsletterEditorVisual';
 import Link from 'next/link';
 import { useTheme } from "next-themes";
 
-export default function NewsletterPage() {
+function NewsletterContent() {
   const { setTheme } = useTheme();
   
   // Définir le thème clair pour cette page
@@ -30,5 +30,13 @@ export default function NewsletterPage() {
         </Suspense>
       </div>
     </div>
+  );
+}
+
+export default function NewsletterPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Chargement...</div>}>
+      <NewsletterContent />
+    </Suspense>
   );
 } 

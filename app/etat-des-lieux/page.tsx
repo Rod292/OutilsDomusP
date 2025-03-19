@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useTheme } from 'next-themes';
 import MainLayout from './components/MainLayout';
 
-export default function EtatDesLieuxPage() {
+function EtatDesLieuxContent() {
   const { setTheme } = useTheme();
   
   // Définir le thème clair pour cette page
@@ -13,4 +13,12 @@ export default function EtatDesLieuxPage() {
   }, [setTheme]);
   
   return <MainLayout />;
+}
+
+export default function EtatDesLieuxPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Chargement...</div>}>
+      <EtatDesLieuxContent />
+    </Suspense>
+  );
 } 
