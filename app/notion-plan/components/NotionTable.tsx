@@ -565,7 +565,13 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
   };
 
   // Fonction pour obtenir le badge cliquable du type de communication
-  const getTypeBadge = (type: string, taskId: string, commIndex: number, customType?: string) => {
+  // Transformé en composant React pour éviter l'erreur "Rendered more hooks than during the previous render"
+  const TypeBadge = React.memo(({ type, taskId, commIndex, customType }: { 
+    type: string; 
+    taskId: string; 
+    commIndex: number; 
+    customType?: string 
+  }) => {
     // Icônes pour les différents types de communication
     const iconMap: Record<string, React.ReactNode> = {
       'newsletter': <MailIcon className="h-2.5 w-2.5 mr-0.5" />,
@@ -722,7 +728,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
         </DropdownMenuContent>
       </DropdownMenu>
     );
-  };
+  });
 
   // Fonction pour ajouter un consultant à une sous-tâche de communication
   const addCommunicationAssignee = async (taskId: string, commIndex: number, email: string) => {
@@ -1217,14 +1223,14 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       console.log(`Ajout d'une communication ${type} à la tâche ${taskId}`);
       
       // Liste des types valides (pour validation)
-      const communicationValidTypes = [
-        'appel', 'sms', 'email', 'rdv_physique', 'rdv_tel', 'courrier', 'commentaire', 'envoi_doc', 'autre',
-        'idée', 'plan_2d_3d', // Nouveaux types ajoutés
-        'newsletter', 'panneau', 'flyer', 'post_site', 'post_linkedin', 'post_instagram', 'post_facebook'
-      ];
+      const validTypes = ['newsletter', 'panneau', 'flyer', 'carousel', 'video', 'post_site', 'post_linkedin', 'post_instagram', 'idee', 'plan_2d_3d', 'autre'] as const;
+      type ValidCommunicationType = typeof validTypes[number];
       
       // Vérifier que le type est valide
-      if (!communicationValidTypes.includes(type)) {
+      const isValidType = (t: string): t is ValidCommunicationType => 
+        validTypes.includes(t as any);
+      
+      if (!isValidType(type)) {
         console.error(`Type de communication invalide: ${type}`);
         return;
       }
@@ -1236,7 +1242,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       
       // Créer une nouvelle communication
       const newCommunication: CommunicationDetail = {
-        type: type,
+        type: type as CommunicationDetail['type'], // Le type est validé au-dessus
         status: 'à faire',
         priority: 'moyenne',
         deadline: new Date(),
@@ -1922,7 +1928,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                         >
                           <TableCell className="pl-10 py-1">
                             <div className="flex flex-wrap items-center gap-1">
-                              {getTypeBadge(comm.type, task.id, index)}
+                              <TypeBadge type={comm.type} taskId={task.id} commIndex={index} customType={comm.customType} />
                               {getPlatformBadge(comm.platform)}
                               {getMediaTypeBadge(comm.mediaType, task.id, index)}
                               {comm.details && (
