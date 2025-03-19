@@ -633,15 +633,34 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
   // Fonction pour ajouter un consultant à une sous-tâche de communication
   const addCommunicationAssignee = async (taskId: string, commIndex: number, email: string) => {
     try {
-      // CORRECTION: ne pas importer depuis @/app/lib/auth qui n'existe pas
-      // À la place, utiliser sessionStorage ou localStorage
-      const userEmail = sessionStorage.getItem('userEmail') || localStorage.getItem('userEmail');
+      // Vérifier et récupérer l'email de l'utilisateur actuel de plusieurs sources
+      const userEmail = sessionStorage.getItem('userEmail') || 
+                       localStorage.getItem('userEmail') ||
+                       sessionStorage.getItem('currentUserEmail') ||
+                       localStorage.getItem('currentUserEmail');
       
-      console.log(`Ajout consultant - userEmail: ${userEmail}, consultantEmail: ${email}, taskId: ${taskId}`);
+      console.log(`Ajout consultant - Session userEmail: ${userEmail}, consultantEmail: ${email}, taskId: ${taskId}`);
       
-      if (!userEmail) {
-        console.error('Email de l\'utilisateur non disponible dans sessionStorage ou localStorage');
-        // Continuer quand même, uniquement l'envoi de notification sera affecté
+      // Si l'email n'est pas disponible, essayer d'obtenir l'email à partir de la session NextAuth
+      let emailToUse = userEmail;
+      if (!emailToUse) {
+        console.warn('Email utilisateur non trouvé dans le stockage local, tentative de récupération...');
+        
+        try {
+          // Tenter d'accéder à l'email stocké dans le navigateur
+          const storedEmail = window.localStorage.getItem('user-email');
+          if (storedEmail) {
+            emailToUse = storedEmail;
+            console.log(`Email utilisateur récupéré du localStorage 'user-email': ${emailToUse}`);
+            
+            // Sauvegarder dans sessionStorage pour les futures requêtes
+            sessionStorage.setItem('userEmail', emailToUse);
+          } else {
+            console.error('Email utilisateur non disponible dans aucune source de stockage');
+          }
+        } catch (storageError) {
+          console.error('Erreur lors de la récupération de l\'email utilisateur:', storageError);
+        }
       }
       
       const task = tasks.find(t => t.id === taskId);
@@ -685,31 +704,77 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       console.log(`Utilisateur ${email} ajouté à la communication ${commIndex} de la tâche ${taskId}`);
       
       // Envoyer une notification si l'email de l'utilisateur est disponible
-      if (userEmail) {
+      if (emailToUse) {
         try {
           // S'assurer que la communication a un ID pour l'envoi de notification
           const communicationWithId = {
             ...existingComm,
-            id: taskId // Utiliser l'ID de la tâche parente
+            id: `${taskId}_comm_${commIndex}` // Créer un ID unique pour cette communication
           };
           
           console.log('Communication avec ID pour notification:', communicationWithId);
+          console.log(`Préparation notification: userEmail=${emailToUse}, consultantEmail=${email}, taskTitle=${task.title}`);
           
           const { sendTaskAssignedNotification } = await import('@/app/services/notificationService');
           
           // Envoyer une notification spécifique pour une communication
           const notificationResult = await sendTaskAssignedNotification(
             communicationWithId,
-            email,
-            userEmail,
+            email, // email du consultant assigné
+            emailToUse, // email de l'utilisateur actuel qui a fait l'assignation
             true, // Indiquer qu'il s'agit d'une communication
             task.title // Passer le titre de la tâche parente
           );
           
           console.log(`Notification envoyée: ${notificationResult ? 'succès' : 'échec'}`);
+          
+          // Si la notification a échoué, essayer d'envoyer directement via une API fetch
+          if (!notificationResult) {
+            console.log('Tentative d\'envoi de notification via API directe...');
+            try {
+              const notificationData = {
+                userId: `${emailToUse}_${email.split('@')[0]}`, // Format attendu: email_consultant
+                title: "📝 Nouvelle communication assignée",
+                body: `${email.split('@')[0]} a reçu une nouvelle communication "${existingComm.type || 'Communication'}" pour la tâche "${task.title}".`,
+                type: "communication_assigned",
+                taskId: `${taskId}_comm_${commIndex}`
+              };
+              
+              console.log('Données de notification:', notificationData);
+              
+              const response = await fetch('/api/notifications/send', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(notificationData),
+              });
+              
+              const result = await response.json();
+              console.log('Résultat API notification directe:', result);
+              
+              if (result.useLocalMode) {
+                console.log('Mode local suggéré, tentative d\'envoi de notification locale...');
+                const { sendLocalNotification } = await import('@/app/services/notificationService');
+                await sendLocalNotification({
+                  title: notificationData.title,
+                  body: notificationData.body,
+                  data: { 
+                    taskId: notificationData.taskId,
+                    type: notificationData.type,
+                    userId: notificationData.userId
+                  }
+                });
+              }
+            } catch (apiError) {
+              console.error('Erreur lors de l\'envoi direct via API:', apiError);
+            }
+          }
         } catch (notifError) {
           console.error('Erreur lors de l\'envoi de la notification de communication:', notifError);
         }
+      } else {
+        console.error('Impossible d\'envoyer une notification: email utilisateur non disponible');
       }
     } catch (error) {
       console.error('Erreur lors de l\'ajout d\'un assigné à une communication:', error);
