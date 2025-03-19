@@ -46,36 +46,25 @@ const DraggableTask = ({
   // Récupérer le type de communication
   const commType = commDetails?.type || null;
   
-  // Utiliser l'UUID passé par le parent ou en créer un nouveau (ne devrait jamais arriver)
-  const communicationUUID = uuid || (commDetails && commIndex !== undefined ? 
-    getOrCreateCommunicationUUID(task.id, commDetails.type, commIndex) : 
-    null);
+  // IMPORTANT: Utiliser l'UUID passé par le parent qui est déjà correct
+  // plutôt que d'en générer un nouveau qui pourrait être différent
+  const communicationUUID = uuid || '';
   
-  // Générer un ID unique basé sur le contenu (comme avant mais uniquement pour la journalisation)
-  const contentBasedId = commDetails ? `${commDetails.type}-${task.propertyAddress || ''}-${task.dossierNumber || ''}-${commDetails.details || ''}` : '';
-  
-  // Utiliser exclusivement l'UUID comme identifiant stable
-  const stableCommIdForDisplay = communicationUUID;
-  
-  // Générer un ID vraiment unique pour chaque communication
-  const uniqueDragId = `${task.id}-${stableCommIdForDisplay || 'main'}-${Date.now()}`;
+  // Log pour déboguer
+  console.log(`Préparation drag: élément avec UUID: ${communicationUUID}, type: ${commType}, index: ${commIndex}`);
   
   // Créer un objet avec toutes les données nécessaires pour identifier correctement la communication
   const dragItem = {
     id: task.id,
     commIndex,
     commType,
-    stableCommId: stableCommIdForDisplay,
-    uniqueId: uniqueDragId,
+    stableCommId: communicationUUID,
+    uniqueId: `${task.id}-${communicationUUID}-${Date.now()}`,
     propertyAddress: task.propertyAddress,
     dossierNumber: task.dossierNumber,
     currentDate: commDetails?.deadline ? new Date(commDetails.deadline).toISOString() : null,
-    contentBasedId,
-    uuid: communicationUUID
+    uuid: communicationUUID  // Utiliser l'UUID fourni
   };
-  
-  // Log pour déboguer
-  console.log(`Préparation drag: élément avec UUID: ${communicationUUID}, type: ${commType}, index: ${commIndex}`);
   
   const [{ isDragging }, dragRef] = useDrag(() => ({
     type: ItemTypes.TASK,
@@ -289,7 +278,6 @@ const DroppableDay = ({
       propertyAddress?: string,
       dossierNumber?: string,
       currentDate?: string | null,
-      contentBasedId?: string,
       uuid?: string
     }) => {
       console.log(`Déplacement de la communication vers ${date.toLocaleDateString()}`);
@@ -306,21 +294,53 @@ const DroppableDay = ({
         // Cas 1: Mise à jour d'une communication spécifique
         if (taskToUpdate.communicationDetails && item.uuid) {
           console.log(`Recherche de la communication avec UUID: ${item.uuid}`);
-          console.log(`Détails de communications disponibles:`, 
-            taskToUpdate.communicationDetails.map((comm, idx) => {
-              const uuid = getOrCreateCommunicationUUID(taskToUpdate.id, comm.type, idx);
-              return `${idx}: ${comm.type} (UUID: ${uuid})`;
-            })
-          );
           
-          // Rechercher la communication par UUID
-          const commIndexToUpdate = taskToUpdate.communicationDetails.findIndex((comm, idx) => {
-            const commUUID = getOrCreateCommunicationUUID(taskToUpdate.id, comm.type, idx);
+          // IMPORTANT: Vérifier toutes les communications et afficher leurs détails
+          if (taskToUpdate.communicationDetails.length > 0) {
+            console.log(`Détails des ${taskToUpdate.communicationDetails.length} communications disponibles:`);
+            
+            taskToUpdate.communicationDetails.forEach((comm, idx) => {
+              const commUUID = getOrCreateCommunicationUUID(taskToUpdate.id, comm.type, comm.originalIndex !== undefined ? comm.originalIndex : idx);
+              console.log(`- Index actuel ${idx}, originalIndex ${comm.originalIndex}, type ${comm.type}, UUID: ${commUUID}`);
+            });
+          }
+          
+          // Rechercher la communication en étant plus souple sur les critères de correspondance
+          // Essayons de trouver une correspondance par index ou type
+          let commIndexToUpdate = -1;
+          
+          // D'abord, essayons de chercher par UUID exact (méthode préférée)
+          commIndexToUpdate = taskToUpdate.communicationDetails.findIndex((comm, idx) => {
+            const commUUID = getOrCreateCommunicationUUID(taskToUpdate.id, comm.type, comm.originalIndex !== undefined ? comm.originalIndex : idx);
             return commUUID === item.uuid;
           });
           
+          // Si on ne trouve pas par UUID, essayons par index ou type
+          if (commIndexToUpdate === -1 && item.commIndex !== undefined) {
+            console.log(`UUID non trouvé, tentative de recherche par index ${item.commIndex}`);
+            
+            // Recherche par index original
+            commIndexToUpdate = taskToUpdate.communicationDetails.findIndex(
+              comm => comm.originalIndex === item.commIndex
+            );
+            
+            // Si toujours pas trouvé, essayez par index de tableau
+            if (commIndexToUpdate === -1 && item.commIndex < taskToUpdate.communicationDetails.length) {
+              console.log(`Index original non trouvé, utilisation de l'index de tableau ${item.commIndex}`);
+              commIndexToUpdate = item.commIndex;
+            }
+          }
+          
+          // Dernière tentative: chercher par type de communication
+          if (commIndexToUpdate === -1 && item.commType) {
+            console.log(`Index non trouvé, tentative de recherche par type ${item.commType}`);
+            commIndexToUpdate = taskToUpdate.communicationDetails.findIndex(
+              comm => comm.type === item.commType
+            );
+          }
+          
           if (commIndexToUpdate === -1) {
-            console.log(`Communication non trouvée avec UUID: ${item.uuid}`);
+            console.log(`Communication non trouvée avec UUID: ${item.uuid}, ni par index, ni par type`);
             return;
           }
           
@@ -333,7 +353,7 @@ const DroppableDay = ({
           updatedCommunications[commIndexToUpdate] = {
             ...updatedCommunications[commIndexToUpdate],
             deadline: date,
-            originalIndex: commIndexToUpdate // Conserver l'index original
+            originalIndex: updatedCommunications[commIndexToUpdate].originalIndex // Conserver l'index original
           };
           
           console.log(`Communications mises à jour:`, updatedCommunications.map((c: any, i: number) => 
