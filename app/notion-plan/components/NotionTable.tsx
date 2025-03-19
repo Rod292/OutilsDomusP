@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -36,7 +36,13 @@ import {
   UserPlusIcon,
   XIcon,
   ChevronUpIcon,
-  CameraIcon
+  CameraIcon,
+  LightbulbIcon,
+  LayoutIcon,
+  CheckIcon,
+  PhoneIcon,
+  MessageSquareIcon,
+  PhoneCallIcon
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -63,6 +69,7 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '../../hooks/useAuth';
 import { useAssignedToFilter } from '../hooks/useAssignedToFilter';
+import { Input } from '@/components/ui/input';
 
 // Liste des consultants disponibles pour l'assignation des tâches
 const CONSULTANTS = [
@@ -558,7 +565,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
   };
 
   // Fonction pour obtenir le badge cliquable du type de communication
-  const getTypeBadge = (type: string, taskId: string, commIndex: number) => {
+  const getTypeBadge = (type: string, taskId: string, commIndex: number, customType?: string) => {
     // Icônes pour les différents types de communication
     const iconMap: Record<string, React.ReactNode> = {
       'newsletter': <MailIcon className="h-2.5 w-2.5 mr-0.5" />,
@@ -569,6 +576,8 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       'post_site': <GlobeIcon className="h-2.5 w-2.5 mr-0.5" />,
       'post_linkedin': <LinkedinIcon className="h-2.5 w-2.5 mr-0.5" />,
       'post_instagram': <InstagramIcon className="h-2.5 w-2.5 mr-0.5" />,
+      'idee': <LightbulbIcon className="h-2.5 w-2.5 mr-0.5" />,
+      'plan_2d_3d': <LayoutIcon className="h-2.5 w-2.5 mr-0.5" />,
       'autre': <FileIcon className="h-2.5 w-2.5 mr-0.5" />
     };
     
@@ -582,7 +591,42 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       'post_site': 'Site Web',
       'post_linkedin': 'LinkedIn',
       'post_instagram': 'Instagram',
-      'autre': 'Autre'
+      'idee': 'Idée',
+      'plan_2d_3d': 'Plan 2D/3D',
+      'autre': customType || 'Autre'
+    };
+    
+    // États pour le mode d'édition du type personnalisé
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedCustomType, setEditedCustomType] = useState(customType || '');
+    
+    // Fonction pour mettre à jour le type personnalisé
+    const updateCustomType = async () => {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task || !task.communicationDetails) return;
+      
+      const updatedDetails = [...task.communicationDetails];
+      
+      if (commIndex < 0 || commIndex >= updatedDetails.length) {
+        console.error(`Index de communication invalide: ${commIndex}`);
+        return;
+      }
+      
+      const existingComm = updatedDetails[commIndex];
+      const originalIndex = existingComm.originalIndex !== undefined ? existingComm.originalIndex : commIndex;
+      
+      updatedDetails[commIndex] = {
+        ...existingComm,
+        customType: editedCustomType.trim(),
+        originalIndex
+      };
+      
+      await onUpdateTask({
+        id: taskId,
+        communicationDetails: updatedDetails
+      });
+      
+      setIsEditing(false);
     };
     
     return (
@@ -609,6 +653,14 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
             <FileTextIcon className="h-3.5 w-3.5 mr-2 text-emerald-600" />
             <span>Flyer</span>
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => updateCommunicationType(taskId, commIndex, 'idee')}>
+            <LightbulbIcon className="h-3.5 w-3.5 mr-2 text-amber-600" />
+            <span>Idée</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => updateCommunicationType(taskId, commIndex, 'plan_2d_3d')}>
+            <LayoutIcon className="h-3.5 w-3.5 mr-2 text-blue-600" />
+            <span>Plan 2D/3D</span>
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => updateCommunicationType(taskId, commIndex, 'post_site')}>
             <GlobeIcon className="h-3.5 w-3.5 mr-2 text-indigo-600" />
             <span>Site Web</span>
@@ -621,10 +673,52 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
             <InstagramIcon className="h-3.5 w-3.5 mr-2 text-pink-600" />
             <span>Instagram</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => updateCommunicationType(taskId, commIndex, 'autre')}>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => {
+            updateCommunicationType(taskId, commIndex, 'autre');
+            setIsEditing(true);
+          }}>
             <FileIcon className="h-3.5 w-3.5 mr-2 text-gray-600" />
             <span>Autre</span>
           </DropdownMenuItem>
+          
+          {/* Champ pour personnaliser le type "Autre" */}
+          {type === 'autre' && (
+            <div className="px-2 py-1 mt-1 border-t">
+              {isEditing ? (
+                <div className="flex items-center gap-1">
+                  <Input 
+                    type="text" 
+                    value={editedCustomType}
+                    onChange={e => setEditedCustomType(e.target.value)}
+                    placeholder="Nom personnalisé"
+                    className="h-6 text-xs"
+                    autoFocus
+                  />
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 p-0 px-1"
+                    onClick={updateCustomType}
+                  >
+                    <CheckIcon className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <span className="text-xs">{customType || 'Autre'}</span>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 p-0 px-1"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <PencilIcon className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     );
@@ -1105,93 +1199,72 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     );
   };
 
-  // Fonction pour ajouter un nouveau type de communication à une tâche
-  const addCommunicationType = (taskId: string, type: string) => {
-    console.log("Ajout d'un type de communication:", type, "à la tâche:", taskId);
-    
-    // Trouver la tâche dans la liste complète des tâches (pas seulement les tâches filtrées)
-    const task = tasks.find(t => t.id === taskId);
-    
-    if (!task) {
-      console.error("Tâche non trouvée:", taskId);
-      return;
-    }
-    
-    console.log("Tâche trouvée:", task);
-    
-    // Vérifier si le mandat est signé
-    if (task.mandatSigne !== true) {
-      console.error(`Le mandat pour la tâche ${taskId} n'est pas signé. Impossible d'ajouter une communication.`);
-      // Afficher une notification à l'utilisateur
-      alert("Vous devez d'abord cocher 'Mandat signé' pour cette tâche avant d'ajouter des communications. Veuillez éditer la tâche et cocher cette option.");
-      return;
-    }
-    
-    // Valider le type de communication
-    const validTypes = ['newsletter', 'panneau', 'flyer', 'post_site', 'post_linkedin', 'post_instagram', 'carousel', 'video', 'autre'];
-    const validType = validTypes.includes(type) ? type : 'autre';
-    
-    // Créer une copie profonde des détails de communication existants
-    // S'assurer que communicationDetails est un tableau
-    const existingDetails = Array.isArray(task.communicationDetails) 
-      ? [...task.communicationDetails] 
-      : [];
-    
-    console.log("Détails de communication existants:", existingDetails);
-    
-    // Calculer un index original pour la nouvelle communication
-    // Ceci est crucial pour permettre l'édition de la communication après son ajout
-    const nextOriginalIndex = existingDetails.length > 0 
-      ? Math.max(...existingDetails.map(comm => 
-          comm.originalIndex !== undefined ? comm.originalIndex : -1
-        )) + 1 
-      : 0;
-    
-    console.log("Nouvel index original assigné:", nextOriginalIndex);
-    
-    // Créer un nouvel objet de détail pour la communication à ajouter avec tous les champs requis
-    const newDetail = {
-      type: validType as CommunicationDetail['type'], // Cast au type approprié
-      status: 'en cours',
-      priority: 'moyenne' as CommunicationDetail['priority'], // Cast au type approprié
-      deadline: task.dueDate ? new Date(task.dueDate) : null, // Utiliser la date de la tâche principale comme date par défaut
-      details: "",
-      platform: null,
-      mediaType: null,
-      assignedTo: task.assignedTo ? [...task.assignedTo] : [], // Conserver l'assignation de la tâche principale
-      originalIndex: nextOriginalIndex // Ajouter l'index original pour permettre l'édition
-    };
-    
-    console.log("Nouveau détail à ajouter avec date:", newDetail);
-    
-    // Ajouter le nouveau détail à la liste existante
-    const updatedDetails = [...existingDetails, newDetail];
-    
-    console.log("Détails de communication mis à jour:", updatedDetails);
-    
-    // Forcer l'expansion de la tâche immédiatement si ce n'est pas déjà fait
-    if (!expandedTasks[taskId]) {
-      setExpandedTasks(prev => ({
-        ...prev,
-        [taskId]: true
-      }));
-    }
-    
-    // Mettre à jour la tâche
-    onUpdateTask({
-      id: taskId,
-      communicationDetails: updatedDetails
-    }).then(() => {
-      console.log("Communication ajoutée avec succès");
+  // Fonction pour ajouter un type de communication
+  const addCommunicationType = async (taskId: string, type: string) => {
+    try {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) {
+        console.error(`Tâche ${taskId} non trouvée pour l'ajout d'une communication`);
+        return;
+      }
       
-      // Forcer un rafraîchissement complet de l'interface
+      // Vérifier si la tâche a un mandat signé
+      if (!task.mandatSigne) {
+        console.warn(`Tâche ${taskId} n'a pas de mandat signé - communication ajoutée quand même`);
+        // On permet l'ajout même sans mandat signé pour plus de flexibilité
+      }
+      
+      console.log(`Ajout d'une communication ${type} à la tâche ${taskId}`);
+      
+      // Liste des types valides (pour validation)
+      const communicationValidTypes = [
+        'appel', 'sms', 'email', 'rdv_physique', 'rdv_tel', 'courrier', 'commentaire', 'envoi_doc', 'autre',
+        'idée', 'plan_2d_3d', // Nouveaux types ajoutés
+        'newsletter', 'panneau', 'flyer', 'post_site', 'post_linkedin', 'post_instagram', 'post_facebook'
+      ];
+      
+      // Vérifier que le type est valide
+      if (!communicationValidTypes.includes(type)) {
+        console.error(`Type de communication invalide: ${type}`);
+        return;
+      }
+      
+      // Obtenir la liste actuelle des communications ou initialiser un tableau vide
+      const communicationDetails = task.communicationDetails || [];
+      
+      console.log("Communications existantes:", communicationDetails);
+      
+      // Créer une nouvelle communication
+      const newCommunication: CommunicationDetail = {
+        type: type,
+        status: 'à faire',
+        priority: 'moyenne',
+        deadline: new Date(),
+        details: '',
+        mediaType: null,
+        assignedTo: [],
+        originalIndex: communicationDetails.length
+      };
+      
+      // Ajouter la nouvelle communication à la liste
+      const updatedDetails = [...communicationDetails, newCommunication];
+      
+      console.log("Nouvelles communications:", updatedDetails);
+      
+      // Mettre à jour la tâche
+      await onUpdateTask({
+        id: taskId,
+        communicationDetails: updatedDetails
+      });
+      
+      // Forcer un rendu des communications pour qu'elles apparaissent immédiatement
       setTimeout(() => {
-        console.log("Forçage du rafraîchissement après ajout de communication");
+        console.log("Forçage du rafraîchissement des communications après ajout");
         setExpandedTasks(prev => ({...prev}));
-      }, 100);
-    }).catch(error => {
-      console.error("Erreur lors de l'ajout de la communication:", error);
-    });
+      }, 50);
+    } catch (error) {
+      console.error("Erreur lors de l'ajout d'une communication:", error);
+    }
   };
 
   // Fonction pour convertir les types de communication en badges pour la ligne principale
@@ -1291,27 +1364,29 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
   };
 
   // Fonction pour obtenir la couleur du badge en fonction du type d'action
-  const getBadgeColor = (actionType: string) => {
-    switch (actionType) {
-      case 'newsletter':
-        return 'bg-purple-200 text-purple-900';
-      case 'panneau':
-        return 'bg-yellow-200 text-yellow-900';
-      case 'flyer':
-        return 'bg-emerald-200 text-emerald-900';
-      case 'carousel':
-        return 'bg-purple-200 text-purple-900';
-      case 'video':
-        return 'bg-orange-200 text-orange-900';
-      case 'post_site':
-        return 'bg-indigo-200 text-indigo-900';
-      case 'post_linkedin':
-        return 'bg-sky-200 text-sky-900';
-      case 'post_instagram':
-        return 'bg-pink-200 text-pink-900';
-      default:
-        return 'bg-gray-200 text-gray-900';
-    }
+  const getBadgeColor = (type: string) => {
+    const colors: Record<string, string> = {
+      'newsletter': 'bg-purple-100 text-purple-800 border-purple-200',
+      'panneau': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'flyer': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      'idée': 'bg-amber-100 text-amber-800 border-amber-200',
+      'plan_2d_3d': 'bg-blue-100 text-blue-800 border-blue-200',
+      'post_site': 'bg-indigo-100 text-indigo-800 border-indigo-200',
+      'post_linkedin': 'bg-sky-100 text-sky-800 border-sky-200',
+      'post_instagram': 'bg-pink-100 text-pink-800 border-pink-200',
+      'post_facebook': 'bg-blue-100 text-blue-800 border-blue-200',
+      'appel': 'bg-gray-100 text-gray-800 border-gray-200',
+      'sms': 'bg-gray-100 text-gray-800 border-gray-200',
+      'email': 'bg-gray-100 text-gray-800 border-gray-200',
+      'rdv_physique': 'bg-gray-100 text-gray-800 border-gray-200',
+      'rdv_tel': 'bg-gray-100 text-gray-800 border-gray-200',
+      'courrier': 'bg-gray-100 text-gray-800 border-gray-200',
+      'commentaire': 'bg-gray-100 text-gray-800 border-gray-200',
+      'envoi_doc': 'bg-gray-100 text-gray-800 border-gray-200',
+      'autre': 'bg-gray-100 text-gray-800 border-gray-200'
+    };
+    
+    return colors[type] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
   // Fonction pour obtenir le badge de type de média cliquable
@@ -1476,6 +1551,96 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     });
   };
 
+  // Fonction pour mettre à jour la description d'une tâche
+  const updateDescription = async (taskId: string, newDescription: string) => {
+    try {
+      console.log(`Mise à jour de la description pour la tâche ${taskId}`);
+      await onUpdateTask({
+        id: taskId,
+        description: newDescription
+      });
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour de la description:", error);
+    }
+  };
+
+  // Composant pour afficher et éditer la description
+  const DescriptionCell = ({ description, taskId }: { description: string | undefined, taskId: string }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedDescription, setEditedDescription] = useState(description || '');
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    
+    const handleSave = () => {
+      updateDescription(taskId, editedDescription);
+      setIsEditing(false);
+    };
+    
+    // Ajuster automatiquement la hauteur du textarea
+    useEffect(() => {
+      if (isEditing && textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+      }
+    }, [isEditing, editedDescription]);
+    
+    if (isEditing) {
+      return (
+        <div className="flex flex-col w-full">
+          <textarea
+            ref={textareaRef}
+            value={editedDescription}
+            onChange={(e) => setEditedDescription(e.target.value)}
+            className="w-full text-xs p-1 border rounded resize-none min-h-[60px]"
+            autoFocus
+            onBlur={handleSave}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.ctrlKey) {
+                handleSave();
+              }
+            }}
+          />
+          <div className="flex justify-end mt-1 gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 py-0 px-2 text-xs"
+              onClick={() => setIsEditing(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              className="h-6 py-0 px-2 text-xs"
+              onClick={handleSave}
+            >
+              Enregistrer
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="flex items-start gap-1 group">
+        <div 
+          className="flex-1 text-xs text-gray-700 whitespace-pre-wrap cursor-pointer hover:underline hover:text-gray-900"
+          onClick={() => setIsEditing(true)}
+        >
+          {description || <span className="italic text-gray-400">Ajouter une description...</span>}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="opacity-0 group-hover:opacity-100 h-5 w-5 p-0"
+          onClick={() => setIsEditing(true)}
+        >
+          <PencilIcon className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  };
+
   return (
     <div className="w-full">
       <div className="rounded-md border overflow-hidden">
@@ -1581,7 +1746,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                     className={`cursor-pointer hover:bg-gray-50 ${isExpanded ? 'border-b-0' : ''}`}
                     onClick={() => toggleTaskExpansion(task.id)}
                   >
-                    <TableCell className="py-1.5">
+                    <TableCell className="py-1.5 w-[40%]">
                       <div className="flex items-start gap-1">
                         <Button 
                           variant="ghost" 
@@ -1598,11 +1763,12 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                         </Button>
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm truncate">{task.title}</div>
-                          {task.description && (
-                            <div className="text-xs text-gray-500 line-clamp-1">
-                              {task.description}
-                            </div>
-                          )}
+                          
+                          {/* Utiliser le composant DescriptionCell pour permettre l'édition de la description */}
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <DescriptionCell description={task.description} taskId={task.id} />
+                          </div>
+                          
                           <div className="flex flex-wrap items-center gap-1 mt-0.5">
                             {task.dossierNumber && (
                               <span className="text-xs text-gray-400">
@@ -1632,10 +1798,10 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5">
+                    <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5 w-[15%]">
                       {getStatusBadge(task.status, task.id)}
                     </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5">
+                    <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5 w-[15%]">
                       {getPriorityBadge(task.priority, task.id)}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5">
@@ -1676,24 +1842,73 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                   >
                     <TableCell colSpan={6} className="pl-10 py-0.5">
                       <div className="flex items-center justify-start">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="h-5 text-xs flex items-center px-1 py-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            addCommunicationType(task.id, 'autre');
-                            
-                            // Force re-render to show the new communication immediately
-                            setTimeout(() => {
-                              console.log("Forcing re-render after adding communication");
-                              setExpandedTasks({...expandedTasks});
-                            }, 100);
-                          }}
-                        >
-                          <PlusIcon className="h-3 w-3 mr-1" />
-                          Ajouter un type de communication
-                        </Button>
+                        {/* Menu déroulant pour ajouter un type de communication */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="text-xs py-1 h-7 gap-1">
+                              <PlusIcon className="h-3 w-3" />
+                              Ajouter une communication
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'appel')}>
+                              <PhoneIcon className="h-3.5 w-3.5 mr-2 text-gray-600" />
+                              <span>Appel</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'sms')}>
+                              <MessageSquareIcon className="h-3.5 w-3.5 mr-2 text-gray-600" />
+                              <span>SMS</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'email')}>
+                              <MailIcon className="h-3.5 w-3.5 mr-2 text-gray-600" />
+                              <span>Email</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'rdv_physique')}>
+                              <CalendarIcon className="h-3.5 w-3.5 mr-2 text-gray-600" />
+                              <span>RDV Physique</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'rdv_tel')}>
+                              <PhoneCallIcon className="h-3.5 w-3.5 mr-2 text-gray-600" />
+                              <span>RDV Téléphonique</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'newsletter')}>
+                              <MailIcon className="h-3.5 w-3.5 mr-2 text-purple-600" />
+                              <span>Newsletter</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'panneau')}>
+                              <SignpostIcon className="h-3.5 w-3.5 mr-2 text-yellow-600" />
+                              <span>Panneau</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'flyer')}>
+                              <FileTextIcon className="h-3.5 w-3.5 mr-2 text-emerald-600" />
+                              <span>Flyer</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'idée')}>
+                              <LightbulbIcon className="h-3.5 w-3.5 mr-2 text-amber-600" />
+                              <span>Idée</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'plan_2d_3d')}>
+                              <LayoutIcon className="h-3.5 w-3.5 mr-2 text-blue-600" />
+                              <span>Plan 2D/3D</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'post_site')}>
+                              <GlobeIcon className="h-3.5 w-3.5 mr-2 text-indigo-600" />
+                              <span>Site Web</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'post_linkedin')}>
+                              <LinkedinIcon className="h-3.5 w-3.5 mr-2 text-sky-600" />
+                              <span>LinkedIn</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'post_instagram')}>
+                              <InstagramIcon className="h-3.5 w-3.5 mr-2 text-pink-600" />
+                              <span>Instagram</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'autre')}>
+                              <FileIcon className="h-3.5 w-3.5 mr-2 text-gray-600" />
+                              <span>Autre</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </TableCell>
                   </TableRow>,

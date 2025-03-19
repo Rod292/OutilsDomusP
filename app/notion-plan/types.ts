@@ -1,5 +1,6 @@
 export interface CommunicationDetail {
-  type: 'newsletter' | 'panneau' | 'flyer' | 'carousel' | 'video' | 'post_site' | 'post_linkedin' | 'post_instagram' | 'autre';
+  type: 'newsletter' | 'panneau' | 'flyer' | 'carousel' | 'video' | 'post_site' | 'post_linkedin' | 'post_instagram' | 'idee' | 'plan_2d_3d' | 'autre';
+  customType?: string; // Pour permettre de personnaliser le nom du type 'autre'
   deadline?: Date | null;
   details?: string;
   status?: string;
@@ -7,6 +8,7 @@ export interface CommunicationDetail {
   mediaType?: 'photo' | 'video' | 'texte' | 'autre' | null;
   priority?: 'faible' | 'moyenne' | 'élevée' | 'urgente';
   assignedTo?: string[];
+  originalIndex?: number;
 }
 
 export interface Task {
@@ -27,7 +29,7 @@ export interface Task {
   // Nouveaux champs pour les actions commerciales immobilières
   propertyAddress?: string; // Adresse du local
   dossierNumber?: string;   // Numéro logi-pro
-  actionType: 'newsletter' | 'panneau' | 'flyer' | 'carousel' | 'video' | 'post_site' | 'post_linkedin' | 'post_instagram' | 'autre';
+  actionType: 'newsletter' | 'panneau' | 'flyer' | 'carousel' | 'video' | 'post_site' | 'post_linkedin' | 'post_instagram' | 'idee' | 'plan_2d_3d' | 'autre';
   platform?: 'site' | 'linkedin' | 'instagram' | 'facebook' | 'tiktok' | 'youtube' | 'autre' | null;
   mediaType?: 'photo' | 'video' | 'texte' | 'autre' | null;
   
@@ -44,4 +46,17 @@ export interface TeamMember {
   email: string;
   photoURL?: string;
   role?: string;
-} 
+}
+
+export type CommunicationType = 
+  'appel' | 
+  'sms' | 
+  'email' | 
+  'rdv_physique' | 
+  'rdv_tel' | 
+  'courrier' | 
+  'commentaire' | 
+  'envoi_doc' | 
+  'autre' | 
+  'idée' | 
+  'plan_2d_3d'; 
