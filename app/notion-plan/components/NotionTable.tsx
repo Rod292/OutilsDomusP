@@ -391,16 +391,32 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     }
   };
 
-  // Fonction pour mettre à jour le statut d'une sous-tâche de communication
+  // Fonction pour mettre à jour le statut d'une communication
   const updateCommunicationStatus = async (taskId: string, commIndex: number, newStatus: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task || !task.communicationDetails) return;
     
+    console.log(`Mise à jour du statut pour la communication ${commIndex} de la tâche ${taskId}: ${newStatus}`);
+    
     const updatedDetails = [...task.communicationDetails];
+    
+    // Vérifier que l'index est valide
+    if (commIndex < 0 || commIndex >= updatedDetails.length) {
+      console.error(`Index de communication invalide: ${commIndex}`);
+      return;
+    }
+    
+    // Conserver toutes les propriétés existantes, y compris l'index original
+    const existingComm = updatedDetails[commIndex];
+    const originalIndex = existingComm.originalIndex !== undefined ? existingComm.originalIndex : commIndex;
+    
     updatedDetails[commIndex] = {
-      ...updatedDetails[commIndex],
-      status: newStatus
+      ...existingComm,
+      status: newStatus,
+      originalIndex // Préserver l'index original
     };
+    
+    console.log(`Communication mise à jour à l'index ${commIndex}, index original: ${originalIndex}`);
     
     await onUpdateTask({
       id: taskId,
@@ -408,17 +424,32 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     });
   };
 
-  // Fonction pour mettre à jour la priorité d'une sous-tâche de communication
+  // Fonction pour mettre à jour la priorité d'une communication
   const updateCommunicationPriority = async (taskId: string, commIndex: number, newPriority: string) => {
-    console.log(`Mise à jour de la priorité pour la communication ${commIndex} de la tâche ${taskId}: ${newPriority}`);
     const task = tasks.find(t => t.id === taskId);
     if (!task || !task.communicationDetails) return;
     
+    console.log(`Mise à jour de la priorité pour la communication ${commIndex} de la tâche ${taskId}: ${newPriority}`);
+    
     const updatedDetails = [...task.communicationDetails];
+    
+    // Vérifier que l'index est valide
+    if (commIndex < 0 || commIndex >= updatedDetails.length) {
+      console.error(`Index de communication invalide: ${commIndex}`);
+      return;
+    }
+    
+    // Conserver toutes les propriétés existantes, y compris l'index original
+    const existingComm = updatedDetails[commIndex];
+    const originalIndex = existingComm.originalIndex !== undefined ? existingComm.originalIndex : commIndex;
+    
     updatedDetails[commIndex] = {
-      ...updatedDetails[commIndex],
-      priority: newPriority as Task['priority']
+      ...existingComm,
+      priority: newPriority as CommunicationDetail['priority'],
+      originalIndex // Préserver l'index original
     };
+    
+    console.log(`Communication mise à jour à l'index ${commIndex}, index original: ${originalIndex}`);
     
     await onUpdateTask({
       id: taskId,
@@ -426,16 +457,32 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     });
   };
 
-  // Fonction pour mettre à jour la date d'une sous-tâche de communication
+  // Fonction pour mettre à jour la date d'une communication
   const updateCommunicationDate = async (taskId: string, commIndex: number, newDate: Date | null) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task || !task.communicationDetails) return;
     
+    console.log(`Mise à jour de la date pour la communication ${commIndex} de la tâche ${taskId}: ${newDate}`);
+    
     const updatedDetails = [...task.communicationDetails];
+    
+    // Vérifier que l'index est valide
+    if (commIndex < 0 || commIndex >= updatedDetails.length) {
+      console.error(`Index de communication invalide: ${commIndex}`);
+      return;
+    }
+    
+    // Conserver toutes les propriétés existantes, y compris l'index original
+    const existingComm = updatedDetails[commIndex];
+    const originalIndex = existingComm.originalIndex !== undefined ? existingComm.originalIndex : commIndex;
+    
     updatedDetails[commIndex] = {
-      ...updatedDetails[commIndex],
-      deadline: newDate
+      ...existingComm,
+      deadline: newDate,
+      originalIndex // Préserver l'index original
     };
+    
+    console.log(`Communication mise à jour à l'index ${commIndex}, index original: ${originalIndex}`);
     
     await onUpdateTask({
       id: taskId,
@@ -443,17 +490,32 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     });
   };
 
-  // Fonction pour mettre à jour le type de média d'une sous-tâche de communication
+  // Fonction pour mettre à jour le type de média
   const updateCommunicationMediaType = async (taskId: string, commIndex: number, newMediaType: string) => {
-    console.log(`Mise à jour du type de média pour la communication ${commIndex} de la tâche ${taskId}: ${newMediaType}`);
     const task = tasks.find(t => t.id === taskId);
     if (!task || !task.communicationDetails) return;
     
+    console.log(`Mise à jour du type de média pour la communication ${commIndex} de la tâche ${taskId}: ${newMediaType}`);
+    
     const updatedDetails = [...task.communicationDetails];
+    
+    // Vérifier que l'index est valide
+    if (commIndex < 0 || commIndex >= updatedDetails.length) {
+      console.error(`Index de communication invalide: ${commIndex}`);
+      return;
+    }
+    
+    // Conserver toutes les propriétés existantes, y compris l'index original
+    const existingComm = updatedDetails[commIndex];
+    const originalIndex = existingComm.originalIndex !== undefined ? existingComm.originalIndex : commIndex;
+    
     updatedDetails[commIndex] = {
-      ...updatedDetails[commIndex],
-      mediaType: newMediaType === "non-applicable" ? null : newMediaType as CommunicationDetail['mediaType']
+      ...existingComm,
+      mediaType: newMediaType === "non-applicable" ? null : newMediaType as CommunicationDetail['mediaType'],
+      originalIndex // Préserver l'index original
     };
+    
+    console.log(`Communication mise à jour à l'index ${commIndex}, index original: ${originalIndex}`);
     
     await onUpdateTask({
       id: taskId,
@@ -463,15 +525,31 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
 
   // Fonction pour mettre à jour le type de communication
   const updateCommunicationType = async (taskId: string, commIndex: number, newType: string) => {
-    console.log(`Mise à jour du type de communication pour la communication ${commIndex} de la tâche ${taskId}: ${newType}`);
     const task = tasks.find(t => t.id === taskId);
     if (!task || !task.communicationDetails) return;
     
+    console.log(`Mise à jour du type de communication à l'index ${commIndex} pour la tâche ${taskId} : ${newType}`);
+    
     const updatedDetails = [...task.communicationDetails];
+    
+    // Vérifier que l'index est valide
+    if (commIndex < 0 || commIndex >= updatedDetails.length) {
+      console.error(`Index de communication invalide: ${commIndex}`);
+      return;
+    }
+    
+    // Conserver toutes les propriétés existantes de la communication, y compris l'index original
+    const existingComm = updatedDetails[commIndex];
+    const originalIndex = existingComm.originalIndex !== undefined ? existingComm.originalIndex : commIndex;
+    
     updatedDetails[commIndex] = {
-      ...updatedDetails[commIndex],
-      type: newType as CommunicationDetail['type']
+      ...existingComm,
+      type: newType as CommunicationDetail['type'],
+      originalIndex // S'assurer que l'index original est préservé
     };
+    
+    console.log(`Communication mise à jour à l'index ${commIndex}, index original: ${originalIndex}`);
+    console.log("Détails de communication mis à jour:", updatedDetails[commIndex]);
     
     await onUpdateTask({
       id: taskId,
@@ -481,21 +559,26 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
 
   // Fonction pour obtenir le badge cliquable du type de communication
   const getTypeBadge = (type: string, taskId: string, commIndex: number) => {
+    // Icônes pour les différents types de communication
     const iconMap: Record<string, React.ReactNode> = {
       'newsletter': <MailIcon className="h-2.5 w-2.5 mr-0.5" />,
       'panneau': <SignpostIcon className="h-2.5 w-2.5 mr-0.5" />,
       'flyer': <FileTextIcon className="h-2.5 w-2.5 mr-0.5" />,
+      'carousel': <ImageIcon className="h-2.5 w-2.5 mr-0.5" />,
+      'video': <VideoIcon className="h-2.5 w-2.5 mr-0.5" />,
       'post_site': <GlobeIcon className="h-2.5 w-2.5 mr-0.5" />,
       'post_linkedin': <LinkedinIcon className="h-2.5 w-2.5 mr-0.5" />,
       'post_instagram': <InstagramIcon className="h-2.5 w-2.5 mr-0.5" />,
       'autre': <FileIcon className="h-2.5 w-2.5 mr-0.5" />
     };
     
-    // Libellés pour l'affichage
+    // Libellés pour les différents types de communication
     const labels: Record<string, string> = {
       'newsletter': 'Newsletter',
       'panneau': 'Panneau',
       'flyer': 'Flyer',
+      'carousel': 'Carousel',
+      'video': 'Vidéo',
       'post_site': 'Site Web',
       'post_linkedin': 'LinkedIn',
       'post_instagram': 'Instagram',
@@ -553,13 +636,23 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     if (!task || !task.communicationDetails) return;
     
     const updatedDetails = [...task.communicationDetails];
-    const communication = updatedDetails[commIndex];
-    const currentAssignees = Array.isArray(communication.assignedTo) ? [...communication.assignedTo] : [];
+    
+    // Vérifier que l'index est valide
+    if (commIndex < 0 || commIndex >= updatedDetails.length) {
+      console.error(`Index de communication invalide: ${commIndex}`);
+      return;
+    }
+    
+    // Conserver toutes les propriétés existantes, y compris l'index original
+    const existingComm = updatedDetails[commIndex];
+    const originalIndex = existingComm.originalIndex !== undefined ? existingComm.originalIndex : commIndex;
+    const currentAssignees = Array.isArray(existingComm.assignedTo) ? [...existingComm.assignedTo] : [];
     
     if (!currentAssignees.includes(email)) {
       updatedDetails[commIndex] = {
-        ...communication,
-        assignedTo: [...currentAssignees, email]
+        ...existingComm,
+        assignedTo: [...currentAssignees, email],
+        originalIndex // Préserver l'index original
       };
       
       await onUpdateTask({
@@ -575,12 +668,22 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     if (!task || !task.communicationDetails) return;
     
     const updatedDetails = [...task.communicationDetails];
-    const communication = updatedDetails[commIndex];
-    const currentAssignees = Array.isArray(communication.assignedTo) ? [...communication.assignedTo] : [];
+    
+    // Vérifier que l'index est valide
+    if (commIndex < 0 || commIndex >= updatedDetails.length) {
+      console.error(`Index de communication invalide: ${commIndex}`);
+      return;
+    }
+    
+    // Conserver toutes les propriétés existantes, y compris l'index original
+    const existingComm = updatedDetails[commIndex];
+    const originalIndex = existingComm.originalIndex !== undefined ? existingComm.originalIndex : commIndex;
+    const currentAssignees = Array.isArray(existingComm.assignedTo) ? [...existingComm.assignedTo] : [];
     
     updatedDetails[commIndex] = {
-      ...communication,
-      assignedTo: currentAssignees.filter(e => e !== email)
+      ...existingComm,
+      assignedTo: currentAssignees.filter(e => e !== email),
+      originalIndex // Préserver l'index original
     };
     
     await onUpdateTask({
@@ -909,6 +1012,16 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     
     console.log("Détails de communication existants:", existingDetails);
     
+    // Calculer un index original pour la nouvelle communication
+    // Ceci est crucial pour permettre l'édition de la communication après son ajout
+    const nextOriginalIndex = existingDetails.length > 0 
+      ? Math.max(...existingDetails.map(comm => 
+          comm.originalIndex !== undefined ? comm.originalIndex : -1
+        )) + 1 
+      : 0;
+    
+    console.log("Nouvel index original assigné:", nextOriginalIndex);
+    
     // Créer un nouvel objet de détail pour la communication à ajouter avec tous les champs requis
     const newDetail = {
       type: validType as CommunicationDetail['type'], // Cast au type approprié
@@ -918,7 +1031,8 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       details: "",
       platform: null,
       mediaType: null,
-      assignedTo: task.assignedTo ? [...task.assignedTo] : [] // Conserver l'assignation de la tâche principale
+      assignedTo: task.assignedTo ? [...task.assignedTo] : [], // Conserver l'assignation de la tâche principale
+      originalIndex: nextOriginalIndex // Ajouter l'index original pour permettre l'édition
     };
     
     console.log("Nouveau détail à ajouter avec date:", newDetail);
