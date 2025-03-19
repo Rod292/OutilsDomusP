@@ -267,11 +267,15 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
                 (data.updatedAt instanceof Timestamp ? new Date(data.updatedAt.toMillis()) : new Date(data.updatedAt)) 
                 : new Date(),
               createdBy: data.createdBy || '',
-              mandatSigne: data.mandatSigne === true
+              mandatSigne: data.mandatSigne === true,
+              isFavorite: data.isFavorite === true
             };
             
             console.log(`Tâche ${doc.id} récupérée avec mandatSigne =`, data.mandatSigne, 
               "→ normalisé à", data.mandatSigne === true);
+            
+            console.log(`Tâche ${doc.id} récupérée avec isFavorite =`, data.isFavorite, 
+              "→ normalisé à", data.isFavorite === true);
             
             // Normaliser les détails de communication si présents
             if (data.communicationDetails && Array.isArray(data.communicationDetails)) {
