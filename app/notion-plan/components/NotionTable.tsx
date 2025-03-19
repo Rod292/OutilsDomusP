@@ -634,10 +634,12 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
   const addCommunicationAssignee = async (taskId: string, commIndex: number, email: string) => {
     try {
       // Utiliser sessionStorage pour récupérer l'email de l'utilisateur connecté
-      const userEmail = sessionStorage.getItem('userEmail');
+      const userEmail = sessionStorage.getItem('userEmail') || localStorage.getItem('userEmail');
+      
+      console.log(`Ajout d'un consultant à une communication: userEmail=${userEmail}, consultantEmail=${email}`);
       
       if (!userEmail) {
-        console.error('Email de l\'utilisateur non disponible dans sessionStorage');
+        console.error('Email de l\'utilisateur non disponible dans sessionStorage ou localStorage');
         // Continuer quand même, uniquement l'envoi de notification sera affecté
       }
       
@@ -684,11 +686,17 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       // Envoyer une notification si l'email de l'utilisateur est disponible
       if (userEmail) {
         try {
+          // Créer une copie de la communication avec l'ID de la tâche pour l'envoi de notification
+          const commWithId = {
+            ...existingComm,
+            id: taskId // S'assurer que l'ID est défini pour éviter l'erreur Firestore
+          };
+          
           const { sendTaskAssignedNotification } = await import('@/app/services/notificationService');
           
           // Envoyer une notification spécifique pour une communication
           await sendTaskAssignedNotification(
-            existingComm,
+            commWithId,
             email,
             userEmail,
             true, // Indiquer qu'il s'agit d'une communication

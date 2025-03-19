@@ -151,12 +151,141 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    const tokensSnapshot = await db.collection('notificationTokens')
-      .where('userId', '==', userId)
-      .get();
-    
+    // MODIFICATION: Extraire l'email de l'utilisateur depuis userId (format: email_consultant)
+    const userEmail = userId.includes('_') ? userId.split('_')[0] : userId;
+    const consultantName = userId.includes('_') ? userId.split('_')[1] : '';
+
+    console.log(`Extraction de l'email utilisateur: ${userEmail} et consultant: ${consultantName}`);
+
+    // IMPORTANTE MODIFICATION: Chercher tous les tokens pour cet email utilisateur
+    // et pour la combinaison spécifique email_consultant
+    let tokensQuery;
+    if (consultantName) {
+      // Format spécifique email_consultant
+      tokensQuery = db.collection('notificationTokens')
+        .where('userId', '==', userId)
+        .get();
+    } else {
+      // Dans le cas d'une notification sans consultant spécifique, utiliser seulement l'email
+      tokensQuery = db.collection('notificationTokens')
+        .where('email', '==', userEmail)
+        .get();
+    }
+
+    const tokensSnapshot = await tokensQuery;
+
     if (tokensSnapshot.empty) {
-      console.log(`Aucun token FCM trouvé pour l'utilisateur ${userId}, suggestion du mode local`);
+      console.log(`Aucun token FCM trouvé pour l'utilisateur ${userId}, recherche de tokens par email: ${userEmail}`);
+      
+      // Si aucun token trouvé pour la combinaison spécifique, essayer de trouver des tokens pour l'email
+      // Cela permettra d'envoyer des notifications à tous les appareils de l'utilisateur
+      if (consultantName) {
+        const emailTokensQuery = await db.collection('notificationTokens')
+          .where('email', '==', userEmail)
+          .get();
+        
+        if (emailTokensQuery.empty) {
+          console.log(`Aucun token trouvé pour l'email ${userEmail}, suggestion du mode local`);
+          return NextResponse.json({
+            success: false,
+            useLocalMode: true,
+            notification: {
+              title,
+              body,
+              taskId,
+              type
+            },
+            warning: `Aucun token FCM trouvé pour l'utilisateur ${userEmail}`
+          }, { status: 404 });
+        }
+        
+        // Utiliser les tokens trouvés par email
+        const tokens: string[] = [];
+        emailTokensQuery.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
+          const tokenData = doc.data();
+          if (tokenData.token && tokenData.token !== 'local-notifications-mode') {
+            tokens.push(tokenData.token);
+          }
+        });
+        
+        if (tokens.length === 0) {
+          console.log(`Aucun token FCM valide trouvé pour l'email ${userEmail}, suggestion du mode local`);
+          return NextResponse.json({
+            success: false,
+            useLocalMode: true,
+            notification: {
+              title,
+              body,
+              taskId,
+              type
+            },
+            warning: `Aucun token FCM valide trouvé pour l'email ${userEmail}`
+          }, { status: 404 });
+        }
+        
+        // Construire le message FCM
+        const message = {
+          notification: {
+            title,
+            body,
+          },
+          data: {
+            type,
+            userId,
+            ...(taskId ? { taskId } : {})
+          },
+          tokens
+        };
+        
+        // Envoyer la notification avec FCM
+        const messaging = admin.messaging();
+        if (!messaging) {
+          return NextResponse.json({
+            success: false, 
+            useLocalMode: true,
+            notification: {
+              title,
+              body,
+              taskId,
+              type
+            },
+            warning: 'Firebase Messaging non initialisé, utilisation du mode local'
+          });
+        }
+        
+        const response = await messaging.sendEachForMulticast(message);
+        
+        console.log(`Notification envoyée à tous les appareils de ${userEmail} (${tokens.length} appareils):`, {
+          success: response.successCount,
+          failure: response.failureCount,
+          tokens: tokens.length
+        });
+        
+        // Si l'envoi a échoué pour tous les tokens, suggérer le mode local
+        if (response.successCount === 0 && response.failureCount > 0) {
+          return NextResponse.json({
+            success: false,
+            sent: 0,
+            failed: response.failureCount,
+            useLocalMode: true,
+            notification: {
+              title,
+              body,
+              taskId,
+              type
+            },
+            warning: 'Tous les envois FCM ont échoué, essayez le mode local'
+          });
+        }
+        
+        return NextResponse.json({
+          success: true,
+          sent: response.successCount,
+          failed: response.failureCount,
+          total: tokens.length,
+        });
+      }
+      
       return NextResponse.json({
         success: false,
         useLocalMode: true,
@@ -178,8 +307,28 @@ export async function POST(request: NextRequest) {
         tokens.push(tokenData.token);
       }
     });
-    
-    if (tokens.length === 0) {
+
+    // Chercher également tous les tokens liés à l'email de l'utilisateur
+    // pour envoyer la notification à tous ses appareils
+    let allTokens = [...tokens];
+    if (consultantName) {
+      const emailTokensQuery = await db.collection('notificationTokens')
+        .where('email', '==', userEmail)
+        .get();
+      
+      if (!emailTokensQuery.empty) {
+        emailTokensQuery.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
+          const tokenData = doc.data();
+          if (tokenData.token && 
+              tokenData.token !== 'local-notifications-mode' && 
+              !tokens.includes(tokenData.token)) {
+            allTokens.push(tokenData.token);
+          }
+        });
+      }
+    }
+
+    if (allTokens.length === 0) {
       console.log(`Aucun token FCM valide trouvé pour l'utilisateur ${userId}, suggestion du mode local`);
       return NextResponse.json({
         success: false,
@@ -205,7 +354,7 @@ export async function POST(request: NextRequest) {
         userId,
         ...(taskId ? { taskId } : {})
       },
-      tokens
+      tokens: allTokens
     };
     
     // Envoyer la notification avec FCM en utilisant sendEachForMulticast qui est la méthode standard
@@ -226,10 +375,10 @@ export async function POST(request: NextRequest) {
     
     const response = await messaging.sendEachForMulticast(message);
     
-    console.log(`Notification envoyée à ${userId}:`, {
+    console.log(`Notification envoyée à tous les appareils de ${userEmail} (${allTokens.length} appareils):`, {
       success: response.successCount,
       failure: response.failureCount,
-      tokens: tokens.length
+      tokens: allTokens.length
     });
     
     // Si l'envoi a échoué pour tous les tokens, suggérer le mode local
@@ -253,7 +402,7 @@ export async function POST(request: NextRequest) {
       success: true,
       sent: response.successCount,
       failed: response.failureCount,
-      total: tokens.length,
+      total: allTokens.length,
     });
     
   } catch (error) {
