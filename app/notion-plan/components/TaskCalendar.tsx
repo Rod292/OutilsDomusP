@@ -283,8 +283,31 @@ const DroppableDay = ({
       console.log(`Déplacement de la communication vers ${date.toLocaleDateString()}`);
       
       try {
-        // Récupérer la tâche à mettre à jour
-        const taskToUpdate = tasks.find(t => t.id === item.id);
+        // Récupérer la tâche à mettre à jour depuis le localStorage pour avoir les données locales les plus à jour
+        // et non pas les données retournées par la requête Firestore qui peuvent être plus anciennes
+        let taskToUpdate;
+        
+        // D'abord essayer de récupérer la tâche depuis l'état local
+        if (typeof window !== 'undefined') {
+          const localTasksJSON = localStorage.getItem('current_tasks');
+          if (localTasksJSON) {
+            try {
+              const localTasks = JSON.parse(localTasksJSON);
+              taskToUpdate = localTasks.find((t: any) => t.id === item.id);
+              console.log("Utilisation des données locales pour la mise à jour", taskToUpdate?.communicationDetails?.map((c: any, i: number) => 
+                `${i}: ${c.type} - ${c.deadline ? new Date(c.deadline).toLocaleDateString() : 'non définie'}`
+              ));
+            } catch (e) {
+              console.log("Erreur lors de la lecture du localStorage:", e);
+            }
+          }
+        }
+        
+        // Si la tâche n'a pas été trouvée dans localStorage, utiliser les données de l'état
+        if (!taskToUpdate) {
+          taskToUpdate = tasks.find(t => t.id === item.id);
+          console.log("Utilisation des données de l'état pour la mise à jour");
+        }
         
         if (!taskToUpdate) {
           console.log(`Tâche non trouvée: ${item.id}`);
@@ -306,7 +329,6 @@ const DroppableDay = ({
           }
           
           // Rechercher la communication en étant plus souple sur les critères de correspondance
-          // Essayons de trouver une correspondance par index ou type
           let commIndexToUpdate = -1;
           
           // D'abord, essayons de chercher par UUID exact (méthode préférée)
@@ -359,6 +381,34 @@ const DroppableDay = ({
           console.log(`Communications mises à jour:`, updatedCommunications.map((c: any, i: number) => 
             `${i}: ${c.type} - ${c.deadline ? new Date(c.deadline).toLocaleDateString() : 'non définie'}`
           ));
+          
+          // IMPORTANT: Stocker temporairement les communications mises à jour dans le localStorage
+          // pour assurer que nous avons les données les plus récentes pour la prochaine mise à jour
+          if (typeof window !== 'undefined') {
+            try {
+              const localTasksJSON = localStorage.getItem('current_tasks');
+              if (localTasksJSON) {
+                const localTasks = JSON.parse(localTasksJSON);
+                const taskIndex = localTasks.findIndex((t: any) => t.id === item.id);
+                if (taskIndex !== -1) {
+                  localTasks[taskIndex].communicationDetails = updatedCommunications;
+                  localStorage.setItem('current_tasks', JSON.stringify(localTasks));
+                  console.log("État local mis à jour dans localStorage pour les prochaines opérations");
+                }
+              } else {
+                // Si pas encore de tâches stockées, les initialiser avec l'état actuel
+                const initialTasks = tasks.map(t => {
+                  if (t.id === item.id) {
+                    return {...t, communicationDetails: updatedCommunications};
+                  }
+                  return t;
+                });
+                localStorage.setItem('current_tasks', JSON.stringify(initialTasks));
+              }
+            } catch (e) {
+              console.log("Erreur lors de la mise à jour du localStorage:", e);
+            }
+          }
           
           // Envoyer toutes les communications pour s'assurer qu'aucune n'est perdue
           await onUpdateTask({

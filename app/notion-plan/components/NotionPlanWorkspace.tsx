@@ -423,11 +423,30 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
       if (task.communicationDetails) {
         console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Traitement spécial pour mise à jour de communications`);
         
-        const currentComms = currentTaskData.communicationDetails || [];
+        // Priorité aux données locales pour plus de cohérence
+        // Récupérer les communications depuis localStorage si disponible
+        let currentComms = currentTaskData.communicationDetails || [];
+        
+        // Si disponible, utiliser les données du localStorage qui sont plus à jour
+        if (typeof window !== 'undefined') {
+          try {
+            const localTasksJSON = localStorage.getItem('current_tasks');
+            if (localTasksJSON) {
+              const localTasks = JSON.parse(localTasksJSON);
+              const localTask = localTasks.find((t: any) => t.id === task.id);
+              if (localTask && localTask.communicationDetails) {
+                console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Utilisation des communications du localStorage`);
+                currentComms = localTask.communicationDetails;
+              }
+            }
+          } catch (error) {
+            console.error(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Erreur lors de la lecture du localStorage:`, error);
+          }
+        }
         
         console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Données actuelles récupérées de Firestore:`, 
           currentComms.map((c: any, i: number) => 
-            `${i}: ${c.type} - ${c.deadline ? new Date((c.deadline as any).toDate()).toLocaleDateString() : 'non définie'}`
+            `${i}: ${c.type} - ${c.deadline ? new Date((c.deadline as any).toDate?.() || c.deadline).toLocaleDateString() : 'non définie'}`
           )
         );
         
@@ -440,7 +459,10 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
         // 1. Transformer les dates Firestore en dates JS pour la comparaison
         const normalizedCurrentComms = currentComms.map((comm: any) => ({
           ...comm,
-          deadline: comm.deadline ? new Date((comm.deadline as any).toDate()) : null
+          deadline: comm.deadline ? 
+            (comm.deadline.toDate ? new Date(comm.deadline.toDate()) : 
+             (comm.deadline instanceof Date ? comm.deadline : new Date(comm.deadline))) 
+            : null
         }));
         
         // 2. Créer une carte d'index pour suivre quelle communication a été modifiée
@@ -496,11 +518,9 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
           console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Après suppression, il reste ${updatedComms.length} communications`);
         }
         
-        // Vérifier si nous avons de nouvelles communications à ajouter
-        const hasNewCommunications = task.communicationDetails.length > updatedComms.length;
-        
-        task.communicationDetails.forEach((updatedComm, updatedIdx) => {
-          // Si cette communication a un index original, l'utiliser pour la localiser
+        // IMPORTANT: Parcourir les communications mises à jour pour mettre à jour ou ajouter
+        for (const updatedComm of task.communicationDetails) {
+          // Si cette communication a un index original, on l'utilise pour la localiser
           if (updatedComm.originalIndex !== undefined) {
             const originalIdx = updatedComm.originalIndex;
             
@@ -513,11 +533,17 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
               // Si elle existe, la mettre à jour
               console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour de la communication à l'index original ${originalIdx}`);
               
+              // IMPORTANT: Préserver toutes les propriétés existantes et appliquer uniquement les changements
               updatedComms[existingCommIndex] = {
-                ...updatedComms[existingCommIndex],
-                ...updatedComm,
-                originalIndex: originalIdx
+                ...updatedComms[existingCommIndex],  // Garder toutes les propriétés
+                ...updatedComm,                      // Appliquer les changements
+                originalIndex: originalIdx           // S'assurer que l'index original est préservé
               };
+              
+              // Vérifier si la date a été modifiée
+              if (updatedComm.deadline) {
+                console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour de la date pour comm ${originalIdx}: ${new Date(updatedComm.deadline).toLocaleDateString()}`);
+              }
             } else {
               // Si elle n'existe pas encore, l'ajouter comme nouvelle communication
               console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Ajout d'une nouvelle communication avec index original ${originalIdx}`);
@@ -529,7 +555,7 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
             }
           } else {
             // Cas où nous ajoutons une nouvelle communication (sans index original)
-            console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Ajout d'une nouvelle communication à la position ${updatedIdx} sans index original`);
+            console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Ajout d'une nouvelle communication sans index original`);
             
             // Calculer un nouvel index original (utiliser le plus grand index + 1)
             const nextOriginalIndex = updatedComms.length > 0 
@@ -546,7 +572,7 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
               originalIndex: nextOriginalIndex
             });
           }
-        });
+        }
         
         console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Tableau final des communications après fusion:`, 
           updatedComms.map((c: any, i: number) => 
@@ -559,6 +585,24 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
           ...comm,
           deadline: comm.deadline ? Timestamp.fromDate(new Date(comm.deadline)) : null
         }));
+        
+        // Mettre à jour le localStorage pour les prochaines opérations
+        if (typeof window !== 'undefined') {
+          try {
+            const localTasksJSON = localStorage.getItem('current_tasks');
+            if (localTasksJSON) {
+              const localTasks = JSON.parse(localTasksJSON);
+              const taskIndex = localTasks.findIndex((t: any) => t.id === task.id);
+              if (taskIndex !== -1) {
+                localTasks[taskIndex].communicationDetails = updatedComms;
+                localStorage.setItem('current_tasks', JSON.stringify(localTasks));
+                console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: État local mis à jour dans localStorage`);
+              }
+            }
+          } catch (error) {
+            console.error(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Erreur lors de la mise à jour du localStorage:`, error);
+          }
+        }
         
         // Ajouter les communications normalisées aux données de mise à jour
         updateData.communicationDetails = normalizedUpdatedComms;
