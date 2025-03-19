@@ -58,5 +58,5 @@ export type CommunicationType =
   'commentaire' | 
   'envoi_doc' | 
   'autre' | 
-  'idée' | 
+  'idee' | 
   'plan_2d_3d'; 

@@ -1223,7 +1223,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       console.log(`Ajout d'une communication ${type} à la tâche ${taskId}`);
       
       // Liste des types valides (pour validation)
-      const validTypes = ['newsletter', 'panneau', 'flyer', 'carousel', 'video', 'post_site', 'post_linkedin', 'post_instagram', 'idee', 'plan_2d_3d', 'autre'] as const;
+      const validTypes = ['autre', 'carousel', 'flyer', 'idee', 'newsletter', 'panneau', 'plan_2d_3d', 'post_instagram', 'post_linkedin', 'post_site', 'video'] as const;
       type ValidCommunicationType = typeof validTypes[number];
       
       // Vérifier que le type est valide
@@ -1647,6 +1647,126 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     );
   };
 
+  // Fonction pour mettre à jour la description d'une communication
+  const updateCommunicationDetails = async (taskId: string, commIndex: number, newDetails: string) => {
+    try {
+      console.log(`Mise à jour de la description pour la communication ${commIndex} de la tâche ${taskId}`);
+      
+      const task = tasks.find(t => t.id === taskId);
+      if (!task || !task.communicationDetails) {
+        console.error("Tâche ou détails de communication non trouvés");
+        return;
+      }
+      
+      const updatedDetails = [...task.communicationDetails];
+      
+      // Vérifier que l'index est valide
+      if (commIndex < 0 || commIndex >= updatedDetails.length) {
+        console.error(`Index de communication invalide: ${commIndex}`);
+        return;
+      }
+      
+      // Conserver toutes les propriétés existantes de la communication
+      const existingComm = updatedDetails[commIndex];
+      const originalIndex = existingComm.originalIndex !== undefined ? existingComm.originalIndex : commIndex;
+      
+      updatedDetails[commIndex] = {
+        ...existingComm,
+        details: newDetails,
+        originalIndex // Préserver l'index original
+      };
+      
+      await onUpdateTask({
+        id: taskId,
+        communicationDetails: updatedDetails
+      });
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour de la description de la communication:", error);
+    }
+  };
+
+  // Composant pour afficher et éditer la description d'une communication
+  const CommunicationDescriptionCell = ({ details, taskId, commIndex }: { 
+    details: string | undefined, 
+    taskId: string, 
+    commIndex: number 
+  }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedDetails, setEditedDetails] = useState(details || '');
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    
+    const handleSave = () => {
+      updateCommunicationDetails(taskId, commIndex, editedDetails);
+      setIsEditing(false);
+    };
+    
+    // Ajuster automatiquement la hauteur du textarea
+    useEffect(() => {
+      if (isEditing && textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+      }
+    }, [isEditing, editedDetails]);
+    
+    if (isEditing) {
+      return (
+        <div className="flex flex-col w-full">
+          <textarea
+            ref={textareaRef}
+            value={editedDetails}
+            onChange={(e) => setEditedDetails(e.target.value)}
+            className="w-full text-xs p-1 border rounded resize-none min-h-[60px]"
+            autoFocus
+            onBlur={handleSave}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.ctrlKey) {
+                handleSave();
+              }
+            }}
+            placeholder="Ajouter une description..."
+          />
+          <div className="flex justify-end mt-1 gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 py-0 px-2 text-xs"
+              onClick={() => setIsEditing(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              className="h-6 py-0 px-2 text-xs"
+              onClick={handleSave}
+            >
+              Enregistrer
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="flex items-start gap-1 group max-w-full">
+        <div 
+          className="flex-1 text-xs text-gray-700 whitespace-pre-wrap cursor-pointer hover:underline hover:text-gray-900 truncate"
+          onClick={() => setIsEditing(true)}
+        >
+          {details || <span className="italic text-gray-400">Ajouter une description...</span>}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="opacity-0 group-hover:opacity-100 h-5 w-5 p-0"
+          onClick={() => setIsEditing(true)}
+        >
+          <PencilIcon className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  };
+
   return (
     <div className="w-full">
       <div className="rounded-md border overflow-hidden">
@@ -1857,25 +1977,21 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="start">
-                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'appel')}>
-                              <PhoneIcon className="h-3.5 w-3.5 mr-2 text-gray-600" />
-                              <span>Appel</span>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'autre')}>
+                              <FileIcon className="h-3.5 w-3.5 mr-2 text-gray-600" />
+                              <span>Autre</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'sms')}>
-                              <MessageSquareIcon className="h-3.5 w-3.5 mr-2 text-gray-600" />
-                              <span>SMS</span>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'carousel')}>
+                              <ImageIcon className="h-3.5 w-3.5 mr-2 text-purple-600" />
+                              <span>Carousel</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'email')}>
-                              <MailIcon className="h-3.5 w-3.5 mr-2 text-gray-600" />
-                              <span>Email</span>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'flyer')}>
+                              <FileTextIcon className="h-3.5 w-3.5 mr-2 text-emerald-600" />
+                              <span>Flyer</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'rdv_physique')}>
-                              <CalendarIcon className="h-3.5 w-3.5 mr-2 text-gray-600" />
-                              <span>RDV Physique</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'rdv_tel')}>
-                              <PhoneCallIcon className="h-3.5 w-3.5 mr-2 text-gray-600" />
-                              <span>RDV Téléphonique</span>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'idee')}>
+                              <LightbulbIcon className="h-3.5 w-3.5 mr-2 text-amber-600" />
+                              <span>Idée</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'newsletter')}>
                               <MailIcon className="h-3.5 w-3.5 mr-2 text-purple-600" />
@@ -1885,33 +2001,25 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                               <SignpostIcon className="h-3.5 w-3.5 mr-2 text-yellow-600" />
                               <span>Panneau</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'flyer')}>
-                              <FileTextIcon className="h-3.5 w-3.5 mr-2 text-emerald-600" />
-                              <span>Flyer</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'idée')}>
-                              <LightbulbIcon className="h-3.5 w-3.5 mr-2 text-amber-600" />
-                              <span>Idée</span>
-                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'plan_2d_3d')}>
                               <LayoutIcon className="h-3.5 w-3.5 mr-2 text-blue-600" />
                               <span>Plan 2D/3D</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'post_site')}>
-                              <GlobeIcon className="h-3.5 w-3.5 mr-2 text-indigo-600" />
-                              <span>Site Web</span>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'post_instagram')}>
+                              <InstagramIcon className="h-3.5 w-3.5 mr-2 text-pink-600" />
+                              <span>Post Instagram</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'post_linkedin')}>
                               <LinkedinIcon className="h-3.5 w-3.5 mr-2 text-sky-600" />
-                              <span>LinkedIn</span>
+                              <span>Post LinkedIn</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'post_instagram')}>
-                              <InstagramIcon className="h-3.5 w-3.5 mr-2 text-pink-600" />
-                              <span>Instagram</span>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'post_site')}>
+                              <GlobeIcon className="h-3.5 w-3.5 mr-2 text-indigo-600" />
+                              <span>Post Site</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'autre')}>
-                              <FileIcon className="h-3.5 w-3.5 mr-2 text-gray-600" />
-                              <span>Autre</span>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'video')}>
+                              <VideoIcon className="h-3.5 w-3.5 mr-2 text-orange-600" />
+                              <span>Vidéo</span>
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -1931,9 +2039,9 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                               <TypeBadge type={comm.type} taskId={task.id} commIndex={index} customType={comm.customType} />
                               {getPlatformBadge(comm.platform)}
                               {getMediaTypeBadge(comm.mediaType, task.id, index)}
-                              {comm.details && (
-                                <span className="text-xs text-gray-500">{comm.details}</span>
-                              )}
+                            </div>
+                            <div className="mt-1 ml-2">
+                              <CommunicationDescriptionCell details={comm.details} taskId={task.id} commIndex={index} />
                             </div>
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()} className="py-1">
