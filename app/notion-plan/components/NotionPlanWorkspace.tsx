@@ -42,6 +42,7 @@ import NotionHeader from './NotionHeader';
 import NotionTabs from './NotionTabs';
 import { Header } from '../../components/header';
 import { Task, TeamMember, CommunicationDetail } from '../types';
+import GlobalNotificationButton from '@/app/components/notifications/GlobalNotificationButton';
 
 // Types
 interface NotionPlanWorkspaceProps {
@@ -920,6 +921,11 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
                   }
                 </h1>
                 <div className="flex gap-2">
+                  <GlobalNotificationButton 
+                    consultantName={consultant || ''} 
+                    size="default"
+                    className="mr-1"
+                  />
                   <Button variant="default" onClick={handleNewTask}>
                     <PlusIcon className="h-4 w-4 mr-2" />
                     Nouvelle tâche
