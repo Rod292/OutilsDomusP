@@ -80,14 +80,13 @@ export const sendLocalNotification = async (notification: {
   }
   
   try {
-    const { title, body, icon = '/logo_arthur_loyd.png', data = {} } = notification;
+    const { title, body, icon = undefined, data = {} } = notification;
     
     console.log('sendLocalNotification: Création de la notification avec:', { title, body, data });
     
     const notif = new Notification(title, {
       body, 
       icon,
-      badge: '/logo_arthur_loyd.png',
       data,
       requireInteraction: true, // Garder la notification visible jusqu'à ce que l'utilisateur interagisse avec
       tag: data?.taskId || `notification-${Date.now()}` // Ajouter un tag unique pour identifier la notification
@@ -448,12 +447,16 @@ export const logNotificationPermissionStatus = () => {
  * @param task Tâche assignée
  * @param assignee Email du destinataire 
  * @param currentUserEmail Email de l'utilisateur qui a assigné la tâche
+ * @param isCommunication Indique s'il s'agit d'une communication
+ * @param parentTaskTitle Titre de la tâche parente (pour les communications)
  * @returns Promise<boolean> true si la notification est envoyée avec succès
  */
 export const sendTaskAssignedNotification = async (
   task: any, 
   assignee: string, 
-  currentUserEmail: string
+  currentUserEmail: string,
+  isCommunication: boolean = false,
+  parentTaskTitle?: string
 ): Promise<boolean> => {
   try {
     // Vérifier si nous sommes côté client
@@ -469,16 +472,27 @@ export const sendTaskAssignedNotification = async (
     // C'est l'utilisateur connecté qui doit recevoir la notification concernant le consultant
     const notificationId = `${currentUserEmail}_${consultantName}`;
     
-    // Préparer les données de la notification
+    // Préparer les données de la notification avec un message adapté
+    const title = isCommunication 
+      ? "📝 Nouvelle communication assignée"
+      : "📋 Nouvelle tâche assignée";
+    
+    const body = isCommunication
+      ? `${consultantName}, une nouvelle communication "${task.type || 'Communication'}" pour la tâche "${parentTaskTitle || 'principale'}" vous a été assignée.`
+      : `${consultantName}, une nouvelle tâche "${task.title}" vous a été assignée.`;
+    
+    // Type de notification
+    const notificationType = isCommunication ? "communication_assigned" : "task_assigned";
+    
     const notificationData = {
       userId: notificationId,
-      title: "📋 Nouvelle tâche assignée",
-      body: `${consultantName}, une nouvelle tâche "${task.title}" vous a été assignée.`,
-      type: "task_assigned" as "task_assigned" | "task_reminder" | "system",
+      title,
+      body,
+      type: notificationType as "task_assigned" | "task_reminder" | "system" | "communication_assigned",
       taskId: task.id
     };
 
-    console.log(`Envoi d'une notification à ${notificationId} pour la tâche assignée à ${consultantName}.`);
+    console.log(`Envoi d'une notification à ${notificationId} pour la ${isCommunication ? 'communication' : 'tâche'} assignée à ${consultantName}.`);
     
     try {
       // Utiliser une URL relative pour éviter les problèmes de domaine

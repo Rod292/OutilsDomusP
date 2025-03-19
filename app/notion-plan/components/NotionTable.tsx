@@ -632,33 +632,73 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
 
   // Fonction pour ajouter un consultant à une sous-tâche de communication
   const addCommunicationAssignee = async (taskId: string, commIndex: number, email: string) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (!task || !task.communicationDetails) return;
-    
-    const updatedDetails = [...task.communicationDetails];
-    
-    // Vérifier que l'index est valide
-    if (commIndex < 0 || commIndex >= updatedDetails.length) {
-      console.error(`Index de communication invalide: ${commIndex}`);
-      return;
-    }
-    
-    // Conserver toutes les propriétés existantes, y compris l'index original
-    const existingComm = updatedDetails[commIndex];
-    const originalIndex = existingComm.originalIndex !== undefined ? existingComm.originalIndex : commIndex;
-    const currentAssignees = Array.isArray(existingComm.assignedTo) ? [...existingComm.assignedTo] : [];
-    
-    if (!currentAssignees.includes(email)) {
+    try {
+      // Utiliser useAuth comme un hook n'est pas possible dans une fonction de composant
+      // Nous allons donc importer directement le service de notification
+      const { sendTaskAssignedNotification } = await import('@/app/services/notificationService');
+      
+      const task = tasks.find(t => t.id === taskId);
+      if (!task || !task.communicationDetails) {
+        console.error('Tâche ou détails de communication introuvables.');
+        return;
+      }
+      
+      const updatedDetails = [...task.communicationDetails];
+      
+      // Vérifier que l'index est valide
+      if (commIndex < 0 || commIndex >= updatedDetails.length) {
+        console.error(`Index de communication invalide: ${commIndex}`);
+        return;
+      }
+      
+      // Conserver toutes les propriétés existantes, y compris l'index original
+      const existingComm = updatedDetails[commIndex];
+      const originalIndex = existingComm.originalIndex !== undefined ? existingComm.originalIndex : commIndex;
+      const currentAssignees = Array.isArray(existingComm.assignedTo) ? [...existingComm.assignedTo] : [];
+      
+      // Vérifier si l'utilisateur est déjà assigné
+      if (currentAssignees.includes(email)) {
+        console.log(`L'utilisateur ${email} est déjà assigné à cette communication.`);
+        return;
+      }
+      
+      // Ajouter le nouvel assigné
       updatedDetails[commIndex] = {
         ...existingComm,
         assignedTo: [...currentAssignees, email],
         originalIndex // Préserver l'index original
       };
       
+      // Mettre à jour la tâche
       await onUpdateTask({
         id: taskId,
         communicationDetails: updatedDetails
       });
+      
+      console.log(`Utilisateur ${email} ajouté à la communication ${commIndex} de la tâche ${taskId}`);
+      
+      // Récupérer l'email de l'utilisateur connecté pour les notifications
+      const userEmail = sessionStorage.getItem('userEmail');
+      
+      // Envoyer une notification si l'email de l'utilisateur est disponible
+      if (userEmail) {
+        try {
+          // Envoyer une notification spécifique pour une communication
+          await sendTaskAssignedNotification(
+            existingComm,
+            email,
+            userEmail,
+            true, // Indiquer qu'il s'agit d'une communication
+            task.title // Passer le titre de la tâche parente
+          );
+          
+          console.log(`Notification de communication envoyée à ${userEmail} pour le consultant ${email}`);
+        } catch (notifError) {
+          console.error('Erreur lors de l\'envoi de la notification de communication:', notifError);
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout d\'un assigné à une communication:', error);
     }
   };
 
@@ -999,6 +1039,14 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     }
     
     console.log("Tâche trouvée:", task);
+    
+    // Vérifier si le mandat est signé
+    if (task.mandatSigne !== true) {
+      console.error(`Le mandat pour la tâche ${taskId} n'est pas signé. Impossible d'ajouter une communication.`);
+      // Afficher une notification à l'utilisateur
+      alert("Vous devez d'abord cocher 'Mandat signé' pour cette tâche avant d'ajouter des communications. Veuillez éditer la tâche et cocher cette option.");
+      return;
+    }
     
     // Valider le type de communication
     const validTypes = ['newsletter', 'panneau', 'flyer', 'post_site', 'post_linkedin', 'post_instagram', 'carousel', 'video', 'autre'];
