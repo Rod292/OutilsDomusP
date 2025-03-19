@@ -569,13 +569,18 @@ export const debugNotifications = async (email: string, consultantName: string):
       console.log('Permissions accordées avec succès');
     }
     
+    // Construire l'ID de notification correct (email_consultant)
+    const notificationId = `${email}_${consultantName}`;
+    
+    console.log(`ID de notification à vérifier: ${notificationId}`);
+    
     // Vérifier l'enregistrement dans Firestore
     try {
-      const notificationId = `${email}_${consultantName}`;
-      console.log(`ID de notification à vérifier: ${notificationId}`);
+      const db = getFirestore();
+      
+      console.log('Recherche de tokens de notification...');
       
       // Vérifier si un token existe
-      const db = getFirestore();
       const q = query(
         collection(db, TOKEN_COLLECTION),
         where('userId', '==', notificationId)
@@ -600,27 +605,30 @@ export const debugNotifications = async (email: string, consultantName: string):
       console.error('Erreur lors de la vérification Firestore:', dbError);
     }
     
-    // MODIFICATION: Utiliser uniquement les notifications locales pour éviter l'erreur 500
-    console.log('Test de notification locale...');
-    
     // Générer un ID unique pour cette notification
-    const notificationId = `test-${Date.now()}`;
+    const testId = `test-${Date.now()}`;
     
-    // Créer une notification avec plus d'informations pour le débogage
-    const notificationTitle = `Test pour ${consultantName}`;
-    const notificationBody = `Notification générée à ${new Date().toLocaleTimeString()} pour l'utilisateur ${email}`;
+    // Force de données de notification avec les paramètres précis 
+    const notificationData = {
+      userId: notificationId,
+      title: `Test pour ${consultantName}`,
+      body: `Notification générée à ${new Date().toLocaleTimeString()} pour l'utilisateur ${email}`,
+      type: 'system' as "task_assigned" | "task_reminder" | "system" | "communication_assigned",
+      taskId: testId
+    };
     
-    // Ajouter au stockage local pour référence
+    // Enregistrer dans l'historique local des tests
     try {
       if (localStorage) {
         const testHistory = JSON.parse(localStorage.getItem('notification_tests') || '[]');
         testHistory.push({
-          id: notificationId,
+          id: testId,
           timestamp: Date.now(),
           email,
           consultant: consultantName,
-          title: notificationTitle,
-          body: notificationBody
+          title: notificationData.title,
+          body: notificationData.body,
+          userId: notificationId
         });
         localStorage.setItem('notification_tests', JSON.stringify(testHistory.slice(-10))); // Garder les 10 derniers tests
       }
@@ -628,25 +636,57 @@ export const debugNotifications = async (email: string, consultantName: string):
       console.warn('Erreur lors du stockage local de l\'historique des tests:', e);
     }
     
-    // Envoyer directement une notification locale sans passer par l'API
-    const localSuccess = await sendLocalNotification({
-      title: notificationTitle,
-      body: notificationBody,
-      data: {
-        userId: `${email}_${consultantName}`,
-        type: 'test',
-        taskId: notificationId
+    // Tester l'envoi via l'API
+    console.log('Test d\'envoi via API...');
+    
+    try {
+      const response = await fetch('/api/notifications/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(notificationData),
+      });
+      
+      const result = await response.json();
+      console.log('Réponse API:', result);
+      
+      // Vérifier si le serveur suggère d'utiliser le mode local
+      if (result.useLocalMode || result.status === 404) {
+        console.log('Mode local suggéré par le serveur ou API non disponible, envoi direct...');
+        
+        // Envoyer également une notification locale directe
+        const localSuccess = await sendLocalNotification({
+          title: notificationData.title,
+          body: notificationData.body,
+          data: {
+            userId: notificationId,
+            type: 'test',
+            taskId: testId
+          }
+        });
+        
+        console.log(`Résultat notification locale: ${localSuccess ? 'Succès' : 'Échec'}`);
+        return localSuccess;
       }
-    });
-    
-    console.log(`Résultat notification locale: ${localSuccess ? 'Succès' : 'Échec'}`);
-    
-    // Éviter d'appeler l'API qui échoue
-    if (localSuccess) {
-      console.log('Notification locale envoyée avec succès. L\'API n\'a pas été appelée pour éviter l\'erreur 500.');
+      
       return true;
-    } else {
-      throw new Error('Échec de l\'envoi de la notification locale');
+    } catch (apiError) {
+      console.error('Erreur lors de l\'appel API, tentative d\'envoi local:', apiError);
+      
+      // Envoyer directement une notification locale
+      const localSuccess = await sendLocalNotification({
+        title: notificationData.title,
+        body: notificationData.body,
+        data: {
+          userId: notificationId,
+          type: 'test',
+          taskId: testId
+        }
+      });
+      
+      console.log(`Résultat notification locale suite à erreur API: ${localSuccess ? 'Succès' : 'Échec'}`);
+      return localSuccess;
     }
   } catch (error) {
     console.error('Erreur globale lors du débogage des notifications:', error);
