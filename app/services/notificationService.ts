@@ -9,25 +9,39 @@ import { getFirestore } from 'firebase/firestore';
 const NOTIFICATION_COLLECTION = 'notifications';
 const TOKEN_COLLECTION = 'notification_tokens';
 
-// Fonction pour enregistrer une notification dans Firestore
+/**
+ * Enregistre une notification dans la base de données
+ * @param notification Notification à enregistrer
+ * @returns Promise<void>
+ */
 export const createNotification = async (notification: {
   userId: string;
   title: string;
   body: string;
-  type: 'task_assigned' | 'task_reminder' | 'system';
+  type: string;
   taskId?: string;
   read: boolean;
-}) => {
+}): Promise<void> => {
   try {
-    const notificationsRef = collection(db, NOTIFICATION_COLLECTION);
-    await addDoc(notificationsRef, {
+    // Vérifier si les paramètres requis sont présents
+    if (!notification.userId || !notification.title || !notification.body) {
+      throw new Error('Paramètres requis manquants pour l\'enregistrement de la notification');
+    }
+
+    // Utilisez getFirestore() qui retourne l'instance correcte de Firestore
+    const firestore = getFirestore();
+    
+    // Créer la notification dans Firestore avec le timestamp du serveur
+    await addDoc(collection(firestore, 'notifications'), {
       ...notification,
-      createdAt: Timestamp.now()
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     });
-    return true;
+
+    console.log(`Notification enregistrée dans Firestore pour ${notification.userId}`);
   } catch (error) {
     console.error('Erreur lors de l\'enregistrement de la notification:', error);
-    return false;
+    throw error;
   }
 };
 

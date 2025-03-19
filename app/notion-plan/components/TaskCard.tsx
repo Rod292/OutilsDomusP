@@ -4,6 +4,7 @@ import { fr } from 'date-fns/locale';
 import { CalendarIcon, UserIcon, FileTextIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Task } from '../types';
+import TaskNotificationButton from './TaskNotificationButton';
 
 interface TaskCardProps {
   task: Task;
@@ -71,6 +72,16 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onDragStart,
   isDarkMode = false
 }) => {
+  // Extraire le nom du consultant assigné (sans le domaine email)
+  const getConsultantName = (email: string) => {
+    return email.split('@')[0];
+  };
+
+  // Empêcher la propagation du clic sur le bouton de notification
+  const handleNotificationClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
   return (
     <div
       draggable
@@ -81,22 +92,24 @@ const TaskCard: React.FC<TaskCardProps> = ({
       } p-4 rounded-lg border cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md`}
     >
       <div className="flex flex-col gap-3">
-        <div className="flex items-center flex-wrap gap-2">
-          {task.status && (
-            <Badge className={`${getStatusColor(task.status)} text-white px-2 py-0.5`}>
-              {task.status}
-            </Badge>
-          )}
-          {task.actionType && (
-            <Badge className={`${getActionTypeColor(task.actionType)} text-white px-2 py-0.5`}>
-              {getActionTypeLabel(task.actionType)}
-            </Badge>
-          )}
-          {task.platform && (
-            <Badge variant="outline" className={`${isDarkMode ? 'border-gray-600 text-gray-300' : 'border-gray-400 text-gray-700'} px-2 py-0.5`}>
-              {task.platform}
-            </Badge>
-          )}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center flex-wrap gap-2">
+            {task.status && (
+              <Badge className={`${getStatusColor(task.status)} text-white px-2 py-0.5`}>
+                {task.status}
+              </Badge>
+            )}
+            {task.actionType && (
+              <Badge className={`${getActionTypeColor(task.actionType)} text-white px-2 py-0.5`}>
+                {getActionTypeLabel(task.actionType)}
+              </Badge>
+            )}
+            {task.platform && (
+              <Badge variant="outline" className={`${isDarkMode ? 'border-gray-600 text-gray-300' : 'border-gray-400 text-gray-700'} px-2 py-0.5`}>
+                {task.platform}
+              </Badge>
+            )}
+          </div>
         </div>
         <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{task.title}</h3>
         {task.description && (
@@ -113,25 +126,38 @@ const TaskCard: React.FC<TaskCardProps> = ({
           </div>
         )}
         
-        <div className={`flex items-center flex-wrap gap-3 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-          {task.dueDate && (
-            <div className="flex items-center gap-1">
-              <CalendarIcon className="h-3 w-3" />
-              {format(new Date(task.dueDate), "dd MMM yyyy", { locale: fr })}
-            </div>
-          )}
+        <div className={`flex items-center justify-between flex-wrap gap-2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+          <div className="flex items-center flex-wrap gap-3">
+            {task.dueDate && (
+              <div className="flex items-center gap-1">
+                <CalendarIcon className="h-3 w-3" />
+                {format(new Date(task.dueDate), "dd MMM yyyy", { locale: fr })}
+              </div>
+            )}
+            {task.assignedTo && task.assignedTo.length > 0 && (
+              <div className="flex items-center gap-1">
+                <UserIcon className="h-3 w-3" />
+                {task.assignedTo.length > 1 
+                  ? `${task.assignedTo.length} personnes` 
+                  : getConsultantName(task.assignedTo[0])}
+              </div>
+            )}
+            {task.dossierNumber && (
+              <div className="flex items-center gap-1">
+                <FileTextIcon className="h-3 w-3" />
+                {task.dossierNumber}
+              </div>
+            )}
+          </div>
+          
+          {/* Bouton de notification pour la première personne assignée */}
           {task.assignedTo && task.assignedTo.length > 0 && (
-            <div className="flex items-center gap-1">
-              <UserIcon className="h-3 w-3" />
-              {task.assignedTo.length > 1 
-                ? `${task.assignedTo.length} personnes` 
-                : task.assignedTo[0].split('@')[0]}
-            </div>
-          )}
-          {task.dossierNumber && (
-            <div className="flex items-center gap-1">
-              <FileTextIcon className="h-3 w-3" />
-              {task.dossierNumber}
+            <div onClick={handleNotificationClick}>
+              <TaskNotificationButton 
+                consultantName={getConsultantName(task.assignedTo[0])} 
+                size="icon"
+                className={`h-6 w-6 p-0 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}
+              />
             </div>
           )}
         </div>

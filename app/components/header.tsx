@@ -170,11 +170,6 @@ export function Header() {
             {/* Bouton de basculement de thème */}
             <ThemeToggle />
             
-            {/* Afficher le bouton de notification si l'utilisateur est connecté et un consultant est sélectionné */}
-            {shouldShowNotification && (
-              <NotificationPermission iconOnly={true} />
-            )}
-            
             {/* Menu de navigation */}
             {user && (
               <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
