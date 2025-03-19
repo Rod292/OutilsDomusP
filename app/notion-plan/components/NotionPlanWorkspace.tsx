@@ -129,18 +129,20 @@ const sendTaskAssignedNotification = async (task: any, assignee: string, current
     const consultantName = assignee.split('@')[0] || assignee;
     
     // Construire l'ID de notification (email_consultant)
+    // C'est l'utilisateur connecté qui doit recevoir la notification concernant le consultant
     const notificationId = `${currentUserEmail}_${consultantName}`;
     
-    // Préparer les données de la notification
+    // Préparer les données de la notification avec un message qui indique clairement qu'il s'agit d'une notification 
+    // pour le consultant suivi par l'utilisateur connecté
     const notificationData = {
-      userId: notificationId, // ID spécifique au consultant
+      userId: notificationId,
       title: "📋 Nouvelle tâche assignée",
-      body: `La tâche "${task.title}" vous a été assignée.`,
+      body: `${consultantName}, une nouvelle tâche "${task.title}" vous a été assignée.`,
       type: "task_assigned" as "task_assigned" | "task_reminder" | "system",
       taskId: task.id
     };
 
-    console.log(`Envoi d'une notification à ${notificationId} pour la tâche assignée.`);
+    console.log(`Envoi d'une notification à ${notificationId} pour la tâche assignée à ${consultantName}.`);
     
     try {
       // Essayer d'envoyer la notification via l'API

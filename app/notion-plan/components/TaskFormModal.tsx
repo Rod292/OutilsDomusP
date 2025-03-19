@@ -39,6 +39,7 @@ import { Task, TeamMember, CommunicationDetail } from '../types';
 import { useTheme } from "next-themes";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "../../hooks/useAuth";
 
 // Animation de slide-in pour la fenêtre modale
 const slideInAnimation = `
@@ -128,6 +129,8 @@ export default function TaskFormModal({
 
   const { theme } = useTheme();
   const isDarkMode = theme === "dark";
+  
+  const { user } = useAuth();
   
   // Réinitialisation du formulaire quand le modal s'ouvre ou que la tâche change
   useEffect(() => {
@@ -283,12 +286,92 @@ export default function TaskFormModal({
     
     if (task) {
       console.log("Mise à jour de la tâche ID:", task.id);
+      
+      // Vérifier si de nouveaux utilisateurs ont été assignés
+      const newAssignees = taskData.assignedTo.filter(
+        (email: string) => !task.assignedTo.includes(email)
+      );
+      
+      // Mettre à jour la tâche
       await onUpdateTask({
         id: task.id,
         ...taskData,
       });
+      
+      // Envoyer des notifications aux nouveaux assignés, mais à l'utilisateur connecté
+      if (newAssignees.length > 0 && user?.email) {
+        try {
+          console.log("Envoi de notifications pour les nouveaux assignés:", newAssignees);
+          
+          // Pour chaque nouvel assigné, envoyer une notification à l'utilisateur connecté
+          for (const assigneeEmail of newAssignees) {
+            // Extraire le nom du consultant à partir de l'email
+            const consultantName = assigneeEmail.split('@')[0] || assigneeEmail;
+            
+            // L'ID de notification est l'email de l'utilisateur connecté + le consultant
+            const notificationId = `${user.email}_${consultantName}`;
+            
+            const response = await fetch('/api/notifications/send', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                userId: notificationId,
+                title: '📋 Nouvelle tâche assignée',
+                body: `${consultantName}, une nouvelle tâche "${taskData.title}" vous a été assignée.`,
+                taskId: task.id,
+                type: 'task_assigned',
+              }),
+            });
+            
+            if (!response.ok) {
+              console.error('Erreur lors de l\'envoi de la notification:', await response.json());
+            }
+          }
+        } catch (error) {
+          console.error('Erreur lors de l\'envoi des notifications:', error);
+        }
+      }
     } else {
-      await onCreateTask(taskData);
+      // Créer une nouvelle tâche
+      const createdTask = await onCreateTask(taskData);
+      
+      // Si la tâche a été créée avec succès et a des assignés, envoyer des notifications
+      if (createdTask && taskData.assignedTo.length > 0 && user?.email) {
+        try {
+          console.log("Envoi de notifications pour les assignés de la nouvelle tâche:", taskData.assignedTo);
+          
+          // Pour chaque assigné, envoyer une notification à l'utilisateur connecté
+          for (const assigneeEmail of taskData.assignedTo) {
+            // Extraire le nom du consultant à partir de l'email
+            const consultantName = assigneeEmail.split('@')[0] || assigneeEmail;
+            
+            // L'ID de notification est l'email de l'utilisateur connecté + le consultant
+            const notificationId = `${user.email}_${consultantName}`;
+            
+            const response = await fetch('/api/notifications/send', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                userId: notificationId,
+                title: '📋 Nouvelle tâche assignée',
+                body: `${consultantName}, une nouvelle tâche "${taskData.title}" vous a été assignée.`,
+                taskId: createdTask.id,
+                type: 'task_assigned',
+              }),
+            });
+            
+            if (!response.ok) {
+              console.error('Erreur lors de l\'envoi de la notification:', await response.json());
+            }
+          }
+        } catch (error) {
+          console.error('Erreur lors de l\'envoi des notifications:', error);
+        }
+      }
     }
     
     onOpenChange(false);
