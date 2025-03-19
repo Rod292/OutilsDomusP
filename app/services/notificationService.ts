@@ -2,8 +2,9 @@ import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { app } from '../lib/firebase';
 import { Timestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { NOTIFICATION_CONFIG } from '../api/notifications/config';
+import { getFirestore } from 'firebase/firestore';
 
 const NOTIFICATION_COLLECTION = 'notifications';
 const TOKEN_COLLECTION = 'notification_tokens';
@@ -66,198 +67,214 @@ export const sendLocalNotification = async (notification: {
   }
 };
 
-// Fonction pour enregistrer le token de notification
-export const saveNotificationToken = async (userId: string, token: string) => {
+/**
+ * Enregistre le token de notification pour un utilisateur
+ * @param userId Identifiant de l'utilisateur (email_consultant)
+ * @param token Token de notification
+ * @returns Promise<boolean> True si le token a été enregistré avec succès
+ */
+export const saveNotificationToken = async (userId: string, token: string): Promise<boolean> => {
   try {
-    // Extraire l'email de l'utilisateur et le consultant si présent dans userId
-    let userEmail = userId;
-    let consultant = null;
-    
-    if (userId.includes('_')) {
-      const parts = userId.split('_');
-      userEmail = parts[0];
-      consultant = parts[1];
+    if (!userId || !token) {
+      console.error('ID utilisateur ou token manquant:', { userId, token });
+      return false;
     }
+
+    console.log(`Enregistrement du token pour l'utilisateur: ${userId}`);
     
-    console.log(`Enregistrement du token pour l'utilisateur: ${userEmail}${consultant ? ` (consultant: ${consultant})` : ''}`);
-    
-    // Vérifier si le token existe déjà
-    const tokensRef = collection(db, TOKEN_COLLECTION);
+    // Vérifier si ce token existe déjà pour cet utilisateur
+    const db = getFirestore();
+    const tokensRef = collection(db, 'notificationTokens');
     const q = query(tokensRef, 
-      where('userId', '==', userId), 
+      where('userId', '==', userId),
       where('token', '==', token)
     );
-    const snapshot = await getDocs(q);
     
-    // Si le token n'existe pas, l'ajouter
-    if (snapshot.empty) {
-      await addDoc(tokensRef, {
-        userId,
-        userEmail,
-        consultant,
-        token,
-        createdAt: Timestamp.now()
+    const querySnapshot = await getDocs(q);
+    
+    // Si le token existe déjà, mettre à jour le timestamp
+    if (!querySnapshot.empty) {
+      const docRef = querySnapshot.docs[0].ref;
+      await updateDoc(docRef, {
+        timestamp: Date.now(),
+        lastUpdated: serverTimestamp()
       });
-      console.log('Token de notification enregistré pour l\'utilisateur:', userId);
+      console.log(`Token existant mis à jour pour l'utilisateur: ${userId}`);
+      return true;
     }
+    
+    // Sinon, créer un nouveau document pour ce token
+    const tokenData = {
+      userId,
+      token,
+      timestamp: Date.now(),
+      createdAt: serverTimestamp(),
+      lastUpdated: serverTimestamp(),
+      // Extraire l'email et le consultant depuis userId (format: email_consultant)
+      consultant: userId.includes('_') ? userId.split('_')[1] : null,
+      email: userId.includes('_') ? userId.split('_')[0] : userId
+    };
+    
+    await addDoc(tokensRef, tokenData);
+    console.log(`Token de notification enregistré pour l'utilisateur: ${userId}`);
+    return true;
   } catch (error) {
     console.error('Erreur lors de l\'enregistrement du token:', error);
-  }
-};
-
-/**
- * Vérifie si un consultant spécifique a des notifications activées
- * @param userEmail Email de l'utilisateur connecté
- * @param consultant Nom du consultant à vérifier
- * @returns Promesse qui renvoie true si des tokens existent pour ce consultant
- */
-export const checkConsultantPermission = async (userEmail: string, consultant: string): Promise<boolean> => {
-  try {
-    // Construire l'ID de notification (combinaison email_consultant)
-    const notificationId = `${userEmail}_${consultant}`;
-    
-    // Vérifier si des tokens existent pour ce consultant
-    const tokensRef = collection(db, TOKEN_COLLECTION);
-    const q = query(tokensRef, where('userId', '==', notificationId));
-    const snapshot = await getDocs(q);
-    
-    // Si au moins un token existe, les notifications sont activées pour ce consultant
-    return !snapshot.empty;
-  } catch (error) {
-    console.error(`Erreur lors de la vérification des permissions pour ${consultant}:`, error);
     return false;
   }
 };
 
-// Initialiser Firebase Messaging
-export const initializeMessaging = async (userId: string) => {
-  // Si les notifications FCM sont désactivées, retourner un "faux token" pour indiquer que ça a fonctionné
-  if (!NOTIFICATION_CONFIG.USE_FCM) {
-    console.log('Mode FCM désactivé, utilisation des notifications natives');
-    return 'local-notifications-mode';
-  }
-
+/**
+ * Vérifie si un consultant a les notifications activées
+ * @param userEmail Email de l'utilisateur
+ * @param consultantName Nom du consultant
+ * @returns Promise<boolean> True si les notifications sont activées
+ */
+export const checkConsultantPermission = async (userEmail: string, consultantName: string): Promise<boolean> => {
   try {
-    if (typeof window === 'undefined' || !window.navigator) {
-      return null;
+    if (!userEmail || !consultantName) {
+      return false;
     }
     
-    // Vérifier si le navigateur prend en charge les notifications
-    if (!('Notification' in window)) {
-      console.warn('Ce navigateur ne prend pas en charge les notifications web push');
-      return null;
-    }
-
-    // Vérifier si Firebase est correctement initialisé
-    if (!app) {
-      console.error('Firebase n\'est pas initialisé');
-      return null;
-    }
-
-    // Vérifier si la clé VAPID est disponible
-    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
-    if (!vapidKey) {
-      console.error('Clé VAPID manquante. Elle est requise pour FCM.');
-      console.log('Assurez-vous que NEXT_PUBLIC_FIREBASE_VAPID_KEY est définie dans .env.local');
-      return null;
+    // Construire l'identifiant utilisateur
+    const userId = `${userEmail}_${consultantName}`;
+    
+    // Vérifier si les notifications du navigateur sont autorisées
+    if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+      return false;
     }
     
-    console.log('Initialisation de FCM avec clé VAPID (premiers caractères):', 
-      vapidKey.substring(0, 5) + '...',
-      'Longueur:', vapidKey.length);
-
-    // Vérifier si la clé VAPID a le bon format (doit commencer par B)
-    if (!vapidKey.startsWith('B')) {
-      console.error('Format de clé VAPID incorrect. Elle doit commencer par "B".');
-      console.log('Veuillez vérifier votre clé VAPID dans .env.local');
-      return null;
-    }
-
-    const messaging = getMessaging(app);
+    // Vérifier si le token existe dans Firestore
+    const db = getFirestore();
+    const tokensRef = collection(db, 'notificationTokens');
+    const q = query(tokensRef, where('userId', '==', userId));
+    const querySnapshot = await getDocs(q);
     
-    // Écouteur pour les messages au premier plan
-    onMessage(messaging, (payload) => {
-      console.log('Message reçu au premier plan:', payload);
-      
-      // Afficher la notification via l'API Notification du navigateur
-      if (Notification.permission === 'granted' && payload.notification) {
-        const { title, body } = payload.notification;
-        const notificationOptions = {
-          body,
-          icon: '/images/logo_arthur_loyd.png',
-          badge: '/images/logo_arthur_loyd.png',
-          data: payload.data
-        };
-        
-        const notification = new Notification(title || 'Nouvelle notification', notificationOptions);
-        
-        // Ajouter un gestionnaire de clic
-        notification.onclick = () => {
-          const taskId = payload.data?.taskId;
-          window.open(taskId ? `/notion-plan?taskId=${taskId}` : '/notion-plan', '_blank');
-        };
+    // Vérifier si le token est valide (pas vide ou null)
+    let hasValidToken = false;
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data.token && data.token !== 'null' && data.token !== 'undefined' && 
+          data.token !== 'local-notifications-mode' && 
+          data.timestamp && (Date.now() - data.timestamp) < 30 * 24 * 60 * 60 * 1000) { // Token de moins de 30 jours
+        hasValidToken = true;
       }
     });
-
-    // Vérifier d'abord si le Service Worker est enregistré
-    const serviceWorkerReg = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
     
-    if (!serviceWorkerReg) {
-      console.error('Service Worker non trouvé. Tentative d\'enregistrement...');
-      try {
-        const newReg = await registerServiceWorker();
-        if (!newReg) {
-          console.error('Échec de l\'enregistrement du Service Worker');
-          // Utiliser les notifications natives comme fallback
-          return 'local-notifications-mode';
-        }
-        console.log('Service Worker enregistré avec succès:', newReg);
-      } catch (swError) {
-        console.error('Erreur lors de l\'enregistrement du Service Worker:', swError);
-        // Utiliser les notifications natives comme fallback
-        return 'local-notifications-mode';
-      }
-    } else {
-      console.log('Service Worker trouvé:', serviceWorkerReg);
+    return hasValidToken;
+  } catch (error) {
+    console.error("Erreur lors de la vérification des permissions:", error);
+    return false;
+  }
+};
+
+/**
+ * Initialise Firebase Messaging et gère les permissions de notification
+ * @param userId Identifiant de l'utilisateur pour lequel activer les notifications
+ * @returns Promise<string|null> Token FCM ou null en cas d'erreur
+ */
+export const initializeMessaging = async (userId: string): Promise<string | null> => {
+  try {
+    console.log('Tentative d\'initialisation de Firebase Messaging...');
+    
+    // Si FCM est désactivé, utiliser le mode local
+    if (!NOTIFICATION_CONFIG.USE_FCM) {
+      console.log('Mode FCM désactivé, utilisation des notifications locales.');
+      await saveNotificationToken(userId, 'local-notifications-mode');
+      return 'local-notifications-mode';
     }
     
-    console.log('Demande du token FCM avec la clé VAPID (partielle):', vapidKey.substring(0, 5) + '...');
+    // Vérifier si Firebase est disponible (côté client)
+    if (typeof window === 'undefined') {
+      console.error('Impossible d\'initialiser Firebase Messaging côté serveur.');
+      return null;
+    }
     
-    // Demander la permission et obtenir le token
+    // Tentative d'enregistrement du Service Worker
+    console.log('Tentative d\'enregistrement du Service Worker...');
+    
+    if (!('serviceWorker' in navigator)) {
+      console.error('Service Worker n\'est pas supporté sur ce navigateur.');
+      return null;
+    }
+    
+    // Enregistrer le service worker
+    let swRegistration;
     try {
-      const currentToken = await getToken(messaging, {
-        vapidKey: vapidKey,
-        serviceWorkerRegistration: await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js')
-      });
+      swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      console.log('Service Worker enregistré avec succès:', swRegistration);
+    } catch (swError) {
+      console.error('Erreur lors de l\'enregistrement du Service Worker:', swError);
+      
+      // Fallback au mode local si le service worker ne peut pas être enregistré
+      console.log('Utilisation des notifications locales suite à l\'erreur de Service Worker.');
+      await saveNotificationToken(userId, 'local-notifications-mode');
+      return 'local-notifications-mode';
+    }
+    
+    try {
+      // Importer dynamiquement Firebase/messaging
+      const { getMessaging, getToken } = await import('firebase/messaging');
+      const { app } = await import('../lib/firebase');
 
-      if (currentToken) {
-        console.log('Token FCM obtenu (premiers caractères):', 
-          currentToken.substring(0, 10) + '...');
-          
-        // Enregistrer le token dans Firestore
-        await saveNotificationToken(userId, currentToken);
-        return currentToken;
-      } else {
-        console.log('Aucun token d\'inscription disponible. Demander la permission pour générer un token.');
-        // Utiliser les notifications natives comme fallback
+      // Vérifier si l'app Firebase a été correctement importée
+      if (!app) {
+        console.error('Application Firebase non disponible');
+        await saveNotificationToken(userId, 'local-notifications-mode');
         return 'local-notifications-mode';
       }
-    } catch (tokenError: any) {
-      console.error('Erreur spécifique lors de la récupération du token:', tokenError);
-      // Ajouter des informations de débogage plus détaillées
-      if (tokenError.toString().includes('messaging/permission-blocked')) {
-        console.log('Les notifications sont bloquées par l\'utilisateur');
-      } else if (tokenError.toString().includes('messaging/token-subscribe-failed')) {
-        console.log('Échec de l\'inscription - probablement un problème avec la clé VAPID ou le service worker');
-        console.log('Vérifiez que l\'API Cloud Messaging est activée dans votre console Firebase.');
+      
+      const messaging = getMessaging(app);
+      
+      // Obtenir le token VAPID de l'environnement
+      const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+      
+      if (!vapidKey) {
+        console.error('Clé VAPID manquante, impossible d\'initialiser Firebase Messaging');
+        
+        // Fallback au mode local si la VAPID key est manquante
+        console.log('Utilisation des notifications locales - VAPID key manquante.');
+        await saveNotificationToken(userId, 'local-notifications-mode');
+        return 'local-notifications-mode';
       }
-      // Utiliser les notifications natives comme fallback
+      
+      // Demander le token FCM pour l'utilisateur
+      console.log('Demande de token FCM avec VAPID key...');
+      const token = await getToken(messaging, {
+        vapidKey,
+        serviceWorkerRegistration: swRegistration
+      });
+      
+      if (!token) {
+        console.error('Échec de l\'obtention du token FCM');
+        
+        // Fallback au mode local si le token est vide
+        console.log('Utilisation des notifications locales - Token FCM vide.');
+        await saveNotificationToken(userId, 'local-notifications-mode');
+        return 'local-notifications-mode';
+      }
+      
+      // Enregistrer le token dans Firestore
+      console.log('Token FCM obtenu, enregistrement...');
+      const success = await saveNotificationToken(userId, token);
+      
+      if (!success) {
+        console.error('Échec de l\'enregistrement du token FCM dans Firestore');
+        return null;
+      }
+      
+      return token;
+    } catch (fcmError) {
+      console.error('Erreur lors de l\'initialisation de Firebase Messaging:', fcmError);
+      
+      // Fallback au mode local en cas d'erreur
+      console.log('Utilisation des notifications locales suite à une erreur FCM.');
+      await saveNotificationToken(userId, 'local-notifications-mode');
       return 'local-notifications-mode';
     }
   } catch (error) {
-    console.error('Erreur lors de l\'initialisation de Firebase Messaging:', error);
-    // Utiliser les notifications natives comme fallback
-    return 'local-notifications-mode';
+    console.error('Erreur globale lors de l\'initialisation des notifications:', error);
+    return null;
   }
 };
 

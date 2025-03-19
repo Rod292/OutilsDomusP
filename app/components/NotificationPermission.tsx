@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bell, BellOff } from 'lucide-react';
+import { Bell, BellOff, BellRing } from 'lucide-react';
 import { requestNotificationPermission, logNotificationPermissionStatus, checkConsultantPermission } from '../services/notificationService';
 import { useAuth } from '../hooks/useAuth';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -57,6 +57,8 @@ export default function NotificationPermission({ className, iconOnly = true }: N
     
     setLoading(true);
     try {
+      // Même si les notifications sont déjà activées, on permet de les réactiver
+      // Cela permet de renouveler le token FCM si nécessaire
       const result = await requestNotificationPermission(notificationId);
       
       if (result === true) {
@@ -89,12 +91,12 @@ export default function NotificationPermission({ className, iconOnly = true }: N
     // Priorité au statut du consultant spécifique
     if (consultantPermissionStatus === 'granted') {
       return {
-        icon: <Bell className={`h-5 w-5 ${iconOnly ? 'text-green-500' : ''}`} />,
+        icon: <BellRing className={`h-5 w-5 ${iconOnly ? 'text-green-500' : ''}`} />,
         text: 'Notifications activées',
-        tooltip: `${tooltipMessage} activées`,
+        tooltip: `${tooltipMessage} activées (cliquez pour réactiver)`,
         variant: 'ghost' as const,
-        onClick: undefined,
-        disabled: true,
+        onClick: handleRequestPermission, // Permettre la réactivation
+        disabled: false,
         className: iconOnly ? 'text-green-500' : 'text-green-600'
       };
     } else if (permissionStatus === 'denied') {

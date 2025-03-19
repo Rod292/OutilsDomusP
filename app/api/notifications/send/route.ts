@@ -24,11 +24,32 @@ export async function POST(request: NextRequest) {
       const authHeader = request.headers.get('Authorization');
       const apiKey = process.env.NOTIFICATIONS_API_KEY;
       
-      // Bypass l'authentification en local si c'est un appel depuis le même host
-      const isLocalRequest = request.headers.get('host')?.includes('localhost');
+      // Vérifier si c'est une requête locale ou du même domaine
+      const origin = request.headers.get('origin') || '';
+      const referer = request.headers.get('referer') || '';
+      const host = request.headers.get('host') || '';
       
-      if (!isLocalRequest && (!authHeader || authHeader !== apiKey)) {
-        console.error('Erreur d\'authentification pour les notifications:', { authHeader });
+      // Autoriser les requêtes locales (localhost) ou du même domaine que le serveur
+      const isLocalRequest = host.includes('localhost') || 
+                             origin.includes('localhost') ||
+                             referer.includes('localhost');
+      
+      // Autoriser les requêtes du même domaine
+      const currentDomain = host.replace(/:\d+$/, ''); // Enlever le port éventuel
+      const isSameDomain = (origin && origin.includes(currentDomain)) || 
+                          (referer && referer.includes(currentDomain));
+      
+      if (!isLocalRequest && !isSameDomain && (!authHeader || authHeader !== apiKey)) {
+        console.error('Erreur d\'authentification pour les notifications:', { 
+          authHeader,
+          origin,
+          referer,
+          host,
+          currentDomain,
+          isLocalRequest,
+          isSameDomain
+        });
+        
         return NextResponse.json(
           { error: 'Non autorisé: API key invalide ou manquante' },
           { status: 401 }
@@ -121,8 +142,8 @@ export async function POST(request: NextRequest) {
       tokens
     };
     
-    // Envoyer la notification avec FCM
-    const response = await admin.messaging().sendMulticast(message);
+    // Envoyer la notification avec FCM en utilisant sendEachForMulticast qui est la méthode standard
+    const response = await admin.messaging().sendEachForMulticast(message);
     
     console.log(`Notification envoyée à ${userId}:`, {
       success: response.successCount,
