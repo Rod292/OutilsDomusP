@@ -1,13 +1,11 @@
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { app } from '../lib/firebase';
 import { Timestamp } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { collection, addDoc, getDocs, query, where, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, getDocs, query, where, updateDoc, serverTimestamp, Firestore } from 'firebase/firestore';
 import { NOTIFICATION_CONFIG } from '../api/notifications/config';
-import { getFirestore } from 'firebase/firestore';
 
 const NOTIFICATION_COLLECTION = 'notifications';
-const TOKEN_COLLECTION = 'notification_tokens';
+const TOKEN_COLLECTION = 'notificationTokens';
 
 /**
  * Enregistre une notification dans la base de données
@@ -30,13 +28,21 @@ export const createNotification = async (notification: {
 
     // Utilisez getFirestore() qui retourne l'instance correcte de Firestore
     const firestore = getFirestore();
+    if (!firestore) {
+      throw new Error('Firestore non initialisé');
+    }
     
-    // Créer la notification dans Firestore avec le timestamp du serveur
-    await addDoc(collection(firestore, 'notifications'), {
+    // CORRECTION: Nettoyer les données pour Firestore
+    const cleanedNotification = {
       ...notification,
+      taskId: notification.taskId || null, // Utiliser null au lieu de undefined
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    });
+    };
+    
+    // Créer la notification dans Firestore avec le timestamp du serveur
+    const notificationsCollection = collection(firestore, NOTIFICATION_COLLECTION);
+    await addDoc(notificationsCollection, cleanedNotification);
 
     console.log(`Notification enregistrée dans Firestore pour ${notification.userId}`);
   } catch (error) {
@@ -127,9 +133,15 @@ export const saveNotificationToken = async (userId: string, token: string): Prom
     const email = userId.includes('_') ? userId.split('_')[0] : userId;
     console.log(`Email extrait: ${email}`);
     
-    // Vérifier si ce token existe déjà pour cet utilisateur
+    // Initialiser Firestore et vérifier qu'il est disponible
     const db = getFirestore();
-    const tokensRef = collection(db, 'notificationTokens');
+    if (!db) {
+      console.error('Firestore non initialisé');
+      return false;
+    }
+    
+    // Vérifier si ce token existe déjà pour cet utilisateur
+    const tokensRef = collection(db, TOKEN_COLLECTION);
     const q = query(tokensRef, 
       where('userId', '==', userId),
       where('token', '==', token)
@@ -161,7 +173,7 @@ export const saveNotificationToken = async (userId: string, token: string): Prom
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
     };
     
-    await addDoc(collection(db, 'notificationTokens'), tokenData);
+    await addDoc(tokensRef, tokenData);
     console.log(`Nouveau token enregistré pour l'utilisateur: ${userId}`);
     
     return true;
@@ -199,8 +211,10 @@ export const checkConsultantPermission = async (userEmail: string, consultantNam
       return false;
     }
 
+    // CORRECTION: Utilisation correcte de la collection
+    const tokensCollection = collection(db, TOKEN_COLLECTION);
     const q = query(
-      collection(db, 'notificationTokens'),
+      tokensCollection,
       where('userId', '==', notificationId)
     );
 

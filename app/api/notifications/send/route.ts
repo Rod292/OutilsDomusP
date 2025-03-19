@@ -27,6 +27,40 @@ const getAdminFirestore = () => {
   }
 };
 
+// CORRECTION: Ajouter cette fonction pour nettoyer les données avant de les envoyer à Firestore
+function sanitizeFirestoreData(data: any): any {
+  // Si null ou undefined, retourner null (Firestore accepte null mais pas undefined)
+  if (data === undefined || data === null) {
+    return null;
+  }
+  
+  // Si c'est un objet (mais pas un tableau), nettoyer chaque propriété
+  if (typeof data === 'object' && !Array.isArray(data) && data !== null) {
+    const result: any = {};
+    
+    // Parcourir toutes les propriétés de l'objet
+    Object.keys(data).forEach(key => {
+      // Récursivité pour nettoyer les sous-objets
+      const value = sanitizeFirestoreData(data[key]);
+      
+      // Ne pas inclure les propriétés undefined
+      if (value !== undefined) {
+        result[key] = value;
+      }
+    });
+    
+    return result;
+  }
+  
+  // Si c'est un tableau, nettoyer chaque élément
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeFirestoreData(item));
+  }
+  
+  // Retourner la valeur telle quelle pour les types primitifs
+  return data;
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Vérifier l'authentification si l'API key est activée
@@ -97,17 +131,20 @@ export async function POST(request: NextRequest) {
         const db = getAdminFirestore();
         
         if (db) {
-          // Créer la notification directement dans Firestore
-          await db.collection('notifications').add({
+          // CORRECTION: Nettoyer les données avant de les ajouter à Firestore
+          const cleanedData = sanitizeFirestoreData({
             userId,
             title,
             body,
             type,
-            taskId: taskId || null,
+            taskId: taskId || null, // Utiliser null au lieu de undefined
             read: false,
             createdAt: new Date(),
             updatedAt: new Date()
           });
+          
+          // Créer la notification directement dans Firestore
+          await db.collection('notifications').add(cleanedData);
           
           console.log(`Notification enregistrée dans Firestore pour ${userId}`);
         } else {
