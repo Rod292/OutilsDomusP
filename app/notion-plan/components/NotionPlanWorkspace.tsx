@@ -884,75 +884,19 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
                     size="default"
                     className="mr-1"
                   />
-                  <div className="mb-4 flex justify-between items-center">
-                    {/* Bouton pour filtrer par tâches assignées */}
-                    <div className="flex items-center">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={toggleAssignedFilter}
-                        className="mr-2 text-xs"
-                      >
-                        {showAssignedTasksOnly ? (
-                          <>
-                            <UsersIcon className="h-4 w-4 mr-1" />
-                            Voir toutes les tâches
-                          </>
-                        ) : (
-                          <>
-                            <UserIcon className="h-4 w-4 mr-1" />
-                            Voir tâches assignées
-                          </>
-                        )}
-                      </Button>
-                      
-                      {/* Sélection de vue */}
-                      <div className="flex border rounded-md overflow-hidden">
-                        <Button 
-                          variant={activeView === 'table' ? "default" : "ghost"} 
-                          size="sm" 
-                          onClick={() => setActiveView('table')}
-                          className="rounded-none border-0 text-xs px-2"
-                        >
-                          <TableIcon className="h-4 w-4 mr-1" />
-                          Tableau
-                        </Button>
-                        <Button 
-                          variant={activeView === 'board' ? "default" : "ghost"} 
-                          size="sm" 
-                          onClick={() => setActiveView('board')}
-                          className="rounded-none border-0 text-xs px-2"
-                        >
-                          <LayoutIcon className="h-4 w-4 mr-1" />
-                          Kanban
-                        </Button>
-                        <Button 
-                          variant={activeView === 'calendar' ? "default" : "ghost"} 
-                          size="sm" 
-                          onClick={() => setActiveView('calendar')}
-                          className="rounded-none border-0 text-xs px-2"
-                        >
-                          <CalendarIcon className="h-4 w-4 mr-1" />
-                          Calendrier
-                        </Button>
-                      </div>
-                    </div>
+                  <div className="flex items-center space-x-2">
+                    {/* Bouton test notifications */}
+                    <NotificationDebugButton />
                     
-                    {/* Bouton pour créer une nouvelle tâche et tester les notifications */}
-                    <div className="flex items-center space-x-2">
-                      {/* Bouton test notifications */}
-                      <NotificationDebugButton />
-                      
-                      {/* Bouton de création de tâche */}
-                      <Button 
-                        onClick={handleNewTask} 
-                        size="sm"
-                        className="bg-[#DC0032] hover:bg-[#B8002A] text-white"
-                      >
-                        <PlusIcon className="h-4 w-4 mr-1" />
-                        Nouvelle tâche
-                      </Button>
-                    </div>
+                    {/* Bouton de création de tâche */}
+                    <Button 
+                      onClick={handleNewTask} 
+                      size="sm"
+                      className="bg-[#DC0032] hover:bg-[#B8002A] text-white"
+                    >
+                      <PlusIcon className="h-4 w-4 mr-1" />
+                      Nouvelle tâche
+                    </Button>
                   </div>
                 </div>
               </div>
