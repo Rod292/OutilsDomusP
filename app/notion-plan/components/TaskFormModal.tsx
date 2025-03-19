@@ -244,37 +244,44 @@ export default function TaskFormModal({
 
   // Préparer les données du formulaire pour la création/mise à jour
   const prepareTaskData = () => {
-    // Ajouter les types d'action comme tags pour faciliter le filtrage
-    const allTags = [...formData.tags];
+    // S'assurer que les tableaux comme tags et assignedTo sont bien définis et normalisés
+    const tags = formData.tags || [];
+    console.log("Préparation des tags pour mise à jour:", tags);
     
-    // Ajouter les types de communication comme tags
-    formData.communicationDetails.forEach(detail => {
-      const typeLabel = getActionTypeLabel(detail.type);
-      if (!allTags.includes(typeLabel)) {
-        allTags.push(typeLabel);
+    // Si on est en mode édition, comparer avec les tags existants
+    if (task) {
+      console.log("Tags actuels de la tâche:", task.tags);
+      if (JSON.stringify(tags) !== JSON.stringify(task.tags)) {
+        console.log("Différence détectée dans les tags");
       }
-    });
+    }
     
-    console.log("État mandatSigne avant envoi:", formData.mandatSigne, typeof formData.mandatSigne);
     // Normaliser explicitement le booléen
     const mandatSigne = formData.mandatSigne === true;
     console.log("État mandatSigne normalisé pour envoi:", mandatSigne);
-    
+
     return {
       title: formData.title,
-      description: formData.description,
-      priority: formData.priority,
+      description: formData.description || "",
       status: formData.status,
-      assignedTo: formData.assignedTo,
+      priority: formData.priority,
+      assignedTo: formData.assignedTo || [],
       dueDate: formData.dueDate,
       reminder: formData.reminder,
-      tags: allTags,
-      propertyAddress: formData.propertyAddress,
-      dossierNumber: formData.dossierNumber,
+      tags: tags, // Utiliser la variable normalisée
+      propertyAddress: formData.propertyAddress || "",
+      dossierNumber: formData.dossierNumber || "",
       actionType: formData.actionType,
-      communicationDetails: formData.communicationDetails,
-      mandatSigne: mandatSigne, // Utiliser la version normalisée
-      createdBy: '',
+      communicationDetails: formData.communicationDetails.map(comm => ({
+        ...comm,
+        // Normaliser les valeurs pour éviter les undefined
+        type: comm.type || "autre",
+        status: comm.status || "à faire",
+        assignedTo: comm.assignedTo || [],
+        priority: comm.priority || "moyenne"
+      })),
+      mandatSigne: mandatSigne,
+      createdBy: user?.email || "" // Ajouter le champ manquant
     };
   };
 
@@ -390,6 +397,22 @@ export default function TaskFormModal({
     
     if (task) {
       console.log("Mise à jour de la tâche ID:", task.id);
+      
+      // Vérifier les différences entre les données actuelles et les nouvelles données
+      const differences = {};
+      Object.keys(taskData).forEach(key => {
+        // @ts-ignore
+        if (JSON.stringify(taskData[key]) !== JSON.stringify(task[key])) {
+          // @ts-ignore
+          differences[key] = {
+            // @ts-ignore
+            avant: task[key],
+            // @ts-ignore
+            après: taskData[key]
+          };
+        }
+      });
+      console.log("Différences détectées pour la mise à jour:", differences);
       
       // Vérifier si de nouveaux utilisateurs ont été assignés
       const newAssignees = taskData.assignedTo.filter(
