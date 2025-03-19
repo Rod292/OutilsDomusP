@@ -166,45 +166,42 @@ export const saveNotificationToken = async (userId: string, token: string): Prom
 };
 
 /**
- * Vérifie si un consultant a les notifications activées
- * @param userEmail Email de l'utilisateur
- * @param consultantName Nom du consultant
+ * Vérifie si un utilisateur a activé les notifications pour un consultant spécifique
+ * @param userEmail Email de l'utilisateur qui a activé la notification
+ * @param consultantName Nom du consultant pour lequel les notifications sont activées
  * @returns Promise<boolean> True si les notifications sont activées
  */
 export const checkConsultantPermission = async (userEmail: string, consultantName: string): Promise<boolean> => {
   try {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
     if (!userEmail || !consultantName) {
+      console.error('Email utilisateur ou nom consultant manquant');
       return false;
     }
+
+    // Construire l'identifiant de notification (email_consultant)
+    const notificationId = `${userEmail}_${consultantName}`;
+    console.log(`Vérification des permissions pour: ${notificationId}`);
     
-    // Construire l'identifiant utilisateur
-    const userId = `${userEmail}_${consultantName}`;
-    
-    // Vérifier si les notifications du navigateur sont autorisées
-    if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
-      return false;
-    }
-    
-    // Vérifier si le token existe dans Firestore
+    // Vérifier dans Firebase si des tokens existent pour cet identifiant
     const db = getFirestore();
-    const tokensRef = collection(db, 'notificationTokens');
-    const q = query(tokensRef, where('userId', '==', userId));
+    if (!db) {
+      console.error('Firestore non initialisé');
+      return false;
+    }
+
+    const q = query(
+      collection(db, 'notificationTokens'),
+      where('userId', '==', notificationId)
+    );
+
     const querySnapshot = await getDocs(q);
-    
-    // Vérifier si le token est valide (pas vide ou null)
-    let hasValidToken = false;
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      if (data.token && data.token !== 'null' && data.token !== 'undefined' && 
-          data.token !== 'local-notifications-mode' && 
-          data.timestamp && (Date.now() - data.timestamp) < 30 * 24 * 60 * 60 * 1000) { // Token de moins de 30 jours
-        hasValidToken = true;
-      }
-    });
-    
-    return hasValidToken;
+    return !querySnapshot.empty;
   } catch (error) {
-    console.error("Erreur lors de la vérification des permissions:", error);
+    console.error('Erreur lors de la vérification des permissions:', error);
     return false;
   }
 };
@@ -443,10 +440,10 @@ export const logNotificationPermissionStatus = () => {
 };
 
 /**
- * Envoie une notification pour une tâche assignée
+ * Envoie une notification pour une tâche assignée à un consultant
  * @param task Tâche assignée
- * @param assignee Email du destinataire 
- * @param currentUserEmail Email de l'utilisateur qui a assigné la tâche
+ * @param assignee Email du consultant assigné à la tâche
+ * @param currentUserEmail Email de l'utilisateur actuellement connecté
  * @param isCommunication Indique s'il s'agit d'une communication
  * @param parentTaskTitle Titre de la tâche parente (pour les communications)
  * @returns Promise<boolean> true si la notification est envoyée avec succès
@@ -468,23 +465,28 @@ export const sendTaskAssignedNotification = async (
     // Extraire le nom du consultant à partir de l'email
     const consultantName = assignee.split('@')[0] || assignee;
     
-    // Construire l'ID de notification (email_consultant)
-    // C'est l'utilisateur connecté qui doit recevoir la notification concernant le consultant
+    // CORRECTION IMPORTANTE: C'est l'utilisateur connecté qui a activé les notifications qui doit recevoir la notification
+    // L'ID de notification doit donc être basé sur l'email de l'utilisateur ET le consultant qu'il surveille
     const notificationId = `${currentUserEmail}_${consultantName}`;
+    
+    console.log(`CORRECTION: Envoi d'une notification à ${notificationId} pour la tâche assignée à ${consultantName}.`);
+    console.log(`Utilisateur actuel: ${currentUserEmail}, Consultant surveillé: ${consultantName}`);
     
     // Préparer les données de la notification avec un message adapté
     const title = isCommunication 
       ? "📝 Nouvelle communication assignée"
       : "📋 Nouvelle tâche assignée";
     
+    // Adapter le message pour indiquer clairement que c'est pour le consultant surveillé
     const body = isCommunication
-      ? `${consultantName}, une nouvelle communication "${task.type || 'Communication'}" pour la tâche "${parentTaskTitle || 'principale'}" vous a été assignée.`
-      : `${consultantName}, une nouvelle tâche "${task.title}" vous a été assignée.`;
+      ? `${consultantName} a reçu une nouvelle communication "${task.type || 'Communication'}" pour la tâche "${parentTaskTitle || 'principale'}".`
+      : `${consultantName} a reçu une nouvelle tâche "${task.title}".`;
     
     // Type de notification
     const notificationType = isCommunication ? "communication_assigned" : "task_assigned";
     
     const notificationData = {
+      // IMPORTANT: L'ID de notification contient maintenant l'email de l'utilisateur qui surveille
       userId: notificationId,
       title,
       body,
@@ -492,7 +494,7 @@ export const sendTaskAssignedNotification = async (
       taskId: task.id
     };
 
-    console.log(`Envoi d'une notification à ${notificationId} pour la ${isCommunication ? 'communication' : 'tâche'} assignée à ${consultantName}.`);
+    console.log(`Préparation de la notification:`, notificationData);
     
     try {
       // Utiliser une URL relative pour éviter les problèmes de domaine
@@ -504,8 +506,34 @@ export const sendTaskAssignedNotification = async (
         body: JSON.stringify(notificationData),
       });
 
+      // Afficher les détails de la réponse pour le débogage
+      console.log(`Réponse API notifications/send:`, {
+        status: response.status,
+        statusText: response.statusText
+      });
+
       // Si l'API échoue, essayer d'envoyer en mode local
       if (!response.ok) {
+        console.error(`Erreur API: ${response.status} - ${response.statusText}`);
+        
+        // Si code 404, essayer mode local automatiquement
+        if (response.status === 404) {
+          console.log('API non trouvée (404), passage en mode local');
+          // Passer en mode local
+          const localSuccess = await sendLocalNotification({
+            title: notificationData.title,
+            body: notificationData.body,
+            data: { 
+              taskId: notificationData.taskId, 
+              type: notificationData.type,
+              userId: notificationData.userId
+            }
+          });
+          
+          console.log('Résultat de l\'envoi de notification locale suite à 404:', localSuccess);
+          return localSuccess;
+        }
+        
         throw new Error(`Erreur API: ${response.status}`);
       }
       
