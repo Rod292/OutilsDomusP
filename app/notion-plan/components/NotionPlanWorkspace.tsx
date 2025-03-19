@@ -476,67 +476,47 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
           if (updatedComm.originalIndex !== undefined) {
             const originalIdx = updatedComm.originalIndex;
             
-            // Si l'index est valide
-            if (originalIdx >= 0 && originalIdx < updatedComms.length) {
+            // Chercher si cette communication avec cet index original existe déjà
+            const existingCommIndex = updatedComms.findIndex(
+              (comm: any) => comm.originalIndex === originalIdx
+            );
+            
+            if (existingCommIndex !== -1) {
+              // Si elle existe, la mettre à jour
               console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour de la communication à l'index original ${originalIdx}`);
               
-              // Mettre à jour cette communication spécifique
-              updatedComms[originalIdx] = {
-                ...normalizedCurrentComms[originalIdx],
+              updatedComms[existingCommIndex] = {
+                ...updatedComms[existingCommIndex],
                 ...updatedComm,
-                // Conserver l'index original
                 originalIndex: originalIdx
               };
             } else {
-              console.warn(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Index original ${originalIdx} invalide`);
+              // Si elle n'existe pas encore, l'ajouter comme nouvelle communication
+              console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Ajout d'une nouvelle communication avec index original ${originalIdx}`);
+              
+              updatedComms.push({
+                ...updatedComm,
+                originalIndex: originalIdx
+              });
             }
           } else {
             // Cas où nous ajoutons une nouvelle communication (sans index original)
-            if (updatedIdx >= updatedComms.length) {
-              console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Ajout d'une nouvelle communication à la position ${updatedIdx}`);
-              
-              // Ajouter la nouvelle communication à la fin du tableau
-              updatedComms.push({
-                ...updatedComm,
-                // Ajouter l'index original pour les futures mises à jour
-                originalIndex: updatedComms.length
-              });
-            } else {
-              console.warn(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Communication sans index original à la position ${updatedIdx}`);
-              // Cas particulier où l'index original n'est pas disponible
-              // Dans ce cas, on essaie de trouver la communication par son type
-              const commType = updatedComm.type;
-              
-              // Trouver toutes les communications du même type
-              const matchingComms = normalizedCurrentComms
-                .map((comm: any, idx: number) => ({ comm, idx }))
-                .filter(item => item.comm.type === commType);
-              
-              if (matchingComms.length === 1) {
-                // S'il n'y a qu'une seule communication de ce type, on peut la mettre à jour sans ambiguïté
-                const matchIdx = matchingComms[0].idx;
-                console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Communication trouvée par type à l'index ${matchIdx}`);
-                
-                updatedComms[matchIdx] = {
-                  ...normalizedCurrentComms[matchIdx],
-                  ...updatedComm,
-                  // Ajouter l'index original pour les futures mises à jour
-                  originalIndex: matchIdx
-                };
-              } else if (updatedIdx < updatedComms.length) {
-                // En dernier recours, utiliser l'index dans le tableau de mise à jour
-                console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Utilisation de l'index du tableau (${updatedIdx}) comme dernier recours`);
-                
-                updatedComms[updatedIdx] = {
-                  ...normalizedCurrentComms[updatedIdx],
-                  ...updatedComm,
-                  // Ajouter l'index original pour les futures mises à jour
-                  originalIndex: updatedIdx
-                };
-              } else {
-                console.error(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Impossible de trouver où appliquer la mise à jour pour la communication ${updatedIdx}`);
-              }
-            }
+            console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Ajout d'une nouvelle communication à la position ${updatedIdx} sans index original`);
+            
+            // Calculer un nouvel index original (utiliser le plus grand index + 1)
+            const nextOriginalIndex = updatedComms.length > 0 
+              ? Math.max(...updatedComms.map((comm: any) => 
+                  comm.originalIndex !== undefined ? comm.originalIndex : -1
+                )) + 1 
+              : 0;
+            
+            console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Nouvel index original attribué: ${nextOriginalIndex}`);
+            
+            // Ajouter la nouvelle communication à la fin du tableau
+            updatedComms.push({
+              ...updatedComm,
+              originalIndex: nextOriginalIndex
+            });
           }
         });
         

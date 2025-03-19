@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, ImageIcon, VideoIcon, FileTextIcon } from 'lucide-react';
-import { Task } from '../types';
+import { Task, CommunicationDetail } from '../types';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
@@ -28,13 +28,15 @@ const DraggableTask = ({
   onEditTask, 
   onUpdateTask,
   commIndex,
-  stableCommId
+  stableCommId,
+  uuid
 }: { 
   task: Task; 
   onEditTask: (task: Task) => void; 
   onUpdateTask: (task: Partial<Task> & { id: string }) => Promise<void>;
   commIndex?: number;
   stableCommId?: string;
+  uuid?: string;
 }) => {
   // Récupérer les détails de la communication si disponible
   const commDetails = commIndex !== undefined && task.communicationDetails && task.communicationDetails.length > 0 
@@ -44,13 +46,19 @@ const DraggableTask = ({
   // Récupérer le type de communication
   const commType = commDetails?.type || null;
   
-  // Utiliser l'identifiant stable passé en paramètre s'il existe, sinon le calculer
-  const stableCommIdForDisplay = stableCommId || (commDetails && commIndex !== undefined ? 
-    `${commType}-${commIndex}-${task.id}` : 
+  // Utiliser l'UUID passé par le parent ou en créer un nouveau (ne devrait jamais arriver)
+  const communicationUUID = uuid || (commDetails && commIndex !== undefined ? 
+    getOrCreateCommunicationUUID(task.id, commDetails.type, commIndex) : 
     null);
   
+  // Générer un ID unique basé sur le contenu (comme avant mais uniquement pour la journalisation)
+  const contentBasedId = commDetails ? `${commDetails.type}-${task.propertyAddress || ''}-${task.dossierNumber || ''}-${commDetails.details || ''}` : '';
+  
+  // Utiliser exclusivement l'UUID comme identifiant stable
+  const stableCommIdForDisplay = communicationUUID;
+  
   // Générer un ID vraiment unique pour chaque communication
-  const uniqueDragId = `${task.id}-${stableCommIdForDisplay || 'main'}`;
+  const uniqueDragId = `${task.id}-${stableCommIdForDisplay || 'main'}-${Date.now()}`;
   
   // Créer un objet avec toutes les données nécessaires pour identifier correctement la communication
   const dragItem = {
@@ -58,11 +66,16 @@ const DraggableTask = ({
     commIndex,
     commType,
     stableCommId: stableCommIdForDisplay,
-    uniqueId: uniqueDragId
+    uniqueId: uniqueDragId,
+    propertyAddress: task.propertyAddress,
+    dossierNumber: task.dossierNumber,
+    currentDate: commDetails?.deadline ? new Date(commDetails.deadline).toISOString() : null,
+    contentBasedId,
+    uuid: communicationUUID
   };
   
   // Log pour déboguer
-  console.log(`Préparation drag: ${JSON.stringify(dragItem)}`);
+  console.log(`Préparation drag: élément avec UUID: ${communicationUUID}, type: ${commType}, index: ${commIndex}`);
   
   const [{ isDragging }, dragRef] = useDrag(() => ({
     type: ItemTypes.TASK,
@@ -267,120 +280,73 @@ const DroppableDay = ({
 }) => {
   const [{ isOver }, dropRef] = useDrop(() => ({
     accept: ItemTypes.TASK,
-    drop: async (item: { id: string, commIndex?: number, commType?: string, stableCommId?: string, uniqueId?: string }) => {
-      console.log(`Drop: élément avec uniqueId: ${item.uniqueId}`);
+    drop: async (item: { 
+      id: string, 
+      commIndex?: number, 
+      commType?: string, 
+      stableCommId?: string, 
+      uniqueId?: string,
+      propertyAddress?: string,
+      dossierNumber?: string,
+      currentDate?: string | null,
+      contentBasedId?: string,
+      uuid?: string
+    }) => {
+      console.log(`Déplacement de la communication vers ${date.toLocaleDateString()}`);
       
-      // Trouver la tâche par son ID
-      const taskToUpdate = tasks.find(t => t.id === item.id);
-      
-      if (!taskToUpdate) {
-        console.error(`Tâche non trouvée: ${item.id}`);
-        return;
-      }
-      
-      // Créer une date formatée pour le débogage
-      const formattedDate = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-      console.log(`Date cible pour le drop: ${formattedDate}`);
-
-      // Cas 1: Mise à jour d'une communication spécifique
-      if (taskToUpdate.communicationDetails && item.stableCommId) {
-        // Essayer de trouver l'index de la communication en utilisant l'identifiant stable
-        let commIndexToUpdate: number | undefined;
+      try {
+        // Récupérer la tâche à mettre à jour
+        const taskToUpdate = tasks.find(t => t.id === item.id);
         
-        // Recherche par identifiant stable (méthode la plus fiable)
-        commIndexToUpdate = taskToUpdate.communicationDetails.findIndex((comm, idx) => {
-          const commStableId = `${comm.type}-${idx}`;
-          return commStableId === item.stableCommId;
-        });
-        
-        // Si pas trouvé, essayer par type
-        if (commIndexToUpdate === -1 && item.commType) {
-          commIndexToUpdate = taskToUpdate.communicationDetails.findIndex(
-            comm => comm.type === item.commType
-          );
-          
-          if (commIndexToUpdate !== -1) {
-            console.warn(`Communication trouvée par type (${item.commType}) à l'index ${commIndexToUpdate}`);
-          }
-        }
-        
-        // En dernier recours, utiliser l'index d'origine
-        if (commIndexToUpdate === -1) {
-          console.error(`Communication non trouvée avec l'identifiant: ${item.stableCommId}`);
-          console.warn(`Utilisation de l'index d'origine (${item.commIndex}) comme dernier recours`);
-          commIndexToUpdate = item.commIndex;
-        }
-        
-        // Vérifier que l'index est valide
-        if (typeof commIndexToUpdate !== 'number' || commIndexToUpdate >= taskToUpdate.communicationDetails.length) {
-          console.error(`Index de communication invalide: ${commIndexToUpdate}`);
+        if (!taskToUpdate) {
+          console.log(`Tâche non trouvée: ${item.id}`);
           return;
         }
         
-        // Récupérer la communication spécifique
-        const commToUpdate = taskToUpdate.communicationDetails[commIndexToUpdate];
-        
-        // Récupérer le type de communication pour les logs
-        const commType = commToUpdate.type;
-        console.log(`Déplacement de la communication: ${commType} (index actuel: ${commIndexToUpdate})`);
-        
-        try {
-          // Créer une copie du tableau des communications
-          const updatedComms = taskToUpdate.communicationDetails.map((comm, idx) => {
-            // Ne mettre à jour que la communication spécifique
-            if (idx === commIndexToUpdate) {
-              // Journalisation des dates pour débogage
-              const oldDate = comm.deadline ? new Date(comm.deadline) : null;
-              const oldDateStr = oldDate 
-                ? `${oldDate.getFullYear()}-${oldDate.getMonth() + 1}-${oldDate.getDate()}`
-                : "non définie";
-              
-              const newDateStr = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-              console.log(`Communication '${commType}' déplacée de ${oldDateStr} à ${newDateStr}`);
-              
-              // Retourner une nouvelle version de cette communication avec la date modifiée
-              return {
-                ...comm,
-                deadline: date
-              };
-            }
-            // Retourner les autres communications inchangées
-            return comm;
+        // Cas 1: Mise à jour d'une communication spécifique
+        if (taskToUpdate.communicationDetails && item.uuid) {
+          // Rechercher la communication par UUID
+          const commIndexToUpdate = taskToUpdate.communicationDetails.findIndex((comm, idx) => {
+            const commUUID = getOrCreateCommunicationUUID(taskToUpdate.id, comm.type, idx);
+            return commUUID === item.uuid;
           });
           
-          // Mise à jour atomique avec le tableau mis à jour
+          if (commIndexToUpdate === -1) {
+            console.log(`Communication non trouvée avec UUID: ${item.uuid}`);
+            return;
+          }
+          
+          // APPROCHE ULTRA-SIMPLIFIÉE:
+          // Au lieu de modifier nous-mêmes le tableau des communications,
+          // nous créons une simple communication modifiée avec l'index original
+          // et laissons handleUpdateTask faire le travail de fusion
+          const simpleCommunication = {
+            type: taskToUpdate.communicationDetails[commIndexToUpdate].type,
+            deadline: date,
+            originalIndex: commIndexToUpdate
+          };
+          
+          // Créer un tableau avec cette seule communication
+          const updatedCommunications = [simpleCommunication];
+          
+          // Envoyer uniquement l'ID et la communication modifiée
+          // handleUpdateTask s'occupera de fusionner correctement avec les données existantes
           await onUpdateTask({
             id: item.id,
-            communicationDetails: updatedComms
+            communicationDetails: updatedCommunications
           });
           
-          console.log("Mise à jour de la communication terminée avec succès");
-          // Débogger le tableau final
-          console.log("Nouvelles dates des communications:", 
-            updatedComms.map((c, i) => `${i}: ${c.type} - ${c.deadline ? new Date(c.deadline).toLocaleDateString() : 'non définie'}`));
-        } catch (error) {
-          console.error("Erreur lors de la mise à jour:", error);
+          console.log(`Demande de mise à jour envoyée pour la communication ${commIndexToUpdate}`);
+        } 
+        // Cas 2: Mise à jour de la date principale de la tâche
+        else {
+          await onUpdateTask({
+            id: item.id,
+            dueDate: date
+          });
         }
-      } 
-      // Cas 2: Mise à jour de la date principale de la tâche
-      else {
-        const oldDate = taskToUpdate.dueDate 
-          ? new Date(taskToUpdate.dueDate) 
-          : null;
-        
-        const oldDateStr = oldDate 
-          ? `${oldDate.getFullYear()}-${oldDate.getMonth() + 1}-${oldDate.getDate()}`
-          : "non définie";
-          
-        console.log(`Tâche principale déplacée de ${oldDateStr} à ${formattedDate}`);
-        
-        // Mise à jour atomique uniquement de la date d'échéance principale
-        await onUpdateTask({
-          id: item.id,
-          dueDate: date
-        });
-        
-        console.log("Mise à jour de la tâche principale terminée avec succès");
+      } catch (error) {
+        console.error("Erreur:", error);
       }
     },
     collect: (monitor) => ({
@@ -396,6 +362,7 @@ const DroppableDay = ({
       task: Task;
       commIndex?: number;
       stableCommId?: string;  // Identifiant stable pour la communication
+      uuid?: string;          // UUID unique pour cette communication
     }
     
     const displayTasks: DisplayTask[] = [];
@@ -421,29 +388,41 @@ const DroppableDay = ({
       // Cas 2: Tâche avec des communications - créer une tâche distincte pour chaque communication prévue à cette date
       if (task.communicationDetails && task.communicationDetails.length > 0) {
         // Pour chaque communication, vérifier si elle est prévue pour cette date
-        task.communicationDetails.forEach((comm, commIndex) => {
+        task.communicationDetails.forEach((comm, arrayIndex) => {
+          // Utiliser l'index d'origine s'il est défini, sinon utiliser l'index courant dans le tableau
+          const commIndex = comm.originalIndex !== undefined ? comm.originalIndex : arrayIndex;
+          
           if (comm.deadline) {
-            const commDate = new Date(comm.deadline);
+            // S'assurer que deadline est une date JavaScript
+            const commDate = comm.deadline instanceof Date ? 
+              comm.deadline : 
+              new Date(comm.deadline);
+            
             // Si la date correspond à la date de la cellule
             if (
               commDate.getDate() === date.getDate() &&
               commDate.getMonth() === date.getMonth() &&
               commDate.getFullYear() === date.getFullYear()
             ) {
-              // Créer un identifiant stable pour cette communication
-              // L'identifiant ne doit PAS inclure la date pour rester stable après déplacement
-              // Mais doit inclure l'index pour garantir l'unicité
-              const stableCommId = `${comm.type}-${commIndex}-${task.id}`;
+              // Générer ou récupérer l'UUID pour cette communication
+              const communicationUUID = getOrCreateCommunicationUUID(task.id, comm.type, commIndex);
               
               // Log pour faciliter le débogage
-              console.log(`Préparation de l'affichage pour la communication ${commIndex} (${comm.type}) avec ID stable: ${stableCommId}`);
+              console.log(`Préparation de l'affichage pour la communication ${commIndex} (${comm.type}) avec UUID: ${communicationUUID} et date: ${commDate.toLocaleDateString()}`);
               
               // IMPORTANT: Créer une copie complètement isolée de la tâche
               // avec SEULEMENT cette communication spécifique
               const taskCopy = {
                 ...JSON.parse(JSON.stringify(task)),
                 // Remplacer complètement le tableau communicationDetails avec uniquement cette communication
-                communicationDetails: [JSON.parse(JSON.stringify(comm))]
+                // mais en gardant aussi l'index original pour référence
+                communicationDetails: [
+                  {
+                    ...JSON.parse(JSON.stringify(comm)),
+                    // S'assurer que l'index original est bien préservé
+                    originalIndex: commIndex
+                  }
+                ]
               };
 
               // Effacer les propriétés qui pourraient causer des confusions
@@ -454,29 +433,15 @@ const DroppableDay = ({
               displayTasks.push({ 
                 task: taskCopy, 
                 commIndex,
-                stableCommId
+                stableCommId: communicationUUID, // Pour la compatibilité
+                uuid: communicationUUID        // L'UUID est maintenant l'identifiant principal
               });
             }
           }
         });
       }
     });
-    
-    // Vérifier l'isolation en journalisant les tâches préparées
-    if (displayTasks.length > 0) {
-      console.log(`Jour ${date.getDate()}: ${displayTasks.length} tâches préparées`);
-      
-      // Log détaillé pour le débogage
-      displayTasks.forEach((item, idx) => {
-        const commDetails = item.commIndex !== undefined ? item.task.communicationDetails?.[0] : null;
-        console.log(`  ${idx}: Tâche ${item.task.id} - ${item.task.title}, ${
-          item.commIndex !== undefined 
-            ? `Communication ${item.commIndex} (${commDetails?.type}) [ID: ${item.stableCommId}]` 
-            : 'Tâche principale'
-        }`);
-      });
-    }
-    
+
     return displayTasks;
   };
 
@@ -512,12 +477,13 @@ const DroppableDay = ({
       <div className="space-y-1 max-h-[200px] overflow-y-auto">
         {tasksToDisplay.map((item, index) => (
           <DraggableTask
-            key={`${item.task.id}-${item.stableCommId || 'main'}-${index}`}
+            key={`${item.task.id}-${item.uuid || 'main'}-${index}`}
             task={item.task}
             onEditTask={onEditTask}
             onUpdateTask={onUpdateTask}
             commIndex={item.commIndex}
             stableCommId={item.stableCommId}
+            uuid={item.uuid}  // Passer l'UUID explicitement au composant enfant
           />
         ))}
       </div>
@@ -525,8 +491,57 @@ const DroppableDay = ({
   );
 };
 
+// Fonction utilitaire pour générer un UUID aléatoire
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
+// Fonction pour obtenir ou créer un UUID pour une communication
+const getOrCreateCommunicationUUID = (taskId: string, commType: string, commIndex: number) => {
+  if (typeof window === 'undefined') return generateUUID();
+  
+  const key = `${taskId}:${commType}:${commIndex}`;
+  
+  if (!(window as any).communicationUUIDs) {
+    (window as any).communicationUUIDs = {};
+  }
+  
+  if (!(window as any).communicationUUIDs[key]) {
+    // Générer un nouvel UUID
+    (window as any).communicationUUIDs[key] = generateUUID();
+    console.log(`SYSTÈME UUID: Création d'un nouvel UUID pour ${key}: ${(window as any).communicationUUIDs[key]}`);
+  }
+  
+  return (window as any).communicationUUIDs[key];
+};
+
 export default function TaskCalendar({ tasks, onEditTask, onUpdateTask }: TaskCalendarProps) {
+  // Initialiser le système de suivi des communications déplacées
+  if (typeof window !== 'undefined') {
+    // Créer un registre pour les identifiants permanents si nécessaire
+    if (!(window as any).movedCommunications) {
+      console.log("Initialisation du système de suivi des communications...");
+      (window as any).movedCommunications = {};
+    }
+    
+    // Créer un registre pour les communications déplacées récemment
+    if (!(window as any).lastMovedCommunications) {
+      console.log("Initialisation du système de suivi des déplacements récents...");
+      (window as any).lastMovedCommunications = [];
+    }
+    
+    // Créer un identifiant unique pour chaque communication basé sur son contenu
+    if (!(window as any).communicationUUIDs) {
+      console.log("Initialisation du système d'identifiants uniques des communications...");
+      (window as any).communicationUUIDs = {};
+    }
+  }
+  
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [calendarDays, setCalendarDays] = useState<Date[]>([]);
   const [displayMode, setDisplayMode] = useState<'month' | 'week'>('month');
   
@@ -564,19 +579,20 @@ export default function TaskCalendar({ tasks, onEditTask, onUpdateTask }: TaskCa
   
   // Filtrer les tâches pour n'afficher que les communications assignées au consultant actuel
   const filteredTasks = React.useMemo(() => {
+    // Vérifier si le filtre des tâches assignées est actif
+    const isAssignedFilterActive = window.location.search.includes('assignedFilter=true');
+    
+    // Si le filtre des tâches assignées n'est pas actif, montrer toutes les tâches
+    if (!isAssignedFilterActive) return tasks;
+    
+    // Si pas de consultant sélectionné, retourner toutes les tâches
     if (!consultant) return tasks;
     
     // Convertir le nom du consultant en email pour la correspondance
     const consultantEmail = getConsultantEmail(consultant);
     if (!consultantEmail) return tasks;
     
-    // Vérifier si le filtre des tâches assignées est actif
-    const isAssignedFilterActive = window.location.search.includes('assignedFilter=true');
-    
-    // Si le filtre des tâches assignées est actif, montrer toutes les tâches
-    if (isAssignedFilterActive) return tasks;
-    
-    // Sinon, filtrer pour ne montrer que les communications assignées au consultant
+    // Filtrer pour ne montrer que les communications assignées au consultant
     return tasks.map(task => {
       // Copie de la tâche pour éviter de modifier l'original
       const taskCopy = {...task};

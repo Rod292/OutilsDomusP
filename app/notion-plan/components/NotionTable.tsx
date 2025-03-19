@@ -633,9 +633,13 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
   // Fonction pour ajouter un consultant à une sous-tâche de communication
   const addCommunicationAssignee = async (taskId: string, commIndex: number, email: string) => {
     try {
-      // Utiliser useAuth comme un hook n'est pas possible dans une fonction de composant
-      // Nous allons donc importer directement le service de notification
-      const { sendTaskAssignedNotification } = await import('@/app/services/notificationService');
+      // Utiliser sessionStorage pour récupérer l'email de l'utilisateur connecté
+      const userEmail = sessionStorage.getItem('userEmail');
+      
+      if (!userEmail) {
+        console.error('Email de l\'utilisateur non disponible dans sessionStorage');
+        // Continuer quand même, uniquement l'envoi de notification sera affecté
+      }
       
       const task = tasks.find(t => t.id === taskId);
       if (!task || !task.communicationDetails) {
@@ -677,12 +681,11 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       
       console.log(`Utilisateur ${email} ajouté à la communication ${commIndex} de la tâche ${taskId}`);
       
-      // Récupérer l'email de l'utilisateur connecté pour les notifications
-      const userEmail = sessionStorage.getItem('userEmail');
-      
       // Envoyer une notification si l'email de l'utilisateur est disponible
       if (userEmail) {
         try {
+          const { sendTaskAssignedNotification } = await import('@/app/services/notificationService');
+          
           // Envoyer une notification spécifique pour une communication
           await sendTaskAssignedNotification(
             existingComm,
