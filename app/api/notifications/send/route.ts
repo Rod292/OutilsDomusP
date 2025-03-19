@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
             title,
             body,
             type,
-            taskId,
+            taskId: taskId || null,
             read: false,
             createdAt: new Date(),
             updatedAt: new Date()
