@@ -37,14 +37,9 @@ function NotionPlanContent() {
   }
   
   return (
-    <div className="container px-0 py-4 md:py-6 flex flex-col h-full">
-      <header className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Plan de communication</h1>
-        <div className="flex items-center gap-2">
-          <NotificationDebugButton />
-        </div>
-      </header>
+    <>
+      <NotificationDebugButton />
       <NotionPlanWorkspace consultant={consultant} />
-    </div>
+    </>
   );
 } 

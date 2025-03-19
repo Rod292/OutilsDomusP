@@ -54,18 +54,18 @@ export default function NotificationDebugButton({ className = '' }: Notification
           <Button
             variant={error ? "destructive" : success ? "default" : "outline"}
             size="sm"
-            className={`${className} flex items-center gap-1`}
+            className={`${className} rounded-full h-8 w-auto text-xs px-2 absolute top-2 right-2 z-10`}
             onClick={handleResetNotifications}
             disabled={loading}
           >
             {loading ? (
-              <RefreshCw className="h-4 w-4 animate-spin" />
+              <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
             ) : error ? (
-              <AlertCircle className="h-4 w-4" />
+              <AlertCircle className="h-3 w-3 mr-1" />
             ) : success ? (
-              <BellRing className="h-4 w-4" />
+              <BellRing className="h-3 w-3 mr-1" />
             ) : (
-              <Bell className="h-4 w-4" />
+              <Bell className="h-3 w-3 mr-1" />
             )}
             Test notifications
           </Button>
