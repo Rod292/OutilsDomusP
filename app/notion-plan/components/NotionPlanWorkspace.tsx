@@ -165,31 +165,63 @@ const sendTaskAssignedNotification = async (task: any, assignee: string, current
       if (result.error) {
         throw new Error(result.error);
       }
+      
+      // Vérifier si le serveur nous suggère d'utiliser le mode local
+      if (result.useLocalMode && typeof window !== 'undefined') {
+        console.log('Mode local suggéré par le serveur, envoi direct d\'une notification...');
+        const { sendLocalNotification } = await import('../../services/notificationService');
+        
+        const success = await sendLocalNotification({
+          title: notificationData.title,
+          body: notificationData.body,
+          data: { 
+            taskId: notificationData.taskId, 
+            type: notificationData.type,
+            userId: notificationData.userId
+          }
+        });
+        
+        console.log('Résultat de l\'envoi de notification locale:', success);
+      }
     } catch (apiError) {
       console.error('Erreur lors de l\'envoi via API, tentative d\'envoi local:', apiError);
       
       // Fallback: utiliser les notifications locales
       const { sendLocalNotification, createNotification } = await import('../../services/notificationService');
       
-      // Enregistrer la notification dans Firestore
-      await createNotification({
-        userId: notificationId,
+      // S'assurer que la notification est enregistrée dans Firestore
+      try {
+        await createNotification({
+          userId: notificationId,
+          title: notificationData.title,
+          body: notificationData.body,
+          type: notificationData.type,
+          taskId: notificationData.taskId,
+          read: false
+        });
+        
+        console.log('Notification enregistrée dans Firestore manuellement après échec API');
+      } catch (firestoreError) {
+        console.error('Échec également de l\'enregistrement dans Firestore:', firestoreError);
+        // Continue quand même pour essayer d'envoyer la notification locale
+      }
+      
+      // Dernier recours: envoyer une notification locale directement
+      console.log('Tentative d\'envoi de notification locale en dernier recours...');
+      const localSuccess = await sendLocalNotification({
         title: notificationData.title,
         body: notificationData.body,
-        type: notificationData.type,
-        taskId: notificationData.taskId,
-        read: false
+        data: { 
+          taskId: notificationData.taskId, 
+          type: notificationData.type,
+          userId: notificationData.userId
+        }
       });
       
-      // Envoyer une notification locale
-      await sendLocalNotification({
-        title: notificationData.title,
-        body: notificationData.body,
-        data: { taskId: notificationData.taskId, type: notificationData.type }
-      });
+      console.log('Résultat de l\'envoi de notification locale en dernier recours:', localSuccess);
     }
   } catch (error) {
-    console.error('Erreur lors de l\'envoi de la notification:', error);
+    console.error('Erreur globale lors de l\'envoi de la notification:', error);
   }
 };
 

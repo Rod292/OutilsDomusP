@@ -69,6 +69,16 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Journaliser la demande de notification
+    console.log(`Demande d'envoi de notification:`, {
+      userId,
+      title,
+      body,
+      type,
+      taskId: taskId || 'non spécifié',
+      mode: NOTIFICATION_CONFIG.USE_FCM ? 'FCM' : 'local'
+    });
+    
     // Enregistrer la notification dans Firestore
     if (NOTIFICATION_CONFIG.STORE_NOTIFICATIONS) {
       try {
@@ -89,11 +99,18 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Si FCM est désactivé, on retourne juste un succès (la notification a été enregistrée dans Firestore)
+    // Si FCM est désactivé, on retourne une réponse spéciale pour le mode local
     if (!NOTIFICATION_CONFIG.USE_FCM) {
       return NextResponse.json({
         success: true,
         message: 'Notification enregistrée (mode FCM désactivé)',
+        useLocalMode: true, // Indique au client qu'il doit utiliser le mode local
+        notification: {
+          title,
+          body,
+          taskId,
+          type
+        },
         fcmStatus: 'disabled'
       });
     }
@@ -105,9 +122,17 @@ export async function POST(request: NextRequest) {
       .get();
     
     if (tokensSnapshot.empty) {
+      console.log(`Aucun token FCM trouvé pour l'utilisateur ${userId}, suggestion du mode local`);
       return NextResponse.json({
-        warning: `Aucun token FCM trouvé pour l'utilisateur ${userId}`,
-        success: false
+        success: false,
+        useLocalMode: true,
+        notification: {
+          title,
+          body,
+          taskId,
+          type
+        },
+        warning: `Aucun token FCM trouvé pour l'utilisateur ${userId}`
       }, { status: 404 });
     }
     
@@ -121,10 +146,17 @@ export async function POST(request: NextRequest) {
     });
     
     if (tokens.length === 0) {
+      console.log(`Aucun token FCM valide trouvé pour l'utilisateur ${userId}, suggestion du mode local`);
       return NextResponse.json({
-        warning: `Aucun token FCM valide trouvé pour l'utilisateur ${userId}`,
         success: false,
-        localMode: true
+        useLocalMode: true,
+        notification: {
+          title,
+          body,
+          taskId,
+          type
+        },
+        warning: `Aucun token FCM valide trouvé pour l'utilisateur ${userId}`
       }, { status: 404 });
     }
     
@@ -151,6 +183,23 @@ export async function POST(request: NextRequest) {
       tokens: tokens.length
     });
     
+    // Si l'envoi a échoué pour tous les tokens, suggérer le mode local
+    if (response.successCount === 0 && response.failureCount > 0) {
+      return NextResponse.json({
+        success: false,
+        sent: 0,
+        failed: response.failureCount,
+        useLocalMode: true,
+        notification: {
+          title,
+          body,
+          taskId,
+          type
+        },
+        warning: 'Tous les envois FCM ont échoué, essayez le mode local'
+      });
+    }
+    
     return NextResponse.json({
       success: true,
       sent: response.successCount,
@@ -161,7 +210,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Erreur lors de l\'envoi de la notification:', error);
     return NextResponse.json(
-      { error: 'Erreur interne du serveur lors de l\'envoi de la notification' },
+      { 
+        error: 'Erreur interne du serveur lors de l\'envoi de la notification',
+        useLocalMode: true, // Suggérer le mode local en cas d'erreur
+      },
       { status: 500 }
     );
   }

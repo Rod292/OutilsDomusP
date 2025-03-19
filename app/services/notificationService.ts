@@ -52,31 +52,59 @@ export const sendLocalNotification = async (notification: {
   icon?: string;
   data?: any;
 }) => {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
+  if (typeof window === 'undefined') {
+    console.log('sendLocalNotification: Impossible d\'envoyer une notification côté serveur');
     return false;
   }
   
-  if (Notification.permission !== 'granted') {
+  if (!('Notification' in window)) {
+    console.log('sendLocalNotification: Les notifications ne sont pas supportées dans ce navigateur');
     return false;
+  }
+  
+  // Vérifier le statut des permissions de notification
+  console.log('sendLocalNotification: Statut actuel des permissions de notification:', Notification.permission);
+  
+  if (Notification.permission !== 'granted') {
+    console.log('sendLocalNotification: Permissions non accordées, tentative de demande...');
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        console.log('sendLocalNotification: Permissions refusées par l\'utilisateur');
+        return false;
+      }
+    } catch (error) {
+      console.error('sendLocalNotification: Erreur lors de la demande de permission:', error);
+      return false;
+    }
   }
   
   try {
     const { title, body, icon = '/images/logo_arthur_loyd.png', data = {} } = notification;
+    
+    console.log('sendLocalNotification: Création de la notification avec:', { title, body, data });
+    
     const notif = new Notification(title, {
       body, 
       icon,
       badge: '/images/logo_arthur_loyd.png',
-      data
+      data,
+      requireInteraction: true, // Garder la notification visible jusqu'à ce que l'utilisateur interagisse avec
+      tag: data?.taskId || `notification-${Date.now()}` // Ajouter un tag unique pour identifier la notification
     });
     
     notif.onclick = () => {
+      console.log('sendLocalNotification: Notification cliquée');
       const taskId = data?.taskId;
+      window.focus(); // Mettre le focus sur la fenêtre actuelle
       window.open(taskId ? `/notion-plan?taskId=${taskId}` : '/notion-plan', '_blank');
     };
     
+    // Passer un événement de notification créée à la console
+    console.log('sendLocalNotification: Notification envoyée avec succès:', { title, body });
     return true;
   } catch (error) {
-    console.error('Erreur lors de l\'envoi de notification locale:', error);
+    console.error('sendLocalNotification: Erreur lors de l\'envoi de notification locale:', error);
     return false;
   }
 };

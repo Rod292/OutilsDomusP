@@ -278,6 +278,110 @@ export default function TaskFormModal({
     };
   };
 
+  // Mettre à jour la partie qui gère l'envoi de notifications après l'assignation de tâches
+  // Améliorer pour gérer le mode local si FCM échoue
+  const sendNotificationAfterAssignment = async (
+    assigneeEmail: string, 
+    taskTitle: string, 
+    taskId: string, 
+    userEmail: string | null | undefined
+  ) => {
+    if (!userEmail) {
+      console.error('Email de l\'utilisateur non disponible, impossible d\'envoyer la notification');
+      return;
+    }
+    
+    try {
+      // Extraire le nom du consultant à partir de l'email
+      const consultantName = assigneeEmail.split('@')[0] || assigneeEmail;
+      
+      // L'ID de notification est l'email de l'utilisateur connecté + le consultant
+      const notificationId = `${userEmail}_${consultantName}`;
+      
+      // Données de la notification
+      const notificationData = {
+        userId: notificationId,
+        title: '📋 Nouvelle tâche assignée',
+        body: `${consultantName}, une nouvelle tâche "${taskTitle}" vous a été assignée.`,
+        taskId,
+        type: 'task_assigned',
+      };
+      
+      console.log(`Envoi d'une notification à ${userEmail} concernant ${consultantName} pour la tâche assignée.`);
+      
+      // Envoyer la notification via l'API
+      const response = await fetch('/api/notifications/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(notificationData),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erreur API: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('Résultat de l\'envoi de notification:', result);
+      
+      // Vérifier si le serveur suggère d'utiliser le mode local
+      if (result.useLocalMode && typeof window !== 'undefined') {
+        console.log('Mode local suggéré par le serveur, tentative directe...');
+        const { sendLocalNotification } = await import('../../services/notificationService');
+        
+        await sendLocalNotification({
+          title: notificationData.title,
+          body: notificationData.body,
+          data: { 
+            taskId: notificationData.taskId, 
+            type: notificationData.type,
+            userId: notificationData.userId
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi de notification:', error);
+      
+      // Essayer le mode local en cas d'échec
+      try {
+        console.log('Tentative d\'envoi en mode local après échec...');
+        
+        // Extraire le nom du consultant à partir de l'email
+        const consultantName = assigneeEmail.split('@')[0] || assigneeEmail;
+        
+        // Importer les fonctions nécessaires
+        const { sendLocalNotification, createNotification } = await import('../../services/notificationService');
+        
+        // Construire l'ID de notification et les données
+        const notificationId = `${userEmail}_${consultantName}`;
+        
+        // Enregistrer dans Firestore
+        await createNotification({
+          userId: notificationId,
+          title: '📋 Nouvelle tâche assignée',
+          body: `${consultantName}, une nouvelle tâche "${taskTitle}" vous a été assignée.`,
+          type: 'task_assigned',
+          taskId,
+          read: false
+        });
+        
+        // Envoyer notification locale
+        await sendLocalNotification({
+          title: '📋 Nouvelle tâche assignée',
+          body: `${consultantName}, une nouvelle tâche "${taskTitle}" vous a été assignée.`,
+          data: { 
+            taskId, 
+            type: 'task_assigned',
+            userId: notificationId
+          }
+        });
+      } catch (localError) {
+        console.error('Échec également du mode local:', localError);
+      }
+    }
+  };
+
   // Gérer la soumission du formulaire
   const handleSubmit = async () => {
     const taskData = prepareTaskData();
@@ -300,37 +404,16 @@ export default function TaskFormModal({
       
       // Envoyer des notifications aux nouveaux assignés, mais à l'utilisateur connecté
       if (newAssignees.length > 0 && user?.email) {
-        try {
-          console.log("Envoi de notifications pour les nouveaux assignés:", newAssignees);
-          
-          // Pour chaque nouvel assigné, envoyer une notification à l'utilisateur connecté
-          for (const assigneeEmail of newAssignees) {
-            // Extraire le nom du consultant à partir de l'email
-            const consultantName = assigneeEmail.split('@')[0] || assigneeEmail;
-            
-            // L'ID de notification est l'email de l'utilisateur connecté + le consultant
-            const notificationId = `${user.email}_${consultantName}`;
-            
-            const response = await fetch('/api/notifications/send', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                userId: notificationId,
-                title: '📋 Nouvelle tâche assignée',
-                body: `${consultantName}, une nouvelle tâche "${taskData.title}" vous a été assignée.`,
-                taskId: task.id,
-                type: 'task_assigned',
-              }),
-            });
-            
-            if (!response.ok) {
-              console.error('Erreur lors de l\'envoi de la notification:', await response.json());
-            }
-          }
-        } catch (error) {
-          console.error('Erreur lors de l\'envoi des notifications:', error);
+        console.log("Envoi de notifications pour les nouveaux assignés:", newAssignees);
+        
+        // Pour chaque nouvel assigné, envoyer une notification à l'utilisateur connecté
+        for (const assigneeEmail of newAssignees) {
+          await sendNotificationAfterAssignment(
+            assigneeEmail,
+            taskData.title,
+            task.id,
+            user.email
+          );
         }
       }
     } else {
@@ -339,37 +422,16 @@ export default function TaskFormModal({
       
       // Si la tâche a été créée avec succès et a des assignés, envoyer des notifications
       if (createdTask && taskData.assignedTo.length > 0 && user?.email) {
-        try {
-          console.log("Envoi de notifications pour les assignés de la nouvelle tâche:", taskData.assignedTo);
-          
-          // Pour chaque assigné, envoyer une notification à l'utilisateur connecté
-          for (const assigneeEmail of taskData.assignedTo) {
-            // Extraire le nom du consultant à partir de l'email
-            const consultantName = assigneeEmail.split('@')[0] || assigneeEmail;
-            
-            // L'ID de notification est l'email de l'utilisateur connecté + le consultant
-            const notificationId = `${user.email}_${consultantName}`;
-            
-            const response = await fetch('/api/notifications/send', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                userId: notificationId,
-                title: '📋 Nouvelle tâche assignée',
-                body: `${consultantName}, une nouvelle tâche "${taskData.title}" vous a été assignée.`,
-                taskId: createdTask.id,
-                type: 'task_assigned',
-              }),
-            });
-            
-            if (!response.ok) {
-              console.error('Erreur lors de l\'envoi de la notification:', await response.json());
-            }
-          }
-        } catch (error) {
-          console.error('Erreur lors de l\'envoi des notifications:', error);
+        console.log("Envoi de notifications pour les assignés de la nouvelle tâche:", taskData.assignedTo);
+        
+        // Pour chaque assigné, envoyer une notification à l'utilisateur connecté
+        for (const assigneeEmail of taskData.assignedTo) {
+          await sendNotificationAfterAssignment(
+            assigneeEmail,
+            taskData.title,
+            createdTask.id,
+            user.email
+          );
         }
       }
     }
