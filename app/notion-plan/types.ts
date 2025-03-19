@@ -16,7 +16,7 @@ export interface Task {
   title: string;
   description?: string;
   priority: 'faible' | 'moyenne' | 'élevée' | 'urgente';
-  status: 'à faire' | 'en cours' | 'terminée' | 'todo' | 'in-progress' | 'done' | 'idée' | 'en développement' | 'à tourner' | 'à éditer' | 'écrire légende' | 'prêt à publier' | 'publié' | 'archivé' | 'attente validation';
+  status: 'à faire' | 'en cours' | 'terminée' | 'todo' | 'in-progress' | 'done' | 'idée' | 'en développement' | 'à tourner' | 'à éditer' | 'écrire légende' | 'prêt à publier' | 'publié' | 'archivé' | 'A valider';
   assignedTo: string[];
   assignedToName?: string | null;
   dueDate?: Date | null;

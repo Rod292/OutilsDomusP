@@ -169,7 +169,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       'en développement': 2, 
       'à faire': 3, 
       'en cours': 4, 
-      'attente validation': 4.5,
+      'A valider': 4.5,
       'à tourner': 5, 
       'à éditer': 6, 
       'écrire légende': 7, 
@@ -1532,6 +1532,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       'en développement': 2, 
       'à faire': 3, 
       'en cours': 4, 
+      'A valider': 4.5,
       'à tourner': 5, 
       'à éditer': 6, 
       'écrire légende': 7, 
@@ -1784,11 +1785,14 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
         return;
       }
       
-      console.log(`Basculement de l'état favori pour la tâche ${taskId}: ${!task.isFavorite}`);
+      // Définir explicitement la nouvelle valeur
+      const newFavoriteValue = task.isFavorite === true ? false : true;
+      console.log(`Basculement de l'état favori pour la tâche ${taskId}: ${newFavoriteValue}`);
       
+      // Mettre à jour la tâche avec la nouvelle valeur
       await onUpdateTask({
         id: taskId,
-        isFavorite: !task.isFavorite
+        isFavorite: newFavoriteValue
       });
       
       console.log("État favori mis à jour avec succès");
@@ -1907,48 +1911,36 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="px-0.5 py-0 h-4 mt-0.5"
+                          className={`h-5 w-5 p-0 ${expandedTasks[task.id] ? 'transform rotate-90' : ''}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             toggleTaskExpansion(task.id);
                           }}
                         >
-                          {isExpanded ? 
-                            <ChevronDownIcon className="h-3 w-3" /> : 
-                            <ChevronRightIcon className="h-3 w-3" />}
+                          <ChevronRightIcon className="h-4 w-4" />
                         </Button>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm truncate">{task.title}</div>
+                        <div className="flex flex-col ml-1">
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium">{task.title}</span>
+                            
+                            {task.mandatSigne && (
+                              <Badge variant="outline" className="ml-1.5 text-xs bg-green-50 text-green-700 border-green-200 hover:bg-green-100">
+                                Mandat signé
+                              </Badge>
+                            )}
+                          </div>
                           
-                          {/* Utiliser le composant DescriptionCell pour permettre l'édition de la description */}
+                          {/* Utiliser le composant DescriptionCell pour l'édition de la description */}
                           <div onClick={(e) => e.stopPropagation()}>
                             <DescriptionCell description={task.description} taskId={task.id} />
                           </div>
                           
-                          <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                          <div className="flex items-center text-gray-500 text-xs mt-0.5">
                             {task.dossierNumber && (
-                              <span className="text-xs text-gray-400">
-                                N° {task.dossierNumber}
-                              </span>
+                              <span className="mr-2">№ {task.dossierNumber}</span>
                             )}
-                            {task.mandatSigne ? (
-                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs py-0 px-1">
-                                Mandat signé
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs py-0 px-1">
-                                Mandat non signé
-                              </Badge>
-                            )}
-                            {task.tags && task.tags.length > 0 && task.tags.slice(0, 2).map(tag => (
-                              <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">
-                                {tag}
-                              </Badge>
-                            ))}
-                            {task.tags && task.tags.length > 2 && (
-                              <Badge variant="secondary" className="text-xs px-1 py-0">
-                                +{task.tags.length - 2}
-                              </Badge>
+                            {task.propertyAddress && (
+                              <span>{task.propertyAddress}</span>
                             )}
                           </div>
                         </div>
