@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { motion, AnimatePresence } from "framer-motion"
 import { ThemeToggle } from "../../components/ui/theme-toggle"
+import NotificationPermission from "./NotificationPermission"
 
 // Variantes d'animation pour le menu
 const menuVariants = {
@@ -111,6 +112,9 @@ export function Header() {
 
   const showBackButton = pathname !== "/"
 
+  // Vérifier si l'utilisateur est connecté pour afficher le bouton de notification
+  const shouldShowNotification = !!user && !!consultant
+
   return (
     <header className={`bg-[#DC0032] dark:bg-[#9A0023] shadow-md ${isStandalone ? 'standalone-header' : ''}`}>
       <div className="container mx-auto px-2 sm:px-4">
@@ -165,6 +169,11 @@ export function Header() {
           <div className="flex items-center space-x-1 sm:space-x-3">
             {/* Bouton de basculement de thème */}
             <ThemeToggle />
+            
+            {/* Afficher le bouton de notification si l'utilisateur est connecté et un consultant est sélectionné */}
+            {shouldShowNotification && (
+              <NotificationPermission iconOnly={true} />
+            )}
             
             {/* Menu de navigation */}
             {user && (
