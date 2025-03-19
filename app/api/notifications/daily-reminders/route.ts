@@ -29,8 +29,11 @@ export async function POST(request: Request) {
 
     // Obtenir la date du jour (en France)
     const today = new Date();
-    const todayStart = new Date(today.setHours(0, 0, 0, 0));
-    const todayEnd = new Date(today.setHours(23, 59, 59, 999));
+    const todayStart = new Date(today);
+    todayStart.setHours(0, 0, 0, 0);
+    
+    const todayEnd = new Date(today);
+    todayEnd.setHours(23, 59, 59, 999);
     
     // Ne pas envoyer de notifications le week-end
     if (isWeekend(today)) {
@@ -99,7 +102,7 @@ export async function POST(request: Request) {
         continue;
       }
       
-      // Formater la date en français
+      // Formater la date en français avec date-fns-tz
       const dateFormatted = formatInTimeZone(
         today,
         'Europe/Paris',
