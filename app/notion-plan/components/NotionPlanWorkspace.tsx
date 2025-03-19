@@ -379,20 +379,50 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
       const updateId = `update-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
       console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Démarrage de l'opération...`);
       
-      // IMPORTANT: Vérifier si c'est une mise à jour de communication
+      // Récupérer les données actuelles directement depuis Firestore
+      const taskRef = doc(db, 'tasks', task.id);
+      const taskSnapshot = await getDoc(taskRef);
+      
+      if (!taskSnapshot.exists()) {
+        throw new Error(`Tâche avec ID ${task.id} introuvable dans Firestore`);
+      }
+      
+      // Récupérer la version la plus récente des données
+      const currentTaskData = taskSnapshot.data() as any;
+      
+      // Préparer l'objet de mise à jour avec les nouvelles données
+      const updateData: Record<string, any> = {
+        updatedAt: serverTimestamp()
+      };
+      
+      // Traitement de tous les champs à mettre à jour (sauf communicationDetails)
+      Object.entries(task).forEach(([key, value]) => {
+        if (key !== 'id' && key !== 'communicationDetails' && value !== undefined) {
+          console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour du champ ${key} avec la valeur:`, value);
+          
+          // Normaliser le statut si présent
+          if (key === 'status') {
+            updateData[key] = normalizeStatus(value as string);
+          } 
+          // Traitement spécial pour les dates
+          else if (key === 'dueDate' || key === 'reminder') {
+            updateData[key] = value ? Timestamp.fromDate(new Date(value as any)) : null;
+          }
+          // Traitement explicite de mandatSigne
+          else if (key === 'mandatSigne') {
+            updateData[key] = value === true;
+          }
+          // Autres champs
+          else {
+            updateData[key] = value;
+          }
+        }
+      });
+      
+      // IMPORTANT: Traitement spécial pour communicationDetails si présent
       if (task.communicationDetails) {
         console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Traitement spécial pour mise à jour de communications`);
         
-        // Récupérer les données actuelles directement depuis Firestore
-        const taskRef = doc(db, 'tasks', task.id);
-        const taskSnapshot = await getDoc(taskRef);
-        
-        if (!taskSnapshot.exists()) {
-          throw new Error(`Tâche avec ID ${task.id} introuvable dans Firestore`);
-        }
-        
-        // Récupérer la version la plus récente des données
-        const currentTaskData = taskSnapshot.data() as any;
         const currentComms = currentTaskData.communicationDetails || [];
         
         console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Données actuelles récupérées de Firestore:`, 
@@ -406,9 +436,6 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
             `${i}: ${c.type} - ${c.deadline ? new Date(c.deadline).toLocaleDateString() : 'non définie'}`
           )
         );
-        
-        // AMÉLIORATION MAJEURE: Faire une mise à jour intelligente qui préserve les modifications précédentes
-        // Nous allons comparer communication par communication pour ne mettre à jour que celles qui ont changé
         
         // 1. Transformer les dates Firestore en dates JS pour la comparaison
         const normalizedCurrentComms = currentComms.map((comm: any) => ({
@@ -445,7 +472,7 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
         ).filter((idx: number | null) => idx !== null);
         
         // Trouver les index qui existaient mais qui ne sont plus dans la mise à jour (supprimés)
-        const deletedIndexes = existingIndexes.filter(idx => !updatedIndexes.includes(idx));
+        const deletedIndexes = existingIndexes.filter((idx: any) => !updatedIndexes.includes(idx));
         console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Index supprimés:`, deletedIndexes);
         
         // Si des index ont été supprimés, filtrer les communications correspondantes
@@ -533,142 +560,20 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
           deadline: comm.deadline ? Timestamp.fromDate(new Date(comm.deadline)) : null
         }));
         
-        // 5. Mise à jour atomique avec le tableau de communications fusionné
-        await updateDoc(taskRef, {
-          communicationDetails: normalizedUpdatedComms,
-          updatedAt: serverTimestamp()
-        });
-        
+        // Ajouter les communications normalisées aux données de mise à jour
+        updateData.communicationDetails = normalizedUpdatedComms;
+      }
+      
+      console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Données finales pour la mise à jour:`, 
+        Object.keys(updateData).join(', '));
+      
+      // Exécuter la mise à jour dans Firebase
+      try {
+        await updateDoc(taskRef, updateData);
         console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour effectuée avec succès`);
-        
-        // 6. Mettre à jour l'état local avec le résultat fusionné
-        setTasks(prevTasks => {
-          // Créer une copie profonde des tâches actuelles
-          const updatedTasks = [...prevTasks];
-          
-          // Trouver l'index de la tâche à mettre à jour
-          const taskIndex = updatedTasks.findIndex(t => t.id === task.id);
-          
-          // Si la tâche existe, mettre à jour ses propriétés
-          if (taskIndex !== -1) {
-            // Créer une copie de la tâche existante
-            const updatedTask = { ...updatedTasks[taskIndex] };
-            
-            // Mettre à jour les communications avec le résultat fusionné
-            updatedTask.communicationDetails = updatedComms.map(comm => ({
-              ...comm,
-              // S'assurer que les dates sont des objets Date dans l'état local
-              deadline: comm.deadline ? new Date(comm.deadline) : null
-            }));
-            
-            // Mettre à jour la tâche dans le tableau
-            updatedTasks[taskIndex] = updatedTask;
-            console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: État local mis à jour avec succès pour la tâche:`, task.id);
-          } else {
-            console.warn(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Tâche non trouvée dans l'état local:`, task.id);
-          }
-          
-          return updatedTasks;
-        });
-        
-        // Mettre à jour la tâche dans Firestore
-        await updateDoc(taskRef, {
-          communicationDetails: normalizedUpdatedComms,
-          updatedAt: serverTimestamp()
-        });
-        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour réussie dans Firestore`);
-        
-        // Retourner la tâche mise à jour
-        return {
-          id: task.id,
-          ...task
-        };
-      }
-      
-      // Pour les autres types de mises à jour (non-communications), utiliser le processus normal
-      const { id, ...taskData } = task;
-      
-      // Créer un objet qui ne contiendra que les valeurs définies
-      const normalizedTask: Record<string, any> = {};
-      
-      // Ajouter le timestamp de mise à jour
-      normalizedTask.updatedAt = serverTimestamp();
-
-      // Traitement explicite de mandatSigne
-      if (taskData.mandatSigne !== undefined) {
-        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Normalisation de mandatSigne:`, taskData.mandatSigne);
-        normalizedTask.mandatSigne = taskData.mandatSigne === true;
-        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Valeur normalisée de mandatSigne:`, normalizedTask.mandatSigne);
-      }
-
-      // Ne copier que les champs non-undefined
-      Object.entries(taskData).forEach(([key, value]) => {
-        if (value !== undefined && key !== 'mandatSigne') { // Éviter la duplication de mandatSigne
-          // Normaliser le statut si présent
-          if (key === 'status') {
-            normalizedTask[key] = normalizeStatus(value as string);
-          } else {
-            normalizedTask[key] = value;
-          }
-        }
-      });
-
-      // Traitement spécial pour les dates
-      if (taskData.dueDate !== undefined) {
-        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Date d'échéance avant normalisation:`, taskData.dueDate);
-        // Si c'est une date JavaScript, la convertir en Timestamp Firebase
-        normalizedTask.dueDate = taskData.dueDate 
-          ? Timestamp.fromDate(new Date(taskData.dueDate as any)) 
-          : null;
-        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Date d'échéance après normalisation:`, normalizedTask.dueDate);
-      }
-      
-      // Vérifier et normaliser la date de rappel
-      if (taskData.reminder !== undefined) {
-        normalizedTask.reminder = taskData.reminder 
-          ? Timestamp.fromDate(new Date(taskData.reminder as any)) 
-          : null;
-      }
-
-      console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Tâche normalisée avant envoi:`, 
-        Object.keys(normalizedTask).map(key => `${key}: ${typeof normalizedTask[key]}`));
-
-      // Vérification finale pour s'assurer qu'aucun champ undefined n'est envoyé
-      Object.entries(normalizedTask).forEach(([key, value]) => {
-        if (value === undefined) {
-          delete normalizedTask[key];
-          console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Suppression du champ ${key} car sa valeur est undefined`);
-        }
-      });
-      
-      // AMÉLIORATION: Utiliser un système de verrouillage et tentatives
-      let attempts = 0;
-      const maxAttempts = 3;
-      let updateSuccess = false;
-      
-      while (!updateSuccess && attempts < maxAttempts) {
-        attempts++;
-        try {
-          console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Tentative ${attempts}/${maxAttempts} d'envoi à Firebase...`);
-          
-          // Exécuter la mise à jour dans Firebase
-          const taskRef = doc(db, 'tasks', id);
-          await updateDoc(taskRef, normalizedTask);
-          
-          console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour réussie à la tentative ${attempts}`);
-          updateSuccess = true;
-        } catch (updateError) {
-          console.error(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Erreur à la tentative ${attempts}:`, updateError);
-          
-          if (attempts < maxAttempts) {
-            // Attendre un peu avant de réessayer
-            const delay = Math.pow(2, attempts) * 100; // Backoff exponentiel: 200ms, 400ms, 800ms...
-            console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Attente de ${delay}ms avant nouvelle tentative...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-          } else {
-            throw updateError; // Remonter l'erreur après la dernière tentative
-          }
-        }
+      } catch (updateError) {
+        console.error(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Erreur lors de la mise à jour:`, updateError);
+        throw updateError;
       }
       
       // APRÈS MISE À JOUR FIREBASE: Mise à jour de l'état local
@@ -680,7 +585,7 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
         const updatedTasks = [...prevTasks];
         
         // Trouver l'index de la tâche à mettre à jour
-        const taskIndex = updatedTasks.findIndex(t => t.id === id);
+        const taskIndex = updatedTasks.findIndex(t => t.id === task.id);
         
         // Si la tâche existe, mettre à jour ses propriétés
         if (taskIndex !== -1) {
@@ -688,13 +593,21 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
           const updatedTask = { ...updatedTasks[taskIndex] };
           
           // Appliquer toutes les modifications
-          Object.entries(taskData).forEach(([key, value]) => {
-            if (value !== undefined) {
+          Object.entries(task).forEach(([key, value]) => {
+            if (value !== undefined && key !== 'id') {
               // Pour les dates, s'assurer qu'elles sont bien de type Date
               if (key === 'dueDate' || key === 'reminder') {
                 // @ts-ignore
                 updatedTask[key] = value ? new Date(value) : null;
               } 
+              else if (key === 'communicationDetails' && value) {
+                // Mettre à jour les communications avec le résultat fusionné
+                updatedTask.communicationDetails = (value as any[]).map(comm => ({
+                  ...comm,
+                  // S'assurer que les dates sont des objets Date dans l'état local
+                  deadline: comm.deadline ? new Date(comm.deadline) : null
+                }));
+              }
               else {
                 // @ts-ignore
                 updatedTask[key] = value;
@@ -704,9 +617,9 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
           
           // Mettre à jour la tâche dans le tableau
           updatedTasks[taskIndex] = updatedTask;
-          console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: État local mis à jour avec succès pour la tâche:`, id);
+          console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: État local mis à jour avec succès pour la tâche:`, task.id);
         } else {
-          console.warn(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Tâche non trouvée dans l'état local:`, id);
+          console.warn(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Tâche non trouvée dans l'état local:`, task.id);
         }
         
         return updatedTasks;
@@ -717,25 +630,6 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
       setIsTaskFormOpen(false);
       setSelectedTask(null);
 
-      // Vérifier s'il y a de nouveaux assignés pour envoyer des notifications
-      if (taskData.assignedTo && Array.isArray(taskData.assignedTo) && user?.email) {
-        const existingTask = tasks.find(t => t.id === id);
-        if (existingTask) {
-          const existingAssignees = existingTask.assignedTo || [];
-          const newAssignees = taskData.assignedTo.filter(
-            assignee => !existingAssignees.includes(assignee)
-          );
-          
-          // Envoyer des notifications aux nouveaux assignés
-          for (const newAssignee of newAssignees) {
-            await sendTaskAssignedNotification(
-              { ...existingTask, ...taskData, id }, 
-              newAssignee,
-              user.email
-            );
-          }
-        }
-      }
     } catch (error) {
       console.error("ERREUR GLOBALE lors de la mise à jour de la tâche:", error);
       throw error; // Remonter l'erreur pour permettre la gestion des erreurs en amont
