@@ -42,7 +42,8 @@ import {
   CheckIcon,
   PhoneIcon,
   MessageSquareIcon,
-  PhoneCallIcon
+  PhoneCallIcon,
+  StarIcon
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -168,6 +169,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       'en développement': 2, 
       'à faire': 3, 
       'en cours': 4, 
+      'attente validation': 4.5,
       'à tourner': 5, 
       'à éditer': 6, 
       'écrire légende': 7, 
@@ -236,8 +238,13 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       });
     }
     
-    // Trier les tâches selon le critère de tri sélectionné
+    // Trier les tâches pour mettre les favoris en premier
     return filteredTaskList.sort((a, b) => {
+      // Toujours mettre les favoris en premier
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      
+      // Si les deux sont des favoris ou non, appliquer le tri standard
       if (!sortField) return 0;
       
       let comparison = 0;
@@ -942,6 +949,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
           <SelectItem value="en développement">En développement</SelectItem>
           <SelectItem value="à faire">À faire</SelectItem>
           <SelectItem value="en cours">En cours</SelectItem>
+          <SelectItem value="attente validation">Attente validation</SelectItem>
           <SelectItem value="à tourner">À tourner</SelectItem>
           <SelectItem value="à éditer">À éditer</SelectItem>
           <SelectItem value="écrire légende">Écrire légende</SelectItem>
@@ -1767,6 +1775,28 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     );
   };
 
+  // Fonction pour basculer l'état favori d'une tâche
+  const toggleFavorite = async (taskId: string) => {
+    try {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) {
+        console.error(`Tâche ${taskId} non trouvée lors du changement d'état favori`);
+        return;
+      }
+      
+      console.log(`Basculement de l'état favori pour la tâche ${taskId}: ${!task.isFavorite}`);
+      
+      await onUpdateTask({
+        id: taskId,
+        isFavorite: !task.isFavorite
+      });
+      
+      console.log("État favori mis à jour avec succès");
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour de l'état favori:", error);
+    }
+  };
+
   return (
     <div className="w-full">
       <div className="rounded-md border overflow-hidden">
@@ -1936,8 +1966,17 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                     <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5">
                       <DatePickerCell date={task.dueDate} taskId={task.id} />
                     </TableCell>
-                    <TableCell className="text-right py-1.5" onClick={(e) => e.stopPropagation()}>
+                    <TableCell className="text-right py-1.5 w-[5%]" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className={`h-6 w-6 p-0 ${task.isFavorite ? 'text-yellow-500' : 'text-gray-400 hover:text-yellow-500'}`}
+                          onClick={() => toggleFavorite(task.id)}
+                          title={task.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+                        >
+                          <StarIcon className="h-4 w-4" fill={task.isFavorite ? "currentColor" : "none"} />
+                        </Button>
                         <Button 
                           variant="ghost" 
                           size="sm" 
@@ -1973,7 +2012,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                           <DropdownMenuTrigger asChild>
                             <Button variant="outline" size="sm" className="text-xs py-1 h-7 gap-1">
                               <PlusIcon className="h-3 w-3" />
-                              Ajouter une communication
+                              Ajouter une communication ou une tâche
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="start">
@@ -2016,10 +2055,6 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                             <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'post_site')}>
                               <GlobeIcon className="h-3.5 w-3.5 mr-2 text-indigo-600" />
                               <span>Post Site</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'video')}>
-                              <VideoIcon className="h-3.5 w-3.5 mr-2 text-orange-600" />
-                              <span>Vidéo</span>
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -2070,6 +2105,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                                 <SelectItem value="en développement">En développement</SelectItem>
                                 <SelectItem value="à faire">À faire</SelectItem>
                                 <SelectItem value="en cours">En cours</SelectItem>
+                                <SelectItem value="attente validation">Attente validation</SelectItem>
                                 <SelectItem value="à tourner">À tourner</SelectItem>
                                 <SelectItem value="à éditer">À éditer</SelectItem>
                                 <SelectItem value="écrire légende">Écrire légende</SelectItem>

@@ -16,7 +16,7 @@ export interface Task {
   title: string;
   description?: string;
   priority: 'faible' | 'moyenne' | 'élevée' | 'urgente';
-  status: 'à faire' | 'en cours' | 'terminée' | 'todo' | 'in-progress' | 'done' | 'idée' | 'en développement' | 'à tourner' | 'à éditer' | 'écrire légende' | 'prêt à publier' | 'publié' | 'archivé';
+  status: 'à faire' | 'en cours' | 'terminée' | 'todo' | 'in-progress' | 'done' | 'idée' | 'en développement' | 'à tourner' | 'à éditer' | 'écrire légende' | 'prêt à publier' | 'publié' | 'archivé' | 'attente validation';
   assignedTo: string[];
   assignedToName?: string | null;
   dueDate?: Date | null;
@@ -38,6 +38,9 @@ export interface Task {
   
   // Nouveau champ pour indiquer si le mandat est signé
   mandatSigne?: boolean;
+  
+  // Nouveau champ pour marquer comme favori
+  isFavorite?: boolean;
 }
 
 export interface TeamMember {
