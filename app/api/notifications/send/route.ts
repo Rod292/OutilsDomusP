@@ -17,6 +17,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import admin from '@/app/firebase-admin';
 import { NOTIFICATION_CONFIG } from '../config';
 
+// Vérifier si l'admin est correctement initialisé
+const getAdminFirestore = () => {
+  try {
+    return admin.firestore();
+  } catch (error) {
+    console.error('Erreur lors de l\'initialisation de Firebase Admin:', error);
+    return null;
+  }
+};
+
 export async function POST(request: NextRequest) {
   try {
     // Vérifier l'authentification si l'API key est activée
@@ -82,17 +92,27 @@ export async function POST(request: NextRequest) {
     // Enregistrer la notification dans Firestore
     if (NOTIFICATION_CONFIG.STORE_NOTIFICATIONS) {
       try {
-        // Créer la notification dans Firestore
-        const { createNotification } = await import('@/app/services/notificationService');
-        await createNotification({
-          userId,
-          title,
-          body,
-          type,
-          taskId,
-          read: false
-        });
-        console.log(`Notification enregistrée dans Firestore pour ${userId}`);
+        // On n'utilise plus l'import dynamique ici car il cause des problèmes d'initialisation
+        // Utiliser directement Firestore Admin
+        const db = getAdminFirestore();
+        
+        if (db) {
+          // Créer la notification directement dans Firestore
+          await db.collection('notifications').add({
+            userId,
+            title,
+            body,
+            type,
+            taskId,
+            read: false,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+          
+          console.log(`Notification enregistrée dans Firestore pour ${userId}`);
+        } else {
+          console.warn('Impossible d\'enregistrer la notification dans Firestore: Admin non initialisé');
+        }
       } catch (firestoreError) {
         console.error('Erreur lors de l\'enregistrement de la notification dans Firestore:', firestoreError);
         // Continuer malgré l'erreur, car on peut toujours essayer d'envoyer la notification
@@ -116,7 +136,21 @@ export async function POST(request: NextRequest) {
     }
     
     // Chercher les tokens FCM pour cet utilisateur dans Firestore
-    const db = admin.firestore();
+    const db = getAdminFirestore();
+    if (!db) {
+      return NextResponse.json({
+        success: false,
+        useLocalMode: true,
+        notification: {
+          title,
+          body,
+          taskId,
+          type
+        },
+        warning: 'Firebase Admin non initialisé, utilisation du mode local'
+      });
+    }
+    
     const tokensSnapshot = await db.collection('notificationTokens')
       .where('userId', '==', userId)
       .get();
@@ -175,7 +209,22 @@ export async function POST(request: NextRequest) {
     };
     
     // Envoyer la notification avec FCM en utilisant sendEachForMulticast qui est la méthode standard
-    const response = await admin.messaging().sendEachForMulticast(message);
+    const messaging = admin.messaging();
+    if (!messaging) {
+      return NextResponse.json({
+        success: false, 
+        useLocalMode: true,
+        notification: {
+          title,
+          body,
+          taskId,
+          type
+        },
+        warning: 'Firebase Messaging non initialisé, utilisation du mode local'
+      });
+    }
+    
+    const response = await messaging.sendEachForMulticast(message);
     
     console.log(`Notification envoyée à ${userId}:`, {
       success: response.successCount,

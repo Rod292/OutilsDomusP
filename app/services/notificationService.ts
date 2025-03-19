@@ -80,14 +80,14 @@ export const sendLocalNotification = async (notification: {
   }
   
   try {
-    const { title, body, icon = '/images/logo_arthur_loyd.png', data = {} } = notification;
+    const { title, body, icon = '/logo_arthur_loyd.png', data = {} } = notification;
     
     console.log('sendLocalNotification: Création de la notification avec:', { title, body, data });
     
     const notif = new Notification(title, {
       body, 
       icon,
-      badge: '/images/logo_arthur_loyd.png',
+      badge: '/logo_arthur_loyd.png',
       data,
       requireInteraction: true, // Garder la notification visible jusqu'à ce que l'utilisateur interagisse avec
       tag: data?.taskId || `notification-${Date.now()}` // Ajouter un tag unique pour identifier la notification
