@@ -44,7 +44,6 @@ import { Header } from '../../components/header';
 import { Task, TeamMember, CommunicationDetail } from '../types';
 import GlobalNotificationButton from '@/app/components/notifications/GlobalNotificationButton';
 import { sendTaskAssignedNotification } from '@/app/services/notificationService';
-import NotificationDebugButton from './NotificationDebugButton';
 
 // Types
 interface NotionPlanWorkspaceProps {
@@ -827,9 +826,6 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
                     className="mr-1"
                   />
                   <div className="flex items-center space-x-2">
-                    {/* Bouton test notifications */}
-                    <NotificationDebugButton />
-                    
                     {/* Bouton de création de tâche */}
                     <Button 
                       onClick={handleNewTask} 

@@ -567,7 +567,7 @@ export default function TaskFormModal({
       modal={true}
     >
       <DialogContent
-        className="p-0 border-0 max-w-[600px] w-[600px] h-screen rounded-none fixed top-0 right-0 bottom-0 left-auto m-0"
+        className="p-0 border-0 max-w-[600px] w-full md:w-[600px] h-screen rounded-none fixed top-0 right-0 bottom-0 left-auto m-0"
         style={{
           animation: 'slideIn 0.3s ease-out forwards',
           transform: 'translateX(0)',
@@ -592,8 +592,52 @@ export default function TaskFormModal({
           .popover-content {
             z-index: 9999 !important;
           }
+          
+          /* Styles responsive pour mobile */
+          @media (max-width: 768px) {
+            .grid-cols-2 {
+              grid-template-columns: 1fr !important;
+            }
+            
+            [data-radix-select-content] {
+              width: 90vw;
+              max-width: 90vw;
+              left: 5vw !important;
+            }
+
+            .select-dropdown-content {
+              max-width: 90vw;
+              width: 90vw;
+              left: 5vw !important;
+              position: fixed !important;
+            }
+            
+            .dialog-content {
+              padding: 12px !important;
+            }
+
+            /* Ajustements spécifiques pour les formulaires sur mobile */
+            .select-trigger {
+              font-size: 14px !important;
+            }
+
+            .select-content {
+              width: 90vw !important;
+              max-width: 90vw !important;
+              position: fixed !important;
+              left: 5vw !important;
+            }
+
+            /* Pour les popover de date */
+            .date-popover {
+              width: 90vw !important;
+              max-width: 90vw !important;
+              position: fixed !important;
+              left: 5vw !important;
+            }
+          }
         `}</style>
-        <div className={`h-full overflow-y-auto p-6 ${isDarkMode ? 'bg-gray-900 text-white border-l border-gray-700' : 'bg-white text-black border-l border-gray-200'}`}>
+        <div className={`h-full overflow-y-auto p-4 md:p-6 dialog-content ${isDarkMode ? 'bg-gray-900 text-white border-l border-gray-700' : 'bg-white text-black border-l border-gray-200'}`}>
           <DialogHeader>
             <DialogTitle>
               <Input 
@@ -639,14 +683,14 @@ export default function TaskFormModal({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Statut</Label>
-                <Select 
-                  value={formData.status} 
-                  onValueChange={(value: Task['status']) => setFormData(prev => ({ ...prev, status: value }))}
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as Task['status'] }))}
                 >
-                  <SelectTrigger>
-                    <SelectValue>{getStatusLabel(formData.status)}</SelectValue>
+                  <SelectTrigger className="select-trigger">
+                    <SelectValue placeholder="Sélectionner un statut" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="select-content select-dropdown-content">
                     <SelectItem value="idée">Idée</SelectItem>
                     <SelectItem value="en développement">En Développement</SelectItem>
                     <SelectItem value="à faire">À faire</SelectItem>
@@ -941,20 +985,27 @@ export default function TaskFormModal({
                           <Label>Date d'échéance</Label>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button variant="outline" className="w-full justify-start">
+                              <Button
+                                variant="outline"
+                                className={`w-full justify-start text-left font-normal ${
+                                  !detail.deadline && "text-muted-foreground"
+                                }`}
+                              >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {detail.deadline instanceof Date ? 
-                                  format(detail.deadline, "dd MMMM yyyy", { locale: fr }) : 
-                                  "Sélectionner une date"
-                                }
+                                {detail.deadline ? (
+                                  format(detail.deadline, "PPP", { locale: fr })
+                                ) : (
+                                  <span>Sélectionner une date</span>
+                                )}
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
+                            <PopoverContent className="date-popover">
                               <Calendar
                                 mode="single"
-                                selected={detail.deadline instanceof Date ? detail.deadline : undefined}
+                                selected={detail.deadline || undefined}
                                 onSelect={(date) => updateCommunicationDetail(index, 'deadline', date)}
-                                initialFocus
+                                locale={fr}
+                                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                               />
                             </PopoverContent>
                           </Popover>
