@@ -1,16 +1,26 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useMemo, KeyboardEvent, useContext } from 'react';
 import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+  Table, TableBody, TableCaption, TableCell, 
+  TableHead, TableHeader, TableRow 
 } from "@/components/ui/table";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { 
+  DropdownMenu, DropdownMenuContent, 
+  DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenuSeparator
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { sendTaskAssignedNotification } from '@/services/notificationService';
+import { useToast } from '@/components/ui/use-toast';
 import { 
   PlusIcon, 
   MoreHorizontalIcon, 
@@ -25,7 +35,7 @@ import {
   YoutubeIcon,
   MailIcon,
   SignpostIcon,
-  FileIcon,
+  FileIcon, 
   SlidersHorizontalIcon,
   MonitorIcon,
   TrashIcon,
@@ -46,22 +56,6 @@ import {
   StarIcon
 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
-import { Task, TeamMember, CommunicationDetail } from '../types';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -77,7 +71,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { useTasks } from '../hooks/useTasks';
 import { ComboboxDemo } from './ComboboxDemo';
 import { NotionContext } from '../context/NotionContext';
-import { sendTaskAssignedNotification } from '@/app/services/notificationService';
 import { getBadgeColor } from '../utils/badgeHelper';
 
 // Liste des consultants disponibles pour l'assignation des tâches
@@ -1207,78 +1200,106 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
 
   // Fonction pour ajouter un type de communication
   const addCommunicationType = async (taskId: string, type: string) => {
+    console.log(`Début de l'ajout d'une communication de type ${type} à la tâche ${taskId}`);
+    
     try {
-      console.log(`Début d'ajout d'une communication ${type} à la tâche ${taskId}`);
-      
-      // Vérifier que la tâche existe
-      const task = tasks.find(t => t.id === taskId);
-      if (!task) {
-        console.error(`Tâche ${taskId} non trouvée pour l'ajout d'une communication`);
+      if (!user?.email) {
+        console.error("L'utilisateur n'est pas connecté");
         return;
       }
-      
-      // Vérifier si la tâche a un mandat signé (avertissement seulement)
-      if (!task.mandatSigne) {
-        console.warn(`Tâche ${taskId} n'a pas de mandat signé - communication ajoutée quand même`);
+
+      // Récupérer la tâche actuelle
+      const taskRef = doc(db, 'tasks', taskId);
+      const taskSnapshot = await getDoc(taskRef);
+
+      if (!taskSnapshot.exists()) {
+        console.error(`Tâche ${taskId} introuvable`);
+        toast({
+          title: 'Erreur',
+          description: 'Tâche introuvable',
+          variant: 'destructive'
+        });
+        return;
       }
-      
-      // Liste des types valides (pour validation)
-      const validTypes = ['autre', 'carousel', 'flyer', 'idee', 'newsletter', 'panneau', 'plan_2d_3d', 'post_instagram', 'post_linkedin', 'post_site', 'video'] as const;
-      type ValidCommunicationType = typeof validTypes[number];
-      
+
+      const taskData = taskSnapshot.data();
+      console.log("Communications existantes:", taskData.communicationDetails || []);
+
+      // Vérifier que la tâche a un mandat signé (recommandé mais pas bloquant)
+      if (!taskData.mandateSigned) {
+        console.warn(`Tâche ${taskId} n'a pas de mandat signé. Continuer quand même.`);
+      }
+
       // Vérifier que le type est valide
-      const isValidType = (t: string): t is ValidCommunicationType => 
-        validTypes.includes(t as any);
-      
-      if (!isValidType(type)) {
+      const validTypes = ['newsletter', 'panneau', 'flyer', 'post_site', 'post_linkedin', 'post_instagram', 'carousel', 'video', 'plan_2d_3d', 'idee', 'autre'];
+      if (!validTypes.includes(type)) {
         console.error(`Type de communication invalide: ${type}`);
+        toast({
+          title: 'Erreur',
+          description: `Type de communication invalide: ${type}`,
+          variant: 'destructive'
+        });
         return;
       }
-      
-      // Obtenir la liste actuelle des communications ou initialiser un tableau vide
-      const communicationDetails = task.communicationDetails || [];
-      
-      console.log("Communications existantes:", communicationDetails);
-      
-      // Créer une nouvelle communication avec tous les champs obligatoires
-      const newCommunication: CommunicationDetail = {
-        type: type as CommunicationDetail['type'],
+
+      // Créer une nouvelle communication avec des valeurs par défaut
+      const newCommunication = {
+        type,
         status: 'à faire',
         priority: 'moyenne',
-        deadline: new Date(), // Date actuelle par défaut
+        deadline: null,
+        platform: type.includes('post_') ? type.replace('post_', '') : null,
+        mediaType: type === 'video' ? 'video' : (type === 'carousel' ? 'photo' : null),
         details: '',
-        mediaType: null,
-        assignedTo: [],
-        originalIndex: communicationDetails.length
+        assignedTo: [], // Tableau vide par défaut
+        originalIndex: taskData.communicationDetails ? taskData.communicationDetails.length : 0
       };
-      
-      // Ajouter la nouvelle communication à la liste
-      const updatedDetails = [...communicationDetails, newCommunication];
-      
-      console.log("Nouvelles communications:", updatedDetails);
-      
-      try {
-        // Mettre à jour la tâche avec une gestion d'erreur supplémentaire
-        await onUpdateTask({
+
+      // Ajouter la nouvelle communication à la liste existante
+      let communicationDetails = [...(taskData.communicationDetails || []), newCommunication];
+
+      // Mettre à jour la tâche avec la nouvelle liste de communications
+      await updateDoc(taskRef, {
+        communicationDetails,
+        updatedAt: serverTimestamp()
+      });
+
+      console.log(`Communication de type ${type} ajoutée avec succès`);
+
+      // Mettre à jour l'état local des tâches et forcer un rafraîchissement
+      onUpdateTask({
+        id: taskId,
+        communicationDetails
+      });
+
+      // Forcer l'affichage des communications par l'expansion de la tâche
+      setExpandedTasks((prev) => ({
+        ...prev,
+        [taskId]: true
+      }));
+
+      // Afficher une notification de succès
+      toast({
+        title: 'Communication ajoutée',
+        description: `Communication de type ${type} ajoutée avec succès`,
+        variant: 'success'
+      });
+
+      // Forcer un rafraîchissement supplémentaire après un court délai
+      setTimeout(() => {
+        console.log("Rafraîchissement des communications");
+        onUpdateTask({
           id: taskId,
-          communicationDetails: updatedDetails
+          communicationDetails
         });
-        
-        console.log("Communication ajoutée avec succès");
-        
-        // Forcer un rendu des communications pour qu'elles apparaissent immédiatement
-        setTimeout(() => {
-          console.log("Forçage du rafraîchissement des communications après ajout");
-          setExpandedTasks(prev => ({...prev}));
-        }, 100); // Augmenter légèrement le délai
-        
-      } catch (error) {
-        console.error("Erreur lors de la mise à jour de la tâche:", error);
-        // Afficher une notification d'erreur à l'utilisateur
-        // TODO: Ajouter une notification d'erreur visuelle
-      }
+      }, 300);
     } catch (error) {
-      console.error("Erreur lors de l'ajout d'une communication:", error);
+      console.error('Erreur lors de l\'ajout de la communication:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible d\'ajouter la communication',
+        variant: 'destructive'
+      });
     }
   };
 
