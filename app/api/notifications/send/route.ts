@@ -382,12 +382,22 @@ export async function POST(request: NextRequest) {
     }
     
     try {
-      // Vérifier si la notification concerne Instagram et si c'est un appareil Apple
-      const isInstagramNotification = 
-        (body?.toLowerCase().includes('instagram') || 
-         title?.toLowerCase().includes('instagram') ||
-         type?.toLowerCase().includes('instagram') ||
-         data?.communicationType?.toLowerCase() === 'post_instagram');
+      // Vérifier si la notification concerne une communication 
+      // (pas seulement Instagram, mais toute communication)
+      const isCommunicationNotification = 
+        (type === 'communication_assigned' || 
+         title?.toLowerCase().includes('communication') ||
+         data?.communicationIndex !== undefined ||
+         body?.toLowerCase().includes('communication') ||
+         body?.toLowerCase().includes('instagram') || 
+         body?.toLowerCase().includes('newsletter') ||
+         body?.toLowerCase().includes('linkedin') ||
+         body?.toLowerCase().includes('carousel') ||
+         body?.toLowerCase().includes('flyer') ||
+         body?.toLowerCase().includes('panneau') ||
+         body?.toLowerCase().includes('vidéo') ||
+         body?.toLowerCase().includes('post') ||
+         body?.toLowerCase().includes('plan_2d_3d'));
       
       // Initialiser Firebase Cloud Messaging si ce n'est pas déjà fait
       const messaging = admin.messaging();
@@ -404,22 +414,23 @@ export async function POST(request: NextRequest) {
         ...data // Inclure les autres données (comme communicationIndex)
       });
       
-      // Pour éviter les notifications en double sur iOS (spécifiquement pour Instagram)
+      // Pour éviter les notifications en double sur iOS
       let tokensToNotify = tokens;
       
-      if (isInstagramNotification) {
-        // Pour les notifications Instagram, ne notifier qu'un seul appareil iOS par utilisateur
-        // Cela évite les doubles notifications sur iPhone
-        const appleDeviceTokens = tokensWithDeviceInfo.filter(t => t.isAppleDevice).map(t => t.token);
-        const nonAppleDeviceTokens = tokensWithDeviceInfo.filter(t => !t.isAppleDevice).map(t => t.token);
-        
-        // Si l'utilisateur a des appareils Apple, n'en notifier qu'un seul pour Instagram
-        if (appleDeviceTokens.length > 0) {
-          // Prendre seulement le token de l'appareil Apple le plus récent
-          tokensToNotify = [appleDeviceTokens[0], ...nonAppleDeviceTokens];
-          console.log(`Notification Instagram: Limitation à un seul appareil Apple (${appleDeviceTokens.length} disponibles)`);
-        }
+      // Détection des appareils Apple
+      const appleDeviceTokens = tokensWithDeviceInfo.filter(t => t.isAppleDevice).map(t => t.token);
+      const nonAppleDeviceTokens = tokensWithDeviceInfo.filter(t => !t.isAppleDevice).map(t => t.token);
+      
+      // Pour TOUTES les notifications de communication, 
+      // n'utiliser qu'un seul appareil iOS par utilisateur
+      if (isCommunicationNotification && appleDeviceTokens.length > 0) {
+        // Prendre seulement le token de l'appareil Apple le plus récent
+        tokensToNotify = [appleDeviceTokens[0], ...nonAppleDeviceTokens];
+        console.log(`Notification de Communication: Limitation à un seul appareil Apple (${appleDeviceTokens.length} disponibles)`);
       }
+      
+      // Créer un identifiant unique pour cette notification
+      const notificationId = `${type}_${taskId || 'no-task'}_${Date.now()}`;
       
       // Envoyer les notifications avec les tokens filtrés
       const response = await messaging.sendEachForMulticast({
@@ -428,15 +439,18 @@ export async function POST(request: NextRequest) {
           title: notificationTitle,
           body: notificationBody
         },
-        data: sanitizedData,
+        data: {
+          ...sanitizedData,
+          notificationId // Ajouter un identifiant unique
+        },
         // Options spécifiques pour iOS
         apns: {
           payload: {
             aps: {
               sound: 'default',
               badge: 1,
-              // Éviter le groupement des notifications Instagram
-              'thread-id': isInstagramNotification ? `instagram-${Date.now()}` : type
+              // Utiliser un thread-id unique pour chaque notification
+              'thread-id': isCommunicationNotification ? notificationId : type
             }
           }
         }
