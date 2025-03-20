@@ -1,28 +1,20 @@
 import { Metadata } from 'next';
-import NotificationManager from '../components/notifications/NotificationManager';
-import { Header } from '../components/header';
-import { Suspense } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
+import NotificationManagerWrapper from '../components/notifications/NotificationManagerWrapper';
+import HeaderWrapper from '../components/HeaderWrapper';
+
+// Configuration pour éviter la génération statique
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: 'Gestion des notifications',
   description: 'Gérez vos appareils recevant des notifications pour chaque consultant',
 };
 
-// Composant de fallback pendant le chargement
-function NotificationsLoading() {
-  return (
-    <div className="w-full space-y-4">
-      <Skeleton className="h-8 w-full max-w-sm" />
-      <Skeleton className="h-96 w-full rounded-md" />
-    </div>
-  );
-}
-
 export default function NotificationsPage() {
   return (
     <div className="flex flex-col min-h-screen">
-      <Header />
+      <HeaderWrapper />
       
       <div className="flex-1 container mx-auto py-8 px-4">
         <div className="grid gap-6">
@@ -33,9 +25,7 @@ export default function NotificationsPage() {
             </p>
           </div>
           
-          <Suspense fallback={<NotificationsLoading />}>
-            <NotificationManager />
-          </Suspense>
+          <NotificationManagerWrapper />
         </div>
       </div>
     </div>
