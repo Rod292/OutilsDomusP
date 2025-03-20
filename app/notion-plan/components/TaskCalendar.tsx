@@ -11,6 +11,8 @@ import { Task, CommunicationDetail } from '../types';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { cn } from '@/lib/utils';
+import { format, getDay, startOfMonth, endOfMonth, eachDayOfInterval, parse, isSameMonth, isSameDay, addMonths, subMonths, isToday, isAfter, addDays } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 interface TaskCalendarProps {
   tasks: Task[];
@@ -493,13 +495,13 @@ const DroppableDay: React.FC<DroppableDayProps> = ({
       <div className="space-y-1 max-h-[200px] overflow-y-auto">
         {visibleTasks.map((item, index) => (
           <DraggableTask
-            key={`${item.task.id}-${item.uuid || 'main'}-${index}`}
-            task={item.task}
+            key={`${item.id}-${index}`}
+            task={item}
             onEditTask={onEditTask}
             onUpdateTask={onUpdateTask}
-            commIndex={item.commIndex}
-            stableCommId={item.stableCommId}
-            uuid={item.uuid}
+            commIndex={undefined}
+            stableCommId={undefined}
+            uuid={undefined}
           />
         ))}
         {hasMoreTasks && (
@@ -611,210 +613,184 @@ const getTypeLabel = (type: string): string => {
 };
 
 export default function TaskCalendar({ tasks, onEditTask, onUpdateTask }: TaskCalendarProps) {
-  // Initialiser le système de suivi des communications déplacées
-  if (typeof window !== 'undefined') {
-    // Créer un registre pour les identifiants permanents si nécessaire
-    if (!(window as any).movedCommunications) {
-      console.log("Initialisation du système de suivi des communications...");
-      (window as any).movedCommunications = {};
-    }
-    
-    // Créer un registre pour les communications déplacées récemment
-    if (!(window as any).lastMovedCommunications) {
-      console.log("Initialisation du système de suivi des déplacements récents...");
-      (window as any).lastMovedCommunications = [];
-    }
-    
-    // Créer un identifiant unique pour chaque communication basé sur son contenu
-    if (!(window as any).communicationUUIDs) {
-      console.log("Initialisation du système d'identifiants uniques des communications...");
-      (window as any).communicationUUIDs = {};
-    }
-  }
-  
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [calendarDays, setCalendarDays] = useState<Date[]>([]);
-  const [displayMode, setDisplayMode] = useState<'month' | 'week'>('month');
-  
-  // Extraire consultant à partir de l'URL pour filtrer les tâches
-  const [consultant, setConsultant] = useState<string | null>(null);
-  
-  // Fonction pour convertir le nom du consultant en email
-  const getConsultantEmail = (name: string | null): string | null => {
-    if (!name) return null;
-    
-    // Liste des consultants disponibles
-    const CONSULTANTS = [
-      { name: "Anne", email: "acoat@arthurloydbretagne.fr" },
-      { name: "Elowan", email: "ejouan@arthurloydbretagne.fr" },
-      { name: "Erwan", email: "eleroux@arthurloydbretagne.fr" },
-      { name: "Julie", email: "jdalet@arthurloydbretagne.fr" },
-      { name: "Justine", email: "jjambon@arthurloydbretagne.fr" },
-      { name: "Morgane", email: "agencebrest@arthurloydbretagne.fr" },
-      { name: "Nathalie", email: "npers@arthurloydbretagne.fr" },
-      { name: "Pierre", email: "pmottais@arthurloydbretagne.fr" },
-      { name: "Pierre-Marie", email: "pmjaumain@arthurloydbretagne.fr" },
-      { name: "Sonia", email: "shadjlarbi@arthur-loyd.com" }
-    ];
-    
-    const found = CONSULTANTS.find(c => c.name.toLowerCase() === name.toLowerCase());
-    return found ? found.email : null;
-  };
-  
+  const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(currentDate));
+  const [displayedWeeks, setDisplayedWeeks] = useState<Date[][]>([]);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Détecter si on est sur mobile
   useEffect(() => {
-    // Récupérer le consultant à partir de l'URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const consultantParam = urlParams.get('consultant');
-    setConsultant(consultantParam);
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkIfMobile(); // Vérifier l'état initial
+    window.addEventListener('resize', checkIfMobile);
+
+    return () => {
+      window.removeEventListener('resize', checkIfMobile);
+    };
   }, []);
-  
-  // Filtrer les tâches pour n'afficher que les communications assignées au consultant actuel
-  const filteredTasks = React.useMemo(() => {
-    // Vérifier si le filtre des tâches assignées est actif
-    const isAssignedFilterActive = window.location.search.includes('assignedFilter=true');
-    
-    // Si le filtre des tâches assignées n'est pas actif, montrer toutes les tâches
-    if (!isAssignedFilterActive) return tasks;
-    
-    // Si pas de consultant sélectionné, retourner toutes les tâches
-    if (!consultant) return tasks;
-    
-    // Convertir le nom du consultant en email pour la correspondance
-    const consultantEmail = getConsultantEmail(consultant);
-    if (!consultantEmail) return tasks;
-    
-    // Filtrer pour ne montrer que les communications assignées au consultant
-    return tasks.map(task => {
-      // Copie de la tâche pour éviter de modifier l'original
-      const taskCopy = {...task};
-      
-      // Si la tâche a des détails de communication, filtrer uniquement ceux assignés au consultant
-      if (taskCopy.communicationDetails && taskCopy.communicationDetails.length > 0) {
-        taskCopy.communicationDetails = taskCopy.communicationDetails.filter(comm => 
-          comm.assignedTo?.includes(consultantEmail)
-        );
-      }
-      
-      return taskCopy;
-    }).filter(task => 
-      // Garder seulement les tâches avec au moins une communication ou assignées directement
-      task.assignedTo?.includes(consultantEmail) || 
-      (task.communicationDetails && task.communicationDetails.length > 0)
-    );
-  }, [tasks, consultant]);
 
-  // Générer les jours du mois pour le calendrier
+  // Générer les semaines pour l'affichage du calendrier
   useEffect(() => {
-    const days: Date[] = [];
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    
-    // Obtenir le premier jour du mois
-    const firstDay = new Date(year, month, 1);
-    // Obtenir le jour de la semaine du premier jour (0 = dimanche, 1 = lundi, etc.)
-    const firstDayOfWeek = firstDay.getDay();
-    
+    const startDate = startOfMonth(visibleMonth);
+    const endDate = endOfMonth(visibleMonth);
+
+    // Obtenir tous les jours du mois
+    const days = eachDayOfInterval({ start: startDate, end: endDate });
+
+    // Trouver le jour de la semaine du premier jour (0 = dimanche, 1 = lundi, ...)
+    const startDay = getDay(startDate);
+
     // Ajouter les jours du mois précédent pour compléter la première semaine
-    const daysFromPrevMonth = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
-    for (let i = daysFromPrevMonth; i > 0; i--) {
-      days.push(new Date(year, month, 1 - i));
+    let previousMonthDays = [];
+    for (let i = (startDay === 0 ? 6 : startDay - 1); i > 0; i--) {
+      previousMonthDays.push(addDays(startDate, -i));
     }
-    
-    // Ajouter tous les jours du mois actuel
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push(new Date(year, month, i));
-    }
-    
+
+    // Combiner tous les jours
+    const allDays = [...previousMonthDays, ...days];
+
     // Ajouter les jours du mois suivant pour compléter la dernière semaine
-    const lastDay = new Date(year, month, daysInMonth);
-    const lastDayOfWeek = lastDay.getDay();
-    const daysFromNextMonth = lastDayOfWeek === 0 ? 0 : 7 - lastDayOfWeek;
-    for (let i = 1; i <= daysFromNextMonth; i++) {
-      days.push(new Date(year, month + 1, i));
+    const remainingDays = 7 - (allDays.length % 7);
+    if (remainingDays < 7) {
+      for (let i = 1; i <= remainingDays; i++) {
+        allDays.push(addDays(endDate, i));
+      }
     }
-    
-    setCalendarDays(days);
-  }, [currentDate]);
 
-  // Passer au mois précédent
-  const goToPreviousMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-  };
+    // Diviser en semaines
+    const weeks: Date[][] = [];
+    for (let i = 0; i < allDays.length; i += 7) {
+      weeks.push(allDays.slice(i, i + 7));
+    }
 
-  // Passer au mois suivant
-  const goToNextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-  };
+    setDisplayedWeeks(weeks);
+  }, [visibleMonth]);
 
-  // Passer au mois actuel
-  const goToToday = () => {
-    setCurrentDate(new Date());
-  };
+  // Navigation dans le calendrier
+  const goToNextMonth = () => setVisibleMonth(addMonths(visibleMonth, 1));
+  const goToPreviousMonth = () => setVisibleMonth(subMonths(visibleMonth, 1));
+  const goToCurrentMonth = () => setVisibleMonth(startOfMonth(new Date()));
 
-  // Formater le mois et l'année
-  const formatMonthYear = (date: Date) => {
-    return date.toLocaleDateString('fr-FR', {
-      month: 'long',
-      year: 'numeric'
+  // Composant pour un jour qui accepte le drop de tâches
+  const DroppableDay = ({ date, tasks, onEditTask, onUpdateTask }: DroppableDayProps) => {
+    // Filtrer les tâches pour ce jour
+    const dayTasks = tasks.filter((task) =>
+      task.dueDate && isSameDay(new Date(task.dueDate), date)
+    );
+
+    // Limiter le nombre de tâches affichées sur mobile
+    const maxVisibleTasks = isMobile ? 3 : 10;
+    const visibleTasks = dayTasks.slice(0, maxVisibleTasks);
+    const hiddenTasksCount = dayTasks.length - visibleTasks.length;
+
+    // Configuration du drop
+    const [{ isOver, canDrop }, drop] = useDrop({
+      accept: ItemTypes.TASK,
+      drop: (item: { task: Task }) => {
+        onUpdateTask({
+          id: item.task.id,
+          dueDate: date
+        });
+      },
+      canDrop: () => isAfter(date, new Date()) || isToday(date),
+      collect: (monitor) => ({
+        isOver: monitor.isOver(),
+        canDrop: monitor.canDrop()
+      })
     });
-  };
 
-  // Jours de la semaine
-  const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    return (
+      <div
+        ref={drop}
+        className={cn(
+          'h-full min-h-24 p-1 overflow-y-auto',
+          isOver && canDrop ? 'bg-green-50 dark:bg-green-900/20' : '',
+          isOver && !canDrop ? 'bg-red-50 dark:bg-red-900/20' : '',
+          !isSameMonth(date, visibleMonth) && 'opacity-50'
+        )}
+      >
+        <div className="flex flex-col gap-1">
+          {visibleTasks.map((item) => (
+            <DraggableTask
+              key={item.id}
+              task={item}
+              onEditTask={onEditTask}
+              onUpdateTask={onUpdateTask}
+              commIndex={undefined}
+              stableCommId={undefined}
+              uuid={undefined}
+            />
+          ))}
+          {hiddenTasksCount > 0 && (
+            <div className="text-xs text-gray-500 mt-1 flex items-center">
+              <LayoutIcon size={12} className="mr-1" /> {hiddenTasksCount} autres tâches
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <Card className="border-none shadow-none pb-6">
-        <CardContent className="p-0">
-          <div className="flex items-center justify-between p-4 border-b">
-            <div className="flex items-center space-x-2">
-              <h2 className="text-xl font-bold capitalize">{formatMonthYear(currentDate)}</h2>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm" onClick={goToToday}>
-                Aujourd'hui
-              </Button>
-              <Button variant="outline" size="icon" onClick={goToPreviousMonth}>
-                <ChevronLeftIcon className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon" onClick={goToNextMonth}>
-                <ChevronRightIcon className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+    <div className="h-full flex flex-col">
+      {/* En-tête du calendrier */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold">
+          {format(visibleMonth, 'MMMM yyyy', { locale: fr })}
+        </h2>
+        <div className="flex space-x-2">
+          <Button variant="outline" size="sm" onClick={goToPreviousMonth}>
+            <ChevronLeftIcon className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={goToCurrentMonth}>
+            Aujourd'hui
+          </Button>
+          <Button variant="outline" size="sm" onClick={goToNextMonth}>
+            <ChevronRightIcon className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
 
-          <div className="grid grid-cols-7 border-b">
-            {weekDays.map((day, index) => (
-              <div key={index} className="p-2 text-center text-sm font-medium text-gray-500">
-                {day}
+      {/* Grille du calendrier */}
+      <div className="flex-1 grid grid-cols-7 overflow-hidden border rounded-lg">
+        {/* Jours de la semaine */}
+        {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day) => (
+          <div key={day} className="p-2 text-center font-medium bg-muted">
+            {day}
+          </div>
+        ))}
+
+        {/* Jours du mois */}
+        {displayedWeeks.flatMap((week) =>
+          week.map((day, dayIndex) => (
+            <div
+              key={day.toString()}
+              className={cn(
+                'border-t border-l p-1 relative',
+                dayIndex === 6 && 'border-r', // Ajouter une bordure à droite pour le dimanche
+                isToday(day) && 'bg-blue-50 dark:bg-blue-900/20'
+              )}
+            >
+              {/* Date du jour */}
+              <div className="text-right text-sm mb-1">
+                {format(day, 'd')}
               </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7 h-[calc(100vh-250px)] overflow-auto">
-            {calendarDays.map((day, index) => {
-              const isCurrentMonth = day.getMonth() === currentDate.getMonth();
-              return (
-                <div
-                  key={index}
-                  className={`border-b border-r p-1 ${
-                    isCurrentMonth ? '' : 'bg-gray-50 text-gray-400'
-                  }`}
-                >
-                  <DroppableDay
-                    date={day}
-                    tasks={filteredTasks}
-                    onEditTask={onEditTask}
-                    onUpdateTask={onUpdateTask}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-    </DndProvider>
+              
+              {/* Tâches du jour */}
+              <DroppableDay
+                date={day}
+                tasks={tasks}
+                onEditTask={onEditTask}
+                onUpdateTask={onUpdateTask}
+                canDrop={isAfter(day, new Date()) || isToday(day)}
+              />
+            </div>
+          ))
+        )}
+      </div>
+    </div>
   );
 } 
