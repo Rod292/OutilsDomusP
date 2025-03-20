@@ -726,6 +726,7 @@ export const sendTaskAssignedNotification = async (params: {
   isCommunication?: boolean;
   communicationIndex?: number;
   recipientEmail: string;
+  notificationId?: string; // ID unique optionnel pour éviter les notifications dupliquées
 }): Promise<boolean> => {
   try {
     // Vérifier si nous sommes côté client
@@ -742,34 +743,6 @@ export const sendTaskAssignedNotification = async (params: {
 
     const notificationType = params.isCommunication ? "communication_assigned" : "task_assigned";
     
-    // Générer un ID unique pour cette notification qui inclut toutes les informations pertinentes
-    // Cela nous permettra d'éviter les duplications
-    const notificationUniqueId = `${notificationType}_${params.taskId}_${params.isCommunication ? `${params.communicationIndex}_` : ''}${params.recipientEmail}`;
-    
-    // Vérifier si nous avons déjà envoyé cette notification récemment (dans les 5 dernières minutes)
-    if (typeof localStorage !== 'undefined') {
-      const recentNotifications = JSON.parse(localStorage.getItem('recent_notifications') || '{}');
-      const now = Date.now();
-      const NOTIFICATION_THROTTLE_MS = 5 * 60 * 1000; // 5 minutes
-      
-      // Nettoyer les notifications anciennes (plus de 5 minutes)
-      Object.keys(recentNotifications).forEach(id => {
-        if (now - recentNotifications[id] > NOTIFICATION_THROTTLE_MS) {
-          delete recentNotifications[id];
-        }
-      });
-      
-      // Vérifier si cette notification a déjà été envoyée récemment
-      if (recentNotifications[notificationUniqueId] && (now - recentNotifications[notificationUniqueId] < NOTIFICATION_THROTTLE_MS)) {
-        console.log(`Notification ignorée car déjà envoyée récemment: ${notificationUniqueId}`);
-        return true; // Considérer comme un succès pour ne pas réessayer
-      }
-      
-      // Enregistrer cette notification comme en cours d'envoi
-      recentNotifications[notificationUniqueId] = now;
-      localStorage.setItem('recent_notifications', JSON.stringify(recentNotifications));
-    }
-    
     // Déduire le nom du consultant si nécessaire
     const consultantName = params.recipientEmail?.split('@')[0] || params.recipientEmail;
     console.log(`Préparation notification pour ${consultantName} (${params.recipientEmail})`);
@@ -782,7 +755,7 @@ export const sendTaskAssignedNotification = async (params: {
       type: notificationType as "task_assigned" | "task_reminder" | "system" | "communication_assigned",
       taskId: params.taskId,
       communicationIndex: params.communicationIndex,
-      notificationId: notificationUniqueId, // Ajouter l'ID unique pour déduplication côté serveur
+      notificationId: params.notificationId || `notification_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`, // Utiliser l'ID fourni ou en générer un unique
       mode: 'FCM' // Force l'utilisation de Firebase Cloud Messaging
     };
 
