@@ -449,17 +449,38 @@ const DroppableDay = ({
     
     const displayTasks: DisplayTask[] = [];
     
+    // Log pour déboguer la préparation des tâches
+    console.log(`[SYNC DEBUG] Préparation de l'affichage pour la date: ${date.toLocaleDateString()}, nombre de tâches: ${tasks.length}`);
+    
     tasks.forEach(task => {
+      // Log pour déboguer chaque tâche
+      if (task.communicationDetails && task.communicationDetails.length > 0) {
+        console.log(`[SYNC DEBUG] Tâche ${task.id} - ${task.title} a ${task.communicationDetails.length} communications:`, 
+          task.communicationDetails.map(c => ({
+            type: c.type,
+            date: c.deadline ? new Date(c.deadline).toLocaleDateString() : 'sans date',
+            status: c.status
+          }))
+        );
+      }
+      
       // Cas 1: Tâche sans communications mais avec une date principale qui correspond
       if (task.dueDate) {
         const taskDate = new Date(task.dueDate);
-        const sameDate = (
-          taskDate.getDate() === date.getDate() &&
-          taskDate.getMonth() === date.getMonth() &&
-          taskDate.getFullYear() === date.getFullYear()
-        );
+        
+        // S'assurer que la comparaison de date est faite correctement avec setHours(0,0,0,0)
+        const normalizedTaskDate = new Date(taskDate);
+        normalizedTaskDate.setHours(0, 0, 0, 0);
+        
+        const normalizedCellDate = new Date(date);
+        normalizedCellDate.setHours(0, 0, 0, 0);
+        
+        const sameDate = normalizedTaskDate.getTime() === normalizedCellDate.getTime();
         
         if (sameDate && (!task.communicationDetails || task.communicationDetails.length === 0)) {
+          // Log de débogage
+          console.log(`[SYNC DEBUG] Affichage de la tâche principale ${task.id} à la date ${normalizedTaskDate.toLocaleDateString()}`);
+          
           // Créer une copie distincte de la tâche pour éviter tout effet de bord
           displayTasks.push({ 
             task: JSON.parse(JSON.stringify(task)) 
@@ -479,18 +500,21 @@ const DroppableDay = ({
             const commDate = comm.deadline instanceof Date ? 
               comm.deadline : 
               new Date(comm.deadline);
+              
+            // Normaliser la date pour comparaison (ignorer l'heure)
+            const normalizedCommDate = new Date(commDate);
+            normalizedCommDate.setHours(0, 0, 0, 0);
+            
+            const normalizedCellDate = new Date(date);
+            normalizedCellDate.setHours(0, 0, 0, 0);
             
             // Si la date correspond à la date de la cellule
-            if (
-              commDate.getDate() === date.getDate() &&
-              commDate.getMonth() === date.getMonth() &&
-              commDate.getFullYear() === date.getFullYear()
-            ) {
+            if (normalizedCommDate.getTime() === normalizedCellDate.getTime()) {
               // Générer ou récupérer l'UUID pour cette communication
               const communicationUUID = getOrCreateCommunicationUUID(task.id, comm.type, commIndex);
               
               // Log pour faciliter le débogage
-              console.log(`Préparation de l'affichage pour la communication ${commIndex} (${comm.type}) avec UUID: ${communicationUUID} et date: ${commDate.toLocaleDateString()}`);
+              console.log(`[SYNC DEBUG] Préparation de l'affichage pour la communication ${commIndex} (${comm.type}) avec UUID: ${communicationUUID} et date: ${normalizedCommDate.toLocaleDateString()}`);
               
               // IMPORTANT: Créer une copie complètement isolée de la tâche
               // avec SEULEMENT cette communication spécifique
@@ -518,12 +542,20 @@ const DroppableDay = ({
                 stableCommId: communicationUUID, // Pour la compatibilité
                 uuid: communicationUUID        // L'UUID est maintenant l'identifiant principal
               });
+            } else {
+              // Log pour déboguer les communications qui ne correspondent pas à cette date
+              console.log(`[SYNC DEBUG] Communication ignorée pour la date ${normalizedCellDate.toLocaleDateString()}: Communication ${commIndex} (${comm.type}) - date: ${normalizedCommDate.toLocaleDateString()}`);
             }
+          } else {
+            console.log(`[SYNC DEBUG] Communication sans date ignorée: ${commIndex} (${comm.type})`);
           }
         });
       }
     });
 
+    // Log pour déboguer le résultat final
+    console.log(`[SYNC DEBUG] Pour la date ${date.toLocaleDateString()}, nombre d'éléments affichés: ${displayTasks.length}`);
+    
     return displayTasks;
   };
 
@@ -798,7 +830,7 @@ export default function TaskCalendar({ tasks, onEditTask, onUpdateTask }: TaskCa
     return latestTasks;
   }, [latestTasks, forceRefresh]);
   
-  // Ajouter un écouteur d'événement pour les mises à jour de tâches
+  // Ajouter un écouteur d'événement pour les mises à jour de tâches initiales
   useEffect(() => {
     // Mettre à jour l'état local avec les props initiales
     setLatestTasks(tasks);
@@ -811,6 +843,33 @@ export default function TaskCalendar({ tasks, onEditTask, onUpdateTask }: TaskCa
       // Rafraîchir l'affichage du calendrier lorsque des tâches sont mises à jour
       const updatedTasks = event.detail.tasks;
       console.log("Tâches mises à jour reçues:", updatedTasks.length);
+      
+      // Log détaillé pour le débogage
+      console.log(`[SYNC DEBUG] Événement tasksUpdated reçu à ${new Date().toLocaleTimeString()}`);
+      console.log(`[SYNC DEBUG] ${updatedTasks.length} tâches reçues`);
+      
+      // Rechercher et logger les tâches avec des communications ayant des dates
+      const tasksWithDates = updatedTasks.filter(
+        (t: Task) => t.communicationDetails && t.communicationDetails.some(
+          (c: any) => c.deadline
+        )
+      );
+      
+      console.log(`[SYNC DEBUG] ${tasksWithDates.length} tâches ont des communications avec dates`);
+      
+      tasksWithDates.forEach((task: Task) => {
+        if (task.communicationDetails) {
+          console.log(`[SYNC DEBUG] Tâche ${task.id} - ${task.title} a des communications avec dates:`);
+          task.communicationDetails.forEach((comm: any, idx: number) => {
+            if (comm.deadline) {
+              const dateStr = comm.deadline instanceof Date 
+                ? comm.deadline.toLocaleDateString() 
+                : new Date(comm.deadline).toLocaleDateString();
+              console.log(`[SYNC DEBUG] - Comm ${idx}: ${comm.type}, date: ${dateStr}, statut: ${comm.status || 'non défini'}`);
+            }
+          });
+        }
+      });
       
       // Mise à jour de l'état local avec les nouvelles données
       setLatestTasks(updatedTasks);
