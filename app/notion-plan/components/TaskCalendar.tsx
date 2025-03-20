@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,8 @@ import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, ImageIcon, VideoIcon, Fi
 import { Task, CommunicationDetail } from '../types';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { format, isSameDay } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 interface TaskCalendarProps {
   tasks: Task[];
@@ -215,7 +217,7 @@ const DraggableTask = ({
       {/* Afficher uniquement les détails de communication filtrés pour cette date */}
       {task.communicationDetails && task.communicationDetails.length > 0 ? (
         <div className="flex flex-col gap-2">
-          {task.communicationDetails.map((comm, idx) => (
+          {task.communicationDetails.map((comm: CommunicationDetail, idx: number) => (
             <div key={idx} className="flex flex-wrap gap-1 mt-1">
               {/* Badge pour le type de communication */}
               <div className={`text-xs font-medium px-2 py-0.5 rounded-md ${getBadgeColor(comm.type)}`}>
@@ -468,7 +470,7 @@ const DroppableDay = ({
       // Cas 2: Tâche avec des communications - créer une tâche distincte pour chaque communication prévue à cette date
       if (task.communicationDetails && task.communicationDetails.length > 0) {
         // Pour chaque communication, vérifier si elle est prévue pour cette date
-        task.communicationDetails.forEach((comm, arrayIndex) => {
+        task.communicationDetails.forEach((comm: any, arrayIndex: number) => {
           // Utiliser l'index d'origine s'il est défini, sinon utiliser l'index courant dans le tableau
           const commIndex = comm.originalIndex !== undefined ? comm.originalIndex : arrayIndex;
           
@@ -751,6 +753,24 @@ export default function TaskCalendar({ tasks, onEditTask, onUpdateTask }: TaskCa
 
   // Jours de la semaine
   const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+  // Ajouter un écouteur d'événement pour les mises à jour de tâches
+  useEffect(() => {
+    const handleTasksUpdated = (event: CustomEvent) => {
+      console.log("Événement tasksUpdated reçu dans TaskCalendar");
+      // Rafraîchir l'affichage du calendrier lorsque des tâches sont mises à jour
+      const updatedTasks = event.detail.tasks;
+      console.log("Tâches mises à jour reçues:", updatedTasks.length);
+    };
+
+    // Typer correctement l'événement pour TypeScript
+    window.addEventListener('tasksUpdated', handleTasksUpdated as EventListener);
+
+    // Nettoyer l'écouteur à la destruction du composant
+    return () => {
+      window.removeEventListener('tasksUpdated', handleTasksUpdated as EventListener);
+    };
+  }, []); // Pas de dépendance car on veut juste savoir quand des tâches sont mises à jour
 
   return (
     <DndProvider backend={HTML5Backend}>

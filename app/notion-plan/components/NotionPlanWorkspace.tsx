@@ -319,6 +319,17 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
           console.log("Tâches récupérées:", taskData);
           setTasks(taskData);
           setLoading(false);
+          
+          // Émettre un événement personnalisé pour signaler la mise à jour des tâches
+          // Cela permettra au composant TaskCalendar d'être informé des mises à jour
+          const updateEvent = new CustomEvent('tasksUpdated', { 
+            detail: { 
+              tasks: taskData,
+              timestamp: new Date().getTime()
+            } 
+          });
+          window.dispatchEvent(updateEvent);
+          console.log("Événement tasksUpdated émis");
         }, (error) => {
           console.error("Erreur lors de l'écoute des tâches:", error);
           setLoading(false);
@@ -599,7 +610,7 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
               // Traiter la date correctement
               if (comm.deadline) {
                 cleanComm.deadline = Timestamp.fromDate(new Date(comm.deadline));
-            } else {
+              } else {
                 cleanComm.deadline = null;
               }
               
