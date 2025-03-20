@@ -722,14 +722,72 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
               if (key === 'dueDate' || key === 'reminder') {
                 // @ts-ignore
                 updatedTask[key] = value ? new Date(value) : null;
+                // Log de débogage pour les dates
+                console.log(`[SYNC DEBUG] Mise à jour de la date ${key} pour la tâche ${task.id}:`, 
+                  value ? new Date(value as string | number | Date).toLocaleString() : 'null');
               } 
               else if (key === 'communicationDetails' && value) {
+                console.log(`[SYNC DEBUG] Mise à jour des communicationDetails pour la tâche ${task.id}`);
+                // Log détaillé avant la conversion
+                console.log(`[SYNC DEBUG] Communications reçues (avant conversion):`, 
+                  (value as any[]).map(c => ({
+                    type: c.type,
+                    deadline: c.deadline ? 
+                      (typeof c.deadline === 'object' && c.deadline.seconds ? 
+                        `Timestamp(${c.deadline.seconds})` : 
+                        String(c.deadline)) 
+                      : 'null',
+                    status: c.status
+                  }))
+                );
+                
                 // Mettre à jour les communications avec le résultat fusionné
-                updatedTask.communicationDetails = (value as any[]).map(comm => ({
-                  ...comm,
-                  // S'assurer que les dates sont des objets Date dans l'état local
-                  deadline: comm.deadline ? new Date(comm.deadline) : null
-                }));
+                updatedTask.communicationDetails = (value as any[]).map(comm => {
+                  // Déterminer le type de deadline pour le log
+                  let deadlineType = 'inconnu';
+                  if (!comm.deadline) {
+                    deadlineType = 'null';
+                  } else if (comm.deadline instanceof Date) {
+                    deadlineType = 'Date';
+                  } else if (typeof comm.deadline === 'object' && comm.deadline.seconds) {
+                    deadlineType = 'Timestamp';
+                  } else if (typeof comm.deadline === 'string') {
+                    deadlineType = 'String';
+                  } else if (typeof comm.deadline === 'number') {
+                    deadlineType = 'Number';
+                  }
+                  
+                  // Convertir la deadline en Date, quelle que soit sa forme actuelle
+                  let deadlineDate = null;
+                  if (comm.deadline) {
+                    if (comm.deadline instanceof Date) {
+                      deadlineDate = comm.deadline;
+                    } else if (typeof comm.deadline === 'object' && comm.deadline.seconds) {
+                      // Firestore Timestamp
+                      deadlineDate = new Date(comm.deadline.seconds * 1000);
+                    } else {
+                      // String, number ou autre
+                      deadlineDate = new Date(comm.deadline);
+                    }
+                  }
+                  
+                  console.log(`[SYNC DEBUG] Communication ${comm.type}: deadline de type ${deadlineType} convertie en ${deadlineDate ? deadlineDate.toLocaleString() : 'null'}`);
+                  
+                  return {
+                    ...comm,
+                    // S'assurer que les dates sont des objets Date dans l'état local
+                    deadline: deadlineDate
+                  };
+                });
+                
+                // Log après conversion
+                console.log(`[SYNC DEBUG] Communications après conversion:`, 
+                  updatedTask.communicationDetails.map(c => ({
+                    type: c.type,
+                    deadline: c.deadline ? c.deadline.toLocaleString() : 'null',
+                    status: c.status
+                  }))
+                );
               }
               else {
                 // @ts-ignore
