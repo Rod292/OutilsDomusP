@@ -1249,7 +1249,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       }
 
       // Créer une nouvelle communication avec des valeurs par défaut
-      const newCommunication = {
+      const newCommunication: Record<string, any> = {
         type: type || 'autre',
         status: 'à faire',
         priority: 'moyenne',
@@ -1257,11 +1257,20 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
         platform: type.includes('post_') ? type.replace('post_', '') : null,
         mediaType: type === 'video' ? 'video' : (type === 'carousel' ? 'photo' : null),
         details: '',
-        assignedTo: [] // Tableau vide par défaut
+        assignedTo: []
       };
 
+      // S'assurer que tous les champs sont définis et valides pour Firestore
+      Object.keys(newCommunication).forEach(key => {
+        // Si une valeur est undefined, la remplacer par null (Firestore accepte null mais pas undefined)
+        if (newCommunication[key] === undefined) {
+          newCommunication[key] = null;
+        }
+      });
+
       // Ajouter la nouvelle communication à la liste existante
-      let communicationDetails = [...(taskData.communicationDetails || []), newCommunication];
+      const existingCommunications = taskData.communicationDetails || [];
+      const communicationDetails = [...existingCommunications, newCommunication];
 
       // Mettre à jour la tâche avec la nouvelle liste de communications
       await updateDoc(taskRef, {
