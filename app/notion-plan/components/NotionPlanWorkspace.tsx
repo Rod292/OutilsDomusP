@@ -375,256 +375,202 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
   };
 
   const handleUpdateTask = async (task: Partial<Task> & { id: string }) => {
+    console.log("GESTIONNAIRE DE MISE À JOUR: Début de mise à jour de tâche avec ID:", task.id);
+    
+    // Générer un ID unique pour cette mise à jour spécifique
+    const updateId = `update-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`;
+    console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Démarrage de l'opération...`);
+    
     try {
-      console.log("GESTIONNAIRE DE MISE À JOUR: Début de mise à jour de tâche avec ID:", task.id);
+      // Récupérer d'abord les données actuelles pour les tâches avec communicationDetails
+      let existingCommunications: CommunicationDetail[] = [];
+      let currentAssignedTo: string[] = [];
       
-      // Créer un identifiant unique pour cette opération de mise à jour
-      const updateId = `update-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
-      console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Démarrage de l'opération...`);
-      
-      // Récupérer les données actuelles directement depuis Firestore
-      const taskRef = doc(db, 'tasks', task.id);
-      const taskSnapshot = await getDoc(taskRef);
-      
-      if (!taskSnapshot.exists()) {
-        throw new Error(`Tâche avec ID ${task.id} introuvable dans Firestore`);
+      if (task.communicationDetails || task.assignedTo) {
+        const taskRef = doc(db, 'tasks', task.id);
+        const taskSnap = await getDoc(taskRef);
+        
+        if (taskSnap.exists()) {
+          const taskData = taskSnap.data();
+          
+          if (task.communicationDetails) {
+            existingCommunications = taskData.communicationDetails || [];
+            console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Traitement spécial pour mise à jour de communications`);
+          }
+          
+          if (task.assignedTo) {
+            currentAssignedTo = taskData.assignedTo || [];
+            console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour du champ assignedTo avec la valeur:`, task.assignedTo);
+          }
+        }
       }
       
-      // Récupérer la version la plus récente des données
-      const currentTaskData = taskSnapshot.data() as any;
-      
-      // Préparer l'objet de mise à jour avec les nouvelles données
-      const updateData: Record<string, any> = {
-        updatedAt: serverTimestamp()
-      };
-      
-      // Traitement de tous les champs à mettre à jour (sauf communicationDetails)
-      Object.entries(task).forEach(([key, value]) => {
-        if (key !== 'id' && key !== 'communicationDetails' && value !== undefined) {
-          console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour du champ ${key} avec la valeur:`, value);
+      // Traitement spécial pour les communications si nécessaire
+      let updatedCommunications = existingCommunications;
+      if (task.communicationDetails) {
+        // Comparer les communications actuelles avec les nouvelles pour détecter les changements
+        const incoming = task.communicationDetails.map(comm => 
+          `${comm.originalIndex !== undefined ? comm.originalIndex : 'new'}: ${comm.type} - ${comm.deadline instanceof Date ? comm.deadline.toLocaleDateString() : 'sans date'}`
+        );
+        
+        const current = existingCommunications.map((comm, idx) => 
+          `${idx}: ${comm.type} - ${comm.deadline instanceof Date ? new Date(comm.deadline).toLocaleDateString() : 'sans date'}`
+        );
+        
+        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Données actuelles récupérées de Firestore:`, current);
+        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Nouvelles données à appliquer:`, incoming);
+        
+        // Préparer le tableau de communications final
+        updatedCommunications = [];
+        
+        // Vérifier les suppressions
+        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Détection de suppressions éventuelles`);
+        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Anciennes communications:`, existingCommunications.length);
+        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Nouvelles communications:`, task.communicationDetails.length);
+        
+        // Rechercher les communications supprimées (présentes dans existingCommunications mais pas dans task.communicationDetails)
+        const indexToRemove: number[] = [];
+        existingCommunications.forEach((comm, idx) => {
+          // Vérifier si cette communication existe toujours dans les nouvelles données
+          const stillExists = task.communicationDetails!.some(newComm => 
+            (newComm.originalIndex !== undefined && newComm.originalIndex === idx)
+          );
           
-          // Normaliser le statut si présent
-          if (key === 'status') {
-            updateData[key] = normalizeStatus(value as string);
-          } 
-          // Traitement spécial pour les dates
-          else if (key === 'dueDate' || key === 'reminder') {
-            updateData[key] = value ? Timestamp.fromDate(new Date(value as any)) : null;
+          if (!stillExists) {
+            indexToRemove.push(idx);
           }
-          // Traitement explicite de mandatSigne
-          else if (key === 'mandatSigne') {
-            updateData[key] = value === true;
+        });
+        
+        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Index supprimés:`, indexToRemove);
+        
+        // Pour chaque communication dans les nouvelles données
+        task.communicationDetails.forEach(newComm => {
+          // Si c'est une nouvelle communication (sans originalIndex)
+          if (newComm.originalIndex === undefined) {
+            console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Ajout d'une nouvelle communication:`, newComm);
+            updatedCommunications.push({
+              ...newComm,
+              // Ne pas inclure originalIndex dans les données persistées
+              originalIndex: undefined
+            });
+          } else {
+            // Mise à jour d'une communication existante
+            const originalIndex = newComm.originalIndex;
+            console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour de la communication à l'index original ${originalIndex}`);
+            
+            // Si la communication existe à cet index
+            if (originalIndex < existingCommunications.length) {
+              const existingComm = existingCommunications[originalIndex];
+              
+              // Fusionner les propriétés
+              const updatedComm = {
+                ...existingComm,
+                ...newComm,
+                // Assurez-vous que la date est correctement convertie
+                deadline: newComm.deadline instanceof Date 
+                  ? newComm.deadline 
+                  : (newComm.deadline 
+                    ? new Date(newComm.deadline) 
+                    : null)
+              };
+              
+              console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour de la date pour comm ${originalIndex}:`, 
+                updatedComm.deadline instanceof Date 
+                  ? updatedComm.deadline.toLocaleDateString() 
+                  : 'sans date'
+              );
+              
+              // Supprimer originalIndex avant de sauvegarder dans Firestore
+              delete updatedComm.originalIndex;
+              
+              updatedCommunications.push(updatedComm);
+            }
           }
-          // Autres champs
-          else {
-            updateData[key] = value;
-          }
+        });
+        
+        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Tableau final des communications après fusion:`, 
+          updatedCommunications.map((comm, idx) => 
+            `${idx}: ${comm.type} - ${comm.deadline instanceof Date ? comm.deadline.toLocaleDateString() : 'sans date'}`
+          )
+        );
+        
+        // Remplacer les communications dans l'objet task
+        task.communicationDetails = updatedCommunications;
+      }
+      
+      // Préparer les données finales pour la mise à jour
+      const updateData: Record<string, any> = {};
+      
+      // Ajouter updatedAt par défaut
+      updateData.updatedAt = serverTimestamp();
+      
+      // Copier toutes les propriétés de task sauf id
+      Object.entries(task).forEach(([key, value]) => {
+        if (key !== 'id' && value !== undefined) {
+          updateData[key] = value;
         }
       });
       
-      // IMPORTANT: Traitement spécial pour communicationDetails si présent
-      if (task.communicationDetails) {
-        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Traitement spécial pour mise à jour de communications`);
-        
-        // Priorité aux données locales pour plus de cohérence
-        // Récupérer les communications depuis localStorage si disponible
-        let currentComms = currentTaskData.communicationDetails || [];
-        
-        // Si disponible, utiliser les données du localStorage qui sont plus à jour
-        if (typeof window !== 'undefined') {
-          try {
-            const localTasksJSON = localStorage.getItem('current_tasks');
-            if (localTasksJSON) {
-              const localTasks = JSON.parse(localTasksJSON);
-              const localTask = localTasks.find((t: any) => t.id === task.id);
-              if (localTask && localTask.communicationDetails) {
-                console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Utilisation des communications du localStorage`);
-                currentComms = localTask.communicationDetails;
-              }
-            }
-          } catch (error) {
-            console.error(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Erreur lors de la lecture du localStorage:`, error);
-          }
-        }
-        
-        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Données actuelles récupérées de Firestore:`, 
-          currentComms.map((c: any, i: number) => 
-            `${i}: ${c.type} - ${c.deadline ? new Date((c.deadline as any).toDate?.() || c.deadline).toLocaleDateString() : 'non définie'}`
-          )
-        );
-        
-        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Nouvelles données à appliquer:`, 
-          task.communicationDetails.map((c, i) => 
-            `${i}: ${c.type} - ${c.deadline ? new Date(c.deadline).toLocaleDateString() : 'non définie'}`
-          )
-        );
-        
-        // 1. Transformer les dates Firestore en dates JS pour la comparaison
-        const normalizedCurrentComms = currentComms.map((comm: any) => ({
-          ...comm,
-          deadline: comm.deadline ? 
-            (comm.deadline.toDate ? new Date(comm.deadline.toDate()) : 
-             (comm.deadline instanceof Date ? comm.deadline : new Date(comm.deadline))) 
-            : null
-        }));
-        
-        // 2. Créer une carte d'index pour suivre quelle communication a été modifiée
-        // Stocker les communications à leur position originale
-        const commIndexMap = new Map();
-        normalizedCurrentComms.forEach((comm: any, idx: number) => {
-          // Créer une clé unique pour cette communication basée sur son type et son index original
-          const commKey = `${comm.type}-${comm.originalIndex !== undefined ? comm.originalIndex : idx}`;
-          commIndexMap.set(commKey, idx);
-        });
-        
-        // 3. Pour chaque nouvelle communication dans la mise à jour
-        let updatedComms = [...normalizedCurrentComms]; // Copie de travail
-        
-        // CORRECTION pour la suppression: Vérifier si des communications ont été supprimées
-        // On le fait en comparant la longueur et en vérifiant les index originaux
-        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Détection de suppressions éventuelles`);
-        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Anciennes communications:`, normalizedCurrentComms.length);
-        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Nouvelles communications:`, task.communicationDetails.length);
-        
-        // Récupérer les index originaux des communications existantes
-        const existingIndexes = normalizedCurrentComms.map((comm: any, idx: number) => 
-          comm.originalIndex !== undefined ? comm.originalIndex : idx
-        );
-        
-        // Récupérer les index originaux des communications dans la mise à jour
-        const updatedIndexes = task.communicationDetails.map((comm: any) => 
-          comm.originalIndex !== undefined ? comm.originalIndex : null
-        ).filter((idx: number | null) => idx !== null);
-        
-        // Trouver les index qui existaient mais qui ne sont plus dans la mise à jour (supprimés)
-        const deletedIndexes = existingIndexes.filter((idx: any) => !updatedIndexes.includes(idx));
-        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Index supprimés:`, deletedIndexes);
-        
-        // Si des index ont été supprimés, filtrer les communications correspondantes
-        if (deletedIndexes.length > 0) {
-          updatedComms = updatedComms.filter((comm: any) => {
-            const commIndex = comm.originalIndex !== undefined ? comm.originalIndex : -1;
-            const shouldKeep = !deletedIndexes.includes(commIndex);
-            if (!shouldKeep) {
-              console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Suppression de la communication à l'index ${commIndex}`);
-            }
-            return shouldKeep;
-          });
+      console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Données finales pour la mise à jour:`, Object.keys(updateData).join(', '));
+      
+      // Effectuer la mise à jour
+      const taskRef = doc(db, 'tasks', task.id);
+      await updateDoc(taskRef, updateData);
+      
+      console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour effectuée avec succès`);
+      
+      // Vérifier s'il y a des nouveaux assignés pour envoyer des notifications
+      if (task.assignedTo && Array.isArray(task.assignedTo)) {
+        // Récupérer les données complètes de la tâche pour avoir le titre
+        const updatedTaskSnap = await getDoc(taskRef);
+        if (updatedTaskSnap.exists()) {
+          const taskData = updatedTaskSnap.data();
+          const taskTitle = taskData.title || 'Tâche sans titre';
           
-          // Réaffecter les index originaux si nécessaire pour maintenir la continuité
-          updatedComms = updatedComms.map((comm: any, newIdx: number) => ({
-            ...comm,
-            // Conserver l'index original ou l'assigner au nouvel index si non défini
-            originalIndex: comm.originalIndex !== undefined ? comm.originalIndex : newIdx
-          }));
+          // Identifier les nouveaux assignés
+          const newAssignees = task.assignedTo.filter(assignee => !currentAssignedTo.includes(assignee));
           
-          console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Après suppression, il reste ${updatedComms.length} communications`);
-        }
-        
-        // IMPORTANT: Parcourir les communications mises à jour pour mettre à jour ou ajouter
-        for (const updatedComm of task.communicationDetails) {
-          // Si cette communication a un index original, on l'utilise pour la localiser
-          if (updatedComm.originalIndex !== undefined) {
-            const originalIdx = updatedComm.originalIndex;
+          if (newAssignees.length > 0 && user?.email) {
+            console.log(`Nouveaux assignés détectés: ${newAssignees.join(', ')}`);
             
-            // Chercher si cette communication avec cet index original existe déjà
-            const existingCommIndex = updatedComms.findIndex(
-              (comm: any) => comm.originalIndex === originalIdx
-            );
-            
-            if (existingCommIndex !== -1) {
-              // Si elle existe, la mettre à jour
-              console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour de la communication à l'index original ${originalIdx}`);
-              
-              // IMPORTANT: Préserver toutes les propriétés existantes et appliquer uniquement les changements
-              updatedComms[existingCommIndex] = {
-                ...updatedComms[existingCommIndex],  // Garder toutes les propriétés
-                ...updatedComm,                      // Appliquer les changements
-                originalIndex: originalIdx           // S'assurer que l'index original est préservé
-              };
-              
-              // Vérifier si la date a été modifiée
-              if (updatedComm.deadline) {
-                console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour de la date pour comm ${originalIdx}: ${new Date(updatedComm.deadline).toLocaleDateString()}`);
-              }
-            } else {
-              // Si elle n'existe pas encore, l'ajouter comme nouvelle communication
-              console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Ajout d'une nouvelle communication avec index original ${originalIdx}`);
-              
-              updatedComms.push({
-                ...updatedComm,
-                originalIndex: originalIdx
-              });
-            }
-          } else {
-            // Cas où nous ajoutons une nouvelle communication (sans index original)
-            console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Ajout d'une nouvelle communication sans index original`);
-            
-            // Calculer un nouvel index original (utiliser le plus grand index + 1)
-            const nextOriginalIndex = updatedComms.length > 0 
-              ? Math.max(...updatedComms.map((comm: any) => 
-                  comm.originalIndex !== undefined ? comm.originalIndex : -1
-                )) + 1 
-              : 0;
-            
-            console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Nouvel index original attribué: ${nextOriginalIndex}`);
-            
-            // Ajouter la nouvelle communication à la fin du tableau
-            updatedComms.push({
-              ...updatedComm,
-              originalIndex: nextOriginalIndex
-            });
-          }
-        }
-        
-        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Tableau final des communications après fusion:`, 
-          updatedComms.map((c: any, i: number) => 
-            `${i}: ${c.type} - ${c.deadline ? new Date(c.deadline).toLocaleDateString() : 'non définie'}`
-          )
-        );
-        
-        // 4. Normaliser toutes les dates pour Firestore
-        const normalizedUpdatedComms = updatedComms.map((comm: any) => ({
-          ...comm,
-          deadline: comm.deadline ? Timestamp.fromDate(new Date(comm.deadline)) : null
-        }));
-        
-        // Mettre à jour le localStorage pour les prochaines opérations
-        if (typeof window !== 'undefined') {
-          try {
-            const localTasksJSON = localStorage.getItem('current_tasks');
-            if (localTasksJSON) {
-              const localTasks = JSON.parse(localTasksJSON);
-              const taskIndex = localTasks.findIndex((t: any) => t.id === task.id);
-              if (taskIndex !== -1) {
-                localTasks[taskIndex].communicationDetails = updatedComms;
-                localStorage.setItem('current_tasks', JSON.stringify(localTasks));
-                console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: État local mis à jour dans localStorage`);
+            // Pour chaque nouvel assigné, envoyer une notification
+            for (const assignee of newAssignees) {
+              try {
+                console.log(`Préparation notification pour ${assignee}`);
+                const consultantName = assignee.split('@')[0] || assignee;
+                
+                // Construire les données de notification
+                const notificationData = {
+                  userId: `${user.email}_${consultantName}`,
+                  title: '📋 Nouvelle tâche assignée',
+                  body: `${consultantName} a reçu une nouvelle tâche "${taskTitle}".`,
+                  type: 'task_assigned',
+                  taskId: task.id,
+                  mode: 'FCM'
+                };
+                
+                // Envoyer la notification
+                const response = await fetch('/api/notifications/send', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(notificationData),
+                });
+                
+                if (!response.ok) {
+                  throw new Error(`Erreur API: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log(`Notification envoyée pour ${assignee}: `, result);
+              } catch (notifError) {
+                console.error(`Erreur lors de l'envoi de notification pour ${assignee}:`, notifError);
               }
             }
-          } catch (error) {
-            console.error(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Erreur lors de la mise à jour du localStorage:`, error);
           }
         }
-        
-        // Ajouter les communications normalisées aux données de mise à jour
-        updateData.communicationDetails = normalizedUpdatedComms;
       }
-      
-      console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Données finales pour la mise à jour:`, 
-        Object.keys(updateData).join(', '));
-      
-      // Exécuter la mise à jour dans Firebase
-      try {
-        await updateDoc(taskRef, updateData);
-        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour effectuée avec succès`);
-      } catch (updateError) {
-        console.error(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Erreur lors de la mise à jour:`, updateError);
-        throw updateError;
-      }
-      
-      // APRÈS MISE À JOUR FIREBASE: Mise à jour de l'état local
-      console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour de l'état local...`);
       
       // Mettre à jour l'état local pour refléter les changements immédiatement
       setTasks(prevTasks => {

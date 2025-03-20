@@ -7,6 +7,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,7 @@ import { useTheme } from "next-themes";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "../../hooks/useAuth";
+import { sendTaskAssignedNotification } from "@/app/services/notificationService";
 
 // Animation de slide-in pour la fenêtre modale
 const slideInAnimation = `
@@ -287,105 +289,59 @@ export default function TaskFormModal({
 
   // Mettre à jour la partie qui gère l'envoi de notifications après l'assignation de tâches
   // Améliorer pour gérer le mode local si FCM échoue
-  const sendNotificationAfterAssignment = async (
-    assigneeEmail: string, 
-    taskTitle: string, 
-    taskId: string, 
-    userEmail: string | null | undefined
-  ) => {
-    if (!userEmail) {
-      console.error('Email de l\'utilisateur non disponible, impossible d\'envoyer la notification');
+  const sendNotifications = async (newTask: Task, assignedEmails: string[]) => {
+    if (!user?.email) {
+      console.error('Impossible d\'envoyer des notifications: utilisateur non connecté');
+      return;
+    }
+    
+    console.log('Préparation de l\'envoi de notifications pour les assignés:', assignedEmails);
+    
+    if (assignedEmails.length === 0) {
+      console.log('Aucun utilisateur assigné, pas de notification à envoyer');
       return;
     }
     
     try {
-      // Extraire le nom du consultant à partir de l'email
-      const consultantName = assigneeEmail.split('@')[0] || assigneeEmail;
-      
-      // L'ID de notification est l'email de l'utilisateur connecté + le consultant
-      const notificationId = `${userEmail}_${consultantName}`;
-      
-      // Données de la notification
-      const notificationData = {
-        userId: notificationId,
-        title: '📋 Nouvelle tâche assignée',
-        body: `${consultantName}, une nouvelle tâche "${taskTitle}" vous a été assignée.`,
-        taskId,
-        type: 'task_assigned',
-      };
-      
-      console.log(`Envoi d'une notification à ${userEmail} concernant ${consultantName} pour la tâche assignée.`);
-      
-      // Envoyer la notification via l'API
-      const response = await fetch('/api/notifications/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(notificationData),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      console.log('Résultat de l\'envoi de notification:', result);
-      
-      // Vérifier si le serveur suggère d'utiliser le mode local
-      if (result.useLocalMode && typeof window !== 'undefined') {
-        console.log('Mode local suggéré par le serveur, tentative directe...');
-        const { sendLocalNotification } = await import('../../services/notificationService');
+      for (const assignedEmail of assignedEmails) {
+        if (!assignedEmail) continue;
         
-        await sendLocalNotification({
-          title: notificationData.title,
-          body: notificationData.body,
-          data: { 
-            taskId: notificationData.taskId, 
-            type: notificationData.type,
-            userId: notificationData.userId
-          }
-        });
+        console.log(`Préparation notification pour ${assignedEmail}`);
+        const consultantName = assignedEmail.split('@')[0] || assignedEmail;
+        
+        // Construire les données de notification
+        const notificationData = {
+          userId: `${user.email}_${consultantName}`,
+          title: '📋 Nouvelle tâche assignée',
+          body: `${consultantName} a reçu une nouvelle tâche "${newTask.title}".`,
+          type: 'task_assigned',
+          taskId: newTask.id,
+          notificationId: `task_assigned_${newTask.id}_${Date.now()}`,
+          mode: 'FCM'
+        };
+        
+        console.log('Envoi de notification pour la tâche assignée:', notificationData);
+
+        try {
+          // Utiliser le service de notification centralisé
+          const result = await sendTaskAssignedNotification({
+            userId: notificationData.userId,
+            title: notificationData.title,
+            body: notificationData.body,
+            taskId: newTask.id,
+            isCommunication: false,
+            recipientEmail: assignedEmail
+          });
+          
+          console.log('Résultat de sendTaskAssignedNotification:', result);
+          // Nous n'avons pas besoin d'un envoi direct additionnel
+        } catch (notifServiceError) {
+          console.error('Erreur du service de notification:', notifServiceError);
+          // En cas d'échec, pas besoin de faire une deuxième tentative
+        }
       }
     } catch (error) {
-      console.error('Erreur lors de l\'envoi de notification:', error);
-      
-      // Essayer le mode local en cas d'échec
-      try {
-        console.log('Tentative d\'envoi en mode local après échec...');
-        
-        // Extraire le nom du consultant à partir de l'email
-        const consultantName = assigneeEmail.split('@')[0] || assigneeEmail;
-        
-        // Importer les fonctions nécessaires
-        const { sendLocalNotification, createNotification } = await import('../../services/notificationService');
-        
-        // Construire l'ID de notification et les données
-        const notificationId = `${userEmail}_${consultantName}`;
-        
-        // Enregistrer dans Firestore
-        await createNotification({
-          userId: notificationId,
-          title: '📋 Nouvelle tâche assignée',
-          body: `${consultantName}, une nouvelle tâche "${taskTitle}" vous a été assignée.`,
-          type: 'task_assigned',
-          taskId,
-          read: false
-        });
-        
-        // Envoyer notification locale
-        await sendLocalNotification({
-          title: '📋 Nouvelle tâche assignée',
-          body: `${consultantName}, une nouvelle tâche "${taskTitle}" vous a été assignée.`,
-          data: { 
-            taskId, 
-            type: 'task_assigned',
-            userId: notificationId
-          }
-        });
-      } catch (localError) {
-        console.error('Échec également du mode local:', localError);
-      }
+      console.error('Erreur lors de l\'envoi des notifications:', error);
     }
   };
 
@@ -430,14 +386,7 @@ export default function TaskFormModal({
         console.log("Envoi de notifications pour les nouveaux assignés:", newAssignees);
         
         // Pour chaque nouvel assigné, envoyer une notification à l'utilisateur connecté
-        for (const assigneeEmail of newAssignees) {
-          await sendNotificationAfterAssignment(
-            assigneeEmail,
-            taskData.title,
-            task.id,
-            user.email
-          );
-        }
+        await sendNotifications(task, newAssignees);
       }
     } else {
       // Créer une nouvelle tâche
@@ -448,14 +397,7 @@ export default function TaskFormModal({
         console.log("Envoi de notifications pour les assignés de la nouvelle tâche:", taskData.assignedTo);
         
         // Pour chaque assigné, envoyer une notification à l'utilisateur connecté
-        for (const assigneeEmail of taskData.assignedTo) {
-          await sendNotificationAfterAssignment(
-            assigneeEmail,
-            taskData.title,
-            createdTask.id,
-            user.email
-          );
-        }
+        await sendNotifications(createdTask, taskData.assignedTo);
       }
     }
     
@@ -638,7 +580,7 @@ export default function TaskFormModal({
           }
         `}</style>
         <div className={`h-full overflow-y-auto p-4 md:p-6 dialog-content ${isDarkMode ? 'bg-gray-900 text-white border-l border-gray-700' : 'bg-white text-black border-l border-gray-200'}`}>
-          <DialogHeader>
+          <DialogHeader className="pt-10 md:pt-0">
             <DialogTitle>
               <Input 
                 value={formData.title} 
@@ -647,6 +589,11 @@ export default function TaskFormModal({
                 className="text-2xl font-bold border-none focus-visible:ring-0 px-0 h-auto"
               />
             </DialogTitle>
+            <DialogDescription>
+              {task
+                ? 'Modifier les détails de la tâche existante'
+                : 'Créer une nouvelle tâche dans le tableau'}
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-6 mt-4">

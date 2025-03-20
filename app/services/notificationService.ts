@@ -715,20 +715,18 @@ if (typeof window !== 'undefined') {
 
 /**
  * Envoie une notification pour une tâche assignée à un consultant
- * @param task Tâche assignée
- * @param assignee Email du consultant assigné à la tâche
- * @param currentUserEmail Email de l'utilisateur actuellement connecté
- * @param isCommunication Indique s'il s'agit d'une communication
- * @param parentTaskTitle Titre de la tâche parente (pour les communications)
+ * @param params Paramètres de la notification
  * @returns Promise<boolean> true si la notification est envoyée avec succès
  */
-export const sendTaskAssignedNotification = async (
-  task: any, 
-  assignee: string, 
-  currentUserEmail: string,
-  isCommunication: boolean = false,
-  parentTaskTitle?: string
-): Promise<boolean> => {
+export const sendTaskAssignedNotification = async (params: {
+  userId: string;
+  title: string;
+  body: string;
+  taskId: string;
+  isCommunication?: boolean;
+  communicationIndex?: number;
+  recipientEmail: string;
+}): Promise<boolean> => {
   try {
     // Vérifier si nous sommes côté client
     if (typeof window === 'undefined') {
@@ -736,51 +734,30 @@ export const sendTaskAssignedNotification = async (
       return false;
     }
 
-    // Vérifier que task est défini et qu'il a un ID
-    if (!task) {
-      console.error('Tâche non définie pour l\'envoi de notification');
+    // Vérifier les paramètres essentiels
+    if (!params.taskId || !params.userId || !params.title || !params.body) {
+      console.error('Paramètres requis manquants pour l\'envoi de notification');
       return false;
     }
 
-    // S'assurer que task.id existe
-    if (!task.id) {
-      console.error('ID de tâche manquant pour l\'envoi de notification');
-      return false;
-    }
-
-    // Extraire le nom du consultant à partir de l'email
-    const consultantName = assignee.split('@')[0] || assignee;
+    const notificationType = params.isCommunication ? "communication_assigned" : "task_assigned";
     
-    // CORRECTION IMPORTANTE: C'est l'utilisateur connecté qui a activé les notifications qui doit recevoir la notification
-    // L'ID de notification doit donc être basé sur l'email de l'utilisateur ET le consultant qu'il surveille
-    const notificationId = `${currentUserEmail}_${consultantName}`;
+    // Déduire le nom du consultant si nécessaire
+    const consultantName = params.recipientEmail?.split('@')[0] || params.recipientEmail;
+    console.log(`Préparation notification pour ${consultantName} (${params.recipientEmail})`);
     
-    console.log(`CORRECTION: Envoi d'une notification à ${notificationId} pour la tâche assignée à ${consultantName}.`);
-    console.log(`Détails : userEmail=${currentUserEmail}, consultantEmail=${assignee}, taskId=${task.id}`);
-    
-    // Préparer les données de la notification avec un message adapté
-    const title = isCommunication 
-      ? "📝 Nouvelle communication assignée"
-      : "📋 Nouvelle tâche assignée";
-    
-    // Adapter le message pour indiquer clairement que c'est pour le consultant surveillé
-    const body = isCommunication
-      ? `${consultantName} a reçu une nouvelle communication "${task.type || 'Communication'}" pour la tâche "${parentTaskTitle || 'principale'}".`
-      : `${consultantName} a reçu une nouvelle tâche "${task.title}".`;
-    
-    // Type de notification
-    const notificationType = isCommunication ? "communication_assigned" : "task_assigned";
-    
+    // Construire les données complètes de notification
     const notificationData = {
-      // IMPORTANT: L'ID de notification contient maintenant l'email de l'utilisateur qui surveille
-      userId: notificationId,
-      title,
-      body,
+      userId: params.userId,
+      title: params.title,
+      body: params.body,
       type: notificationType as "task_assigned" | "task_reminder" | "system" | "communication_assigned",
-      taskId: task.id  // S'assurer que taskId est bien transmis
+      taskId: params.taskId,
+      communicationIndex: params.communicationIndex,
+      mode: 'FCM' // Force l'utilisation de Firebase Cloud Messaging
     };
 
-    console.log(`Préparation de la notification:`, notificationData);
+    console.log(`Envoi de notification:`, notificationData);
     
     try {
       // Utiliser une URL relative pour éviter les problèmes de domaine
@@ -798,29 +775,11 @@ export const sendTaskAssignedNotification = async (
         statusText: response.statusText
       });
 
-      // Si l'API échoue, essayer d'envoyer en mode local
+      // Si l'API échoue, enregistrer l'erreur mais ne pas tenter d'envoyer en mode local
+      // pour éviter les notifications en double
       if (!response.ok) {
-        console.error(`Erreur API: ${response.status} - ${response.statusText}`);
-        
-        // Si code 404, essayer mode local automatiquement
-        if (response.status === 404) {
-          console.log('API non trouvée (404), passage en mode local');
-          // Passer en mode local
-          const localSuccess = await sendLocalNotification({
-            title: notificationData.title,
-            body: notificationData.body,
-            data: { 
-              taskId: notificationData.taskId, 
-              type: notificationData.type,
-              userId: notificationData.userId
-            }
-          });
-          
-          console.log('Résultat de l\'envoi de notification locale suite à 404:', localSuccess);
-          return localSuccess;
-        }
-        
-        throw new Error(`Erreur API: ${response.status}`);
+        console.error(`Erreur API de notification: ${response.status} - ${response.statusText}`);
+        return false;
       }
       
       const result = await response.json();
@@ -830,62 +789,13 @@ export const sendTaskAssignedNotification = async (
         throw new Error(result.error);
       }
       
-      // Vérifier si le serveur nous suggère d'utiliser le mode local
-      if (result.useLocalMode) {
-        console.log('Mode local suggéré par le serveur, envoi direct d\'une notification...');
-        const success = await sendLocalNotification({
-          title: notificationData.title,
-          body: notificationData.body,
-          data: { 
-            taskId: notificationData.taskId, 
-            type: notificationData.type,
-            userId: notificationData.userId
-          }
-        });
-        
-        console.log('Résultat de l\'envoi de notification locale:', success);
-        return success;
-      }
-      
       return true;
     } catch (apiError) {
-      console.error('Erreur lors de l\'envoi via API, tentative d\'envoi local:', apiError);
-      
-      // Fallback: utiliser les notifications locales
-      try {
-        // S'assurer que la notification est enregistrée dans Firestore
-        await createNotification({
-          userId: notificationId,
-          title: notificationData.title,
-          body: notificationData.body,
-          type: notificationData.type,
-          taskId: notificationData.taskId,
-          read: false
-        });
-        
-        console.log('Notification enregistrée dans Firestore manuellement après échec API');
-      } catch (firestoreError) {
-        console.error('Échec également de l\'enregistrement dans Firestore:', firestoreError);
-        // Continue quand même pour essayer d'envoyer la notification locale
-      }
-      
-      // Dernier recours: envoyer une notification locale directement
-      console.log('Tentative d\'envoi de notification locale en dernier recours...');
-      const localSuccess = await sendLocalNotification({
-        title: notificationData.title,
-        body: notificationData.body,
-        data: { 
-          taskId: notificationData.taskId, 
-          type: notificationData.type,
-          userId: notificationData.userId
-        }
-      });
-      
-      console.log('Résultat de l\'envoi de notification locale en dernier recours:', localSuccess);
-      return localSuccess;
+      console.error('Erreur lors de l\'appel API de notification:', apiError);
+      return false;
     }
   } catch (error) {
-    console.error('Erreur globale lors de l\'envoi de la notification:', error);
+    console.error('Erreur générale lors de l\'envoi de notification:', error);
     return false;
   }
 }; 
