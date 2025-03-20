@@ -177,7 +177,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
   };
   
   // Fonction pour filtrer et trier les tâches
-  const filteredTasks = React.useMemo(() => {
+  const sortedAndFilteredTasks = React.useMemo(() => {
     // Fonction pour comparer les priorités
     const priorityOrder = { 'urgente': 1, 'élevée': 2, 'moyenne': 3, 'faible': 4 };
     
@@ -287,6 +287,9 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       return sortDirection === 'asc' ? comparison : -comparison;
     });
   }, [tasks, sortField, sortDirection, assignedToFilter]);
+  
+  // Avant de rendre les tâches
+  const tasksToDisplay = sortedAndFilteredTasks;
   
   // Fonction pour basculer le filtrage par assignation
   const toggleAssignedToFilter = (email: string) => {
@@ -1955,14 +1958,14 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredTasks.length === 0 ? (
+            {tasksToDisplay.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-4 text-gray-500">
                   Aucune tâche pour le moment. Cliquez sur "Ajouter" pour créer une nouvelle tâche.
                 </TableCell>
               </TableRow>
             ) : 
-              filteredTasks.flatMap((task) => {
+              tasksToDisplay.flatMap((task) => {
                 // Toujours considérer les tâches avec des communications comme ayant des sous-tâches
                 const hasSubItems = true;
                 const isExpanded = expandedTasks[task.id] || false;
