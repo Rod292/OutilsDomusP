@@ -1387,31 +1387,33 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       console.log(`Suppression de la communication à l'index ${commIndex} pour la tâche ${taskId}`);
       console.log("Communication à supprimer:", task.communicationDetails[commIndex]);
       
-      // Créer une copie des communications sans celle à supprimer
-      const updatedComms = task.communicationDetails
-        .filter((_, index) => index !== commIndex)
-        .map(comm => {
-          // Garantir que toutes les propriétés requises du type CommunicationDetail sont présentes
-          const cleanComm: CommunicationDetail = {
-            type: comm.type || 'autre', // propriété obligatoire, valeur par défaut 'autre'
+      // Recréer complètement le tableau de communications sans utiliser filter ou map
+      // pour éviter de propager des valeurs undefined
+      const updatedComms: CommunicationDetail[] = [];
+      
+      // Parcourir toutes les communications sauf celle à supprimer
+      for (let i = 0; i < task.communicationDetails.length; i++) {
+        if (i !== commIndex) {
+          const comm = task.communicationDetails[i];
+          // Créer un nouvel objet propre pour chaque communication
+          updatedComms.push({
+            type: comm.type || 'autre',
             details: comm.details || '',
             status: comm.status || 'à faire',
             priority: comm.priority || 'moyenne',
-            assignedTo: Array.isArray(comm.assignedTo) ? comm.assignedTo : [],
+            assignedTo: Array.isArray(comm.assignedTo) ? [...comm.assignedTo] : [],
             deadline: comm.deadline || null,
             platform: comm.platform || null,
             mediaType: comm.mediaType || null,
-            customType: comm.customType || undefined,
-            // Ne pas inclure originalIndex dans les données persistées
-            originalIndex: undefined
-          };
-          
-          return cleanComm;
-        });
+            customType: comm.customType || undefined
+            // Ne pas inclure originalIndex
+          });
+        }
+      }
       
       console.log("Communications après suppression:", updatedComms);
       
-      // Mettre à jour la tâche dans Firestore avec les communications nettoyées
+      // Mettre à jour la tâche dans Firestore
       await onUpdateTask({
         id: taskId,
         communicationDetails: updatedComms
