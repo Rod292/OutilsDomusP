@@ -6,13 +6,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, ImageIcon, VideoIcon, FileTextIcon, MailIcon, SignpostIcon, GlobeIcon, LinkedinIcon, InstagramIcon, LightbulbIcon, FileIcon, LayoutIcon } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, ImageIcon, VideoIcon, FileTextIcon } from 'lucide-react';
 import { Task, CommunicationDetail } from '../types';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { cn } from '@/lib/utils';
-import { format, getDay, startOfMonth, endOfMonth, eachDayOfInterval, parse, isSameMonth, isSameDay, addMonths, subMonths, isToday, isAfter, addDays } from 'date-fns';
-import { fr } from 'date-fns/locale';
 
 interface TaskCalendarProps {
   tasks: Task[];
@@ -20,21 +17,12 @@ interface TaskCalendarProps {
   onUpdateTask: (task: Partial<Task> & { id: string }) => Promise<void>;
 }
 
-// Interface pour les props du jour déposable
-interface DroppableDayProps {
-  date: Date;
-  tasks: Task[];
-  onEditTask: (task: Task) => void;
-  onUpdateTask: (task: Partial<Task> & { id: string }) => Promise<void>;
-  canDrop?: boolean;
-}
-
 // Type d'élément pour le drag and drop
 const ItemTypes = {
   TASK: 'task'
 };
 
-// Composant pour une tâche pouvant être déplacée
+// Composant pour un élément de tâche draggable
 const DraggableTask = ({ 
   task, 
   onEditTask, 
@@ -50,219 +38,234 @@ const DraggableTask = ({
   stableCommId?: string;
   uuid?: string;
 }) => {
+  // Récupérer les détails de la communication si disponible
+  const commDetails = commIndex !== undefined && task.communicationDetails && task.communicationDetails.length > 0 
+    ? task.communicationDetails[0] // Dans le calendrier, chaque tâche n'a qu'une seule communication (voir prepareTasksForDisplay)
+    : null;
+  
+  // Récupérer le type de communication
+  const commType = commDetails?.type || null;
+  
+  // IMPORTANT: Utiliser l'UUID passé par le parent qui est déjà correct
+  // plutôt que d'en générer un nouveau qui pourrait être différent
+  const communicationUUID = uuid || '';
+  
+  // Log pour déboguer
+  console.log(`Préparation drag: élément avec UUID: ${communicationUUID}, type: ${commType}, index: ${commIndex}`);
+  
+  // Créer un objet avec toutes les données nécessaires pour identifier correctement la communication
+  const dragItem = {
+    id: task.id,
+    commIndex,
+    commType,
+    stableCommId: communicationUUID,
+    uniqueId: `${task.id}-${communicationUUID}-${Date.now()}`,
+    propertyAddress: task.propertyAddress,
+    dossierNumber: task.dossierNumber,
+    currentDate: commDetails?.deadline ? new Date(commDetails.deadline).toISOString() : null,
+    uuid: communicationUUID  // Utiliser l'UUID fourni
+  };
+  
   const [{ isDragging }, dragRef] = useDrag(() => ({
     type: ItemTypes.TASK,
-    item: { 
-      id: task.id,
-      commIndex,
-      commType: commIndex !== undefined && task.communicationDetails && task.communicationDetails.length > 0
-        ? task.communicationDetails[0]?.type 
-        : undefined,
-      stableCommId,
-      propertyAddress: task.propertyAddress,
-      dossierNumber: task.dossierNumber,
-      currentDate: task.dueDate?.toISOString() || null,
-      uuid // Inclure l'UUID pour l'identification
-    },
+    item: dragItem,
     collect: (monitor) => ({
       isDragging: !!monitor.isDragging(),
     }),
-  }), [task.id, commIndex, task.propertyAddress, task.dossierNumber, task.dueDate]);
+  }));
 
-  // Déterminer si c'est une communication
-  const isCommunication = commIndex !== undefined && task.communicationDetails && task.communicationDetails.length > 0;
-  
-  // Accéder à la communication spécifique si c'est une communication
-  const communication = isCommunication ? task.communicationDetails[0] : null;
-  
-  // Déterminer le titre à afficher
-  const displayTitle = isCommunication 
-    ? `${communication?.type || 'Comm.'} - ${task.title}` 
-    : task.title;
-  
-  // Déterminer le type d'action
-  const actionType = task.actionType || 'autre';
-  
+  // Fonction pour obtenir la couleur de fond en fonction du type d'action
   const getBackgroundColor = (actionType: string) => {
-    const colors: Record<string, string> = {
-      'newsletter': 'bg-purple-100 dark:bg-purple-900',
-      'panneau': 'bg-blue-100 dark:bg-blue-900',
-      'flyer': 'bg-green-100 dark:bg-green-900',
-      'carousel': 'bg-yellow-100 dark:bg-yellow-900',
-      'video': 'bg-red-100 dark:bg-red-900',
-      'post_site': 'bg-indigo-100 dark:bg-indigo-900',
-      'post_linkedin': 'bg-sky-100 dark:bg-sky-900',
-      'post_instagram': 'bg-pink-100 dark:bg-pink-900',
-      'autre': 'bg-gray-100 dark:bg-gray-800'
-    };
-    return colors[actionType] || 'bg-gray-100 dark:bg-gray-800';
+    switch (actionType) {
+      case 'newsletter':
+        return 'bg-blue-50 border-blue-200';
+      case 'panneau':
+        return 'bg-yellow-50 border-yellow-200';
+      case 'flyer':
+        return 'bg-green-50 border-green-200';
+      case 'carousel':
+        return 'bg-purple-50 border-purple-200';
+      case 'video':
+        return 'bg-orange-50 border-orange-200';
+      case 'post_site':
+        return 'bg-indigo-50 border-indigo-200';
+      case 'post_linkedin':
+        return 'bg-blue-50 border-blue-200';
+      case 'post_instagram':
+        return 'bg-pink-50 border-pink-200';
+      default:
+        return 'bg-gray-50 border-gray-200';
+    }
   };
-  
+
+  // Fonction pour obtenir la couleur du badge en fonction du type d'action
   const getBadgeColor = (actionType: string) => {
-    const colors: Record<string, string> = {
-      'newsletter': 'bg-purple-500 text-white',
-      'panneau': 'bg-blue-500 text-white',
-      'flyer': 'bg-green-500 text-white',
-      'carousel': 'bg-yellow-500 text-black',
-      'video': 'bg-red-500 text-white',
-      'post_site': 'bg-indigo-500 text-white',
-      'post_linkedin': 'bg-sky-500 text-white',
-      'post_instagram': 'bg-pink-500 text-white',
-      'autre': 'bg-gray-500 text-white'
-    };
-    return colors[actionType] || 'bg-gray-500 text-white';
+    switch (actionType) {
+      case 'newsletter':
+        return 'bg-purple-200 text-purple-900';
+      case 'panneau':
+        return 'bg-yellow-200 text-yellow-900';
+      case 'flyer':
+        return 'bg-emerald-200 text-emerald-900';
+      case 'carousel':
+        return 'bg-purple-200 text-purple-900';
+      case 'video':
+        return 'bg-orange-200 text-orange-900';
+      case 'post_site':
+        return 'bg-indigo-200 text-indigo-900';
+      case 'post_linkedin':
+        return 'bg-sky-200 text-sky-900';
+      case 'post_instagram':
+        return 'bg-pink-200 text-pink-900';
+      default:
+        return 'bg-gray-200 text-gray-900';
+    }
   };
-  
+
+  // Fonction pour obtenir la couleur du badge en fonction du statut
   const getStatusBadgeColor = (status: string) => {
-    const colors: Record<string, string> = {
-      'à faire': 'bg-yellow-500 text-white',
-      'en cours': 'bg-blue-500 text-white',
-      'terminée': 'bg-green-500 text-white',
-      'en attente': 'bg-orange-500 text-white'
-    };
-    return colors[status] || 'bg-gray-500 text-white';
+    switch (status) {
+      case 'à faire':
+        return 'bg-yellow-200 text-yellow-800';
+      case 'en cours':
+        return 'bg-blue-200 text-blue-800';
+      case 'terminée':
+        return 'bg-green-200 text-green-800';
+      case 'à tourner':
+        return 'bg-orange-200 text-orange-800';
+      case 'à éditer':
+        return 'bg-pink-200 text-pink-800';
+      case 'écrire légende':
+        return 'bg-amber-200 text-amber-800';
+      case 'prêt à publier':
+        return 'bg-teal-200 text-teal-800';
+      case 'publié':
+        return 'bg-green-200 text-green-800';
+      default:
+        return 'bg-gray-200 text-gray-800';
+    }
   };
-  
+
+  // Fonction pour obtenir l'icône du type de média
   const getMediaIcon = (mediaType: string | null | undefined) => {
     if (!mediaType) return null;
     
-    const icons: Record<string, JSX.Element> = {
-      'image': <ImageIcon className="h-3 w-3" />,
-      'video': <VideoIcon className="h-3 w-3" />,
-      'document': <FileTextIcon className="h-3 w-3" />
-    };
-    
-    return icons[mediaType] || null;
+    switch (mediaType) {
+      case 'photo':
+        return <ImageIcon className="h-3 w-3 text-purple-600" />;
+      case 'video':
+        return <VideoIcon className="h-3 w-3 text-orange-600" />;
+      case 'texte':
+        return <FileTextIcon className="h-3 w-3 text-blue-600" />;
+      default:
+        return null;
+    }
   };
-  
+
+  // Fonction pour obtenir le libellé du type d'action
   const getActionTypeLabel = (actionType: string) => {
-    const labels: Record<string, string> = {
+    const actionLabels: Record<string, string> = {
       'newsletter': 'Newsletter',
       'panneau': 'Panneau',
       'flyer': 'Flyer',
       'carousel': 'Carousel',
       'video': 'Vidéo',
-      'post_site': 'Site Web',
+      'post_site': 'Post Site',
       'post_linkedin': 'LinkedIn',
-      'post_instagram': 'Instagram',
+      'post_instagram': 'Insta',
       'autre': 'Autre'
     };
-    return labels[actionType] || 'Autre';
+    
+    return actionLabels[actionType] || actionType;
   };
-  
+
+  // Fonction pour obtenir le libellé de la plateforme
   const getPlatformLabel = (platform: string | null | undefined) => {
     if (!platform) return null;
     
-    const labels: Record<string, string> = {
+    const platformLabels: Record<string, string> = {
+      'site': 'Site',
       'linkedin': 'LinkedIn',
-      'instagram': 'Instagram',
+      'instagram': 'Insta',
       'facebook': 'Facebook',
-      'website': 'Site Web',
-      'youtube': 'YouTube',
-      'mailing': 'Mailing',
-      'email': 'Email'
+      'tiktok': 'TikTok',
+      'youtube': 'YT',
+      'autre': 'Autre'
     };
     
-    return labels[platform] || platform;
+    return platformLabels[platform] || platform;
   };
 
-  // Classes CSS pour les écrans plus petits (mobile)
-  const mobileClasses = "md:hidden block";
-  // Classes CSS pour les écrans plus grands (desktop)
-  const desktopClasses = "hidden md:block";
-
+  // Afficher la carte principale qui peut contenir des détails de communication
   return (
     <div
       ref={dragRef as any}
+      className={`p-2 mb-2 rounded border cursor-pointer hover:shadow-md transition-shadow ${
+        isDragging ? 'opacity-50' : 'opacity-100'
+      }`}
       onClick={() => onEditTask(task)}
-      className={`${getBackgroundColor(actionType)} p-1 mb-1 rounded cursor-pointer 
-        border border-transparent hover:border-blue-400 transition-colors 
-        ${isDragging ? 'opacity-50' : 'opacity-100'}`}
       style={{ opacity: isDragging ? 0.5 : 1 }}
     >
-      {/* Version mobile - Affichage compact */}
-      <div className={`${mobileClasses} text-xs`}>
-        <div className="font-medium mb-1 truncate" style={{ maxWidth: '100%' }}>
-          {displayTitle.length > 15 ? displayTitle.substring(0, 15) + '...' : displayTitle}
-        </div>
-        <div className="flex items-center space-x-1">
-          <Badge className={`${getBadgeColor(actionType)} text-[0.6rem] px-1 py-0 h-4`}>
-            {getActionTypeLabel(actionType).substring(0, 3)}
-          </Badge>
-          {task.status && (
-            <Badge className={`${getStatusBadgeColor(task.status)} text-[0.6rem] px-1 py-0 h-4`}>
-              {task.status.substring(0, 1).toUpperCase()}
-            </Badge>
-          )}
+      <div className="flex items-start gap-1 mb-1">
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-sm truncate">{task.title}</div>
         </div>
       </div>
-
-      {/* Version desktop - Affichage détaillé */}
-      <div className={`${desktopClasses}`}>
-        <div className="flex justify-between items-start">
-          <h3 className="text-xs font-medium truncate" style={{ maxWidth: 'calc(100% - 20px)' }}>
-            {displayTitle}
-          </h3>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEditTask(task);
-            }}
-            className="p-0.5 hover:bg-gray-200 rounded-full"
-          >
-            <PencilIcon className="h-3 w-3" />
-          </button>
+      
+      {/* Afficher uniquement les détails de communication filtrés pour cette date */}
+      {task.communicationDetails && task.communicationDetails.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {task.communicationDetails.map((comm, idx) => (
+            <div key={idx} className="flex flex-wrap gap-1 mt-1">
+              {/* Badge pour le type de communication */}
+              <div className={`text-xs font-medium px-2 py-0.5 rounded-md ${getBadgeColor(comm.type)}`}>
+                {getActionTypeLabel(comm.type)}
+              </div>
+              
+              {/* Badge pour le statut de la communication */}
+              {comm.status && (
+                <div className={`text-xs font-medium px-2 py-0.5 rounded-md ${getStatusBadgeColor(comm.status)}`}>
+                  {comm.status}
+                </div>
+              )}
+              
+              {/* Badge pour la plateforme de la communication */}
+              {comm.platform && (
+                <div className="text-xs font-medium px-2 py-0.5 rounded-md bg-gray-200 text-gray-800">
+                  {getPlatformLabel(comm.platform)}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
-        <div className="flex items-center space-x-1 mt-1 flex-wrap">
-          <Badge className={`${getBadgeColor(actionType)} text-[0.6rem] px-1 py-0 h-4`}>
-            {getActionTypeLabel(actionType)}
-          </Badge>
-          {task.status && (
-            <Badge className={`${getStatusBadgeColor(task.status)} text-[0.6rem] px-1 py-0 h-4`}>
-              {task.status}
-            </Badge>
-          )}
-          {task.mediaType && getMediaIcon(task.mediaType) && (
-            <Badge variant="outline" className="text-[0.6rem] px-1 py-0 h-4 flex items-center">
-              {getMediaIcon(task.mediaType)}
-            </Badge>
-          )}
-          {task.platform && getPlatformLabel(task.platform) && (
-            <Badge variant="outline" className="text-[0.6rem] px-1 py-0 h-4">
+      ) : (
+        // Si pas de détails de communication, afficher uniquement le badge pour le type d'action principal
+        <div className="flex flex-wrap gap-1 mt-1">
+          <div className={`text-xs font-medium px-2 py-0.5 rounded-md ${getBadgeColor(task.actionType)}`}>
+            {getActionTypeLabel(task.actionType)}
+          </div>
+          {task.platform && (
+            <div className="text-xs font-medium px-2 py-0.5 rounded-md bg-gray-200 text-gray-800">
               {getPlatformLabel(task.platform)}
-            </Badge>
+            </div>
           )}
         </div>
-        {task.assignedTo && task.assignedTo.length > 0 && Array.isArray(task.assignedTo) && (
-          <div className="mt-1 flex flex-wrap">
-            {task.assignedTo.map((email: string, idx: number) => (
-              <Badge key={idx} variant="outline" className="text-[0.6rem] px-1 py-0 h-4 mr-1 mb-1">
-                {email.split('@')[0]}
-              </Badge>
-            ))}
-          </div>
-        )}
-        {isCommunication && communication?.assignedTo && communication.assignedTo.length > 0 && Array.isArray(communication.assignedTo) && (
-          <div className="mt-1 flex flex-wrap">
-            {communication.assignedTo.map((email: string, idx: number) => (
-              <Badge key={idx} variant="outline" className="text-[0.6rem] px-1 py-0 h-4 mr-1 mb-1">
-                {email.split('@')[0]}
-              </Badge>
-            ))}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 };
 
 // Composant pour une cellule de jour qui peut recevoir des tâches
-const DroppableDay: React.FC<DroppableDayProps> = ({ 
+const DroppableDay = ({ 
   date, 
   tasks, 
   onEditTask, 
-  onUpdateTask, 
-  canDrop
+  onUpdateTask 
+}: { 
+  date: Date; 
+  tasks: Task[]; 
+  onEditTask: (task: Task) => void; 
+  onUpdateTask: (task: Partial<Task> & { id: string }) => Promise<void>; 
 }) => {
   const [{ isOver }, dropRef] = useDrop(() => ({
     accept: ItemTypes.TASK,
@@ -431,86 +434,115 @@ const DroppableDay: React.FC<DroppableDayProps> = ({
     }),
   }));
 
-  // Récupérer toutes les tâches et les communications pour cette date
-  const tasksForThisDay = tasks.filter(task => 
-    isTaskOnDate(task, date)
-  );
-
-  // Extraire les communications avec la même date d'échéance que ce jour
-  const communicationsForThisDay = tasks
-    .filter(task => task.communicationDetails && task.communicationDetails.length > 0)
-    .flatMap(task => {
-      if (!task.communicationDetails) return [];
+  // Cette fonction prépare les tâches pour l'affichage, en créant des tâches
+  // distinctes pour chaque communication qui correspond à cette date
+  const prepareTasksForDisplay = () => {
+    // Structure de données qui stocke à la fois la tâche et l'index de communication
+    interface DisplayTask {
+      task: Task;
+      commIndex?: number;
+      stableCommId?: string;  // Identifiant stable pour la communication
+      uuid?: string;          // UUID unique pour cette communication
+    }
+    
+    const displayTasks: DisplayTask[] = [];
+    
+    tasks.forEach(task => {
+      // Cas 1: Tâche sans communications mais avec une date principale qui correspond
+      if (task.dueDate) {
+        const taskDate = new Date(task.dueDate);
+        const sameDate = (
+          taskDate.getDate() === date.getDate() &&
+          taskDate.getMonth() === date.getMonth() &&
+          taskDate.getFullYear() === date.getFullYear()
+        );
+        
+        if (sameDate && (!task.communicationDetails || task.communicationDetails.length === 0)) {
+          // Créer une copie distincte de la tâche pour éviter tout effet de bord
+          displayTasks.push({ 
+            task: JSON.parse(JSON.stringify(task)) 
+          });
+        }
+      }
       
-      return task.communicationDetails
-        .filter(comm => isCommOnDate(comm, date))
-        .map((comm, idx) => ({
-          task,
-          comm,
-          idx
-        }));
+      // Cas 2: Tâche avec des communications - créer une tâche distincte pour chaque communication prévue à cette date
+      if (task.communicationDetails && task.communicationDetails.length > 0) {
+        // Pour chaque communication, vérifier si elle est prévue pour cette date
+        task.communicationDetails.forEach((comm, arrayIndex) => {
+          // Utiliser l'index d'origine s'il est défini, sinon utiliser l'index courant dans le tableau
+          const commIndex = comm.originalIndex !== undefined ? comm.originalIndex : arrayIndex;
+          
+          if (comm.deadline) {
+            // S'assurer que deadline est une date JavaScript
+            const commDate = comm.deadline instanceof Date ? 
+              comm.deadline : 
+              new Date(comm.deadline);
+            
+            // Si la date correspond à la date de la cellule
+            if (
+              commDate.getDate() === date.getDate() &&
+              commDate.getMonth() === date.getMonth() &&
+              commDate.getFullYear() === date.getFullYear()
+            ) {
+              // Générer ou récupérer l'UUID pour cette communication
+              const communicationUUID = getOrCreateCommunicationUUID(task.id, comm.type, commIndex);
+              
+              // Log pour faciliter le débogage
+              console.log(`Préparation de l'affichage pour la communication ${commIndex} (${comm.type}) avec UUID: ${communicationUUID} et date: ${commDate.toLocaleDateString()}`);
+              
+              // IMPORTANT: Créer une copie complètement isolée de la tâche
+              // avec SEULEMENT cette communication spécifique
+              const taskCopy = {
+                ...JSON.parse(JSON.stringify(task)),
+                // Remplacer complètement le tableau communicationDetails avec uniquement cette communication
+                // mais en gardant aussi l'index original pour référence
+                communicationDetails: [
+                  {
+                    ...JSON.parse(JSON.stringify(comm)),
+                    // S'assurer que l'index original est bien préservé
+                    originalIndex: commIndex
+                  }
+                ]
+              };
+
+              // Effacer les propriétés qui pourraient causer des confusions
+              delete taskCopy.dueDate; // Éviter toute confusion avec la date principale
+              
+              // Stocker l'index original de la communication dans la tâche parente pour le drag and drop
+              // ET l'identifiant stable pour une meilleure robustesse
+              displayTasks.push({ 
+                task: taskCopy, 
+                commIndex,
+                stableCommId: communicationUUID, // Pour la compatibilité
+                uuid: communicationUUID        // L'UUID est maintenant l'identifiant principal
+              });
+            }
+          }
+        });
+      }
     });
 
-  console.log(`${date.toLocaleDateString()}: ${tasksForThisDay.length} tâches, ${communicationsForThisDay.length} communications`);
+    return displayTasks;
+  };
 
-  // Fonction pour vérifier si une tâche est à cette date
-  function isTaskOnDate(task: Task, date: Date): boolean {
-    if (!task.dueDate) return false;
-    const taskDate = new Date(task.dueDate);
+  // Obtenir les tâches préparées pour l'affichage
+  const tasksToDisplay = prepareTasksForDisplay();
+
+  // Vérifier si la date est aujourd'hui
+  const isToday = (date: Date) => {
+    const today = new Date();
     return (
-      taskDate.getDate() === date.getDate() &&
-      taskDate.getMonth() === date.getMonth() &&
-      taskDate.getFullYear() === date.getFullYear()
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
     );
-  }
+  };
 
-  // Fonction pour vérifier si une communication est à cette date
-  function isCommOnDate(comm: CommunicationDetail, date: Date): boolean {
-    if (!comm.deadline) return false;
-    const commDate = new Date(comm.deadline);
-    return (
-      commDate.getDate() === date.getDate() &&
-      commDate.getMonth() === date.getMonth() &&
-      commDate.getFullYear() === date.getFullYear()
-    );
-  }
-
-  // Fonction pour vérifier si la date est dans le mois actuel
-  function isCurrentMonth(date: Date, currentDate: Date): boolean {
-    return (
-      date.getMonth() === currentDate.getMonth() &&
-      date.getFullYear() === currentDate.getFullYear()
-    );
-  }
-
-  // Vérifier si on est sur mobile
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  
-  // Limiter le nombre de tâches visibles sur mobile
-  const maxTasksToShow = isMobile ? 3 : 100;
-  
-  // Nombre total d'éléments (tâches + communications)
-  const totalItems = tasksForThisDay.length + communicationsForThisDay.length;
-  
-  // Nombre d'éléments à afficher (limité sur mobile)
-  const visibleTasksCount = Math.min(tasksForThisDay.length, maxTasksToShow);
-  const remainingSlots = Math.max(0, maxTasksToShow - visibleTasksCount);
-  const visibleCommsCount = Math.min(communicationsForThisDay.length, remainingSlots);
-  
-  // Nombre d'éléments cachés
-  const hiddenItemsCount = totalItems - visibleTasksCount - visibleCommsCount;
-
-  // Trier par priorité (haute > moyenne > basse)
-  const sortedTasks = [...tasksForThisDay].sort((a, b) => {
-    const priorityOrder: Record<string, number> = { 'haute': 0, 'urgente': 0, 'élevée': 0, 'moyenne': 1, 'faible': 2, 'basse': 2 };
-    return (priorityOrder[a.priority || 'moyenne'] || 1) - (priorityOrder[b.priority || 'moyenne'] || 1);
-  });
-
-  // Extraire les tâches visibles
-  const visibleTasks = sortedTasks.slice(0, visibleTasksCount);
-
-  // Extraire les communications visibles (après les tâches)
-  const visibleComms = communicationsForThisDay.slice(0, visibleCommsCount);
+  // Vérifier si la date est dans le mois actuel
+  const isCurrentMonth = (date: Date, currentDate: Date) => {
+    return date.getMonth() === currentDate.getMonth() && 
+           date.getFullYear() === currentDate.getFullYear();
+  };
 
   return (
     <div
@@ -523,47 +555,17 @@ const DroppableDay: React.FC<DroppableDayProps> = ({
         {date.getDate()}
       </div>
       <div className="space-y-1 max-h-[200px] overflow-y-auto">
-        {/* Afficher les tâches principales */}
-        {visibleTasks.map((task) => (
+        {tasksToDisplay.map((item, index) => (
           <DraggableTask
-            key={`task-${task.id}`}
-            task={task}
+            key={`${item.task.id}-${item.uuid || 'main'}-${index}`}
+            task={item.task}
             onEditTask={onEditTask}
             onUpdateTask={onUpdateTask}
+            commIndex={item.commIndex}
+            stableCommId={item.stableCommId}
+            uuid={item.uuid}  // Passer l'UUID explicitement au composant enfant
           />
         ))}
-        
-        {/* Afficher les communications */}
-        {visibleComms.map(({task, comm, idx}) => {
-          // Créer une tâche temporaire avec le titre de la communication
-          const commTypeLabel = getTypeLabel(comm.type);
-          const taskWithCommTitle = {
-            ...task,
-            title: `${commTypeLabel} - ${task.propertyAddress || task.title}`
-          };
-          
-          // UUID stable pour cette communication
-          const commUUID = getOrCreateCommunicationUUID(task.id, comm.type, comm.originalIndex !== undefined ? comm.originalIndex : idx);
-          
-          return (
-            <DraggableTask
-              key={`comm-${task.id}-${idx}-${commUUID}`}
-              task={taskWithCommTitle}
-              onEditTask={onEditTask}
-              onUpdateTask={onUpdateTask}
-              commIndex={idx}
-              stableCommId={comm.type}
-              uuid={commUUID}
-            />
-          );
-        })}
-        
-        {/* Afficher le compteur d'éléments cachés */}
-        {hiddenItemsCount > 0 && (
-          <div className="text-xs text-center text-gray-500 mt-1 p-1 bg-gray-100 rounded">
-            +{hiddenItemsCount} autres
-          </div>
-        )}
       </div>
     </div>
   );
@@ -596,259 +598,211 @@ const getOrCreateCommunicationUUID = (taskId: string, commType: string, commInde
   return (window as any).communicationUUIDs[key];
 };
 
-// Typing des fonctions de rendu de communications
-const renderCommunications = (
-  task: Task, 
-  onEditTask: (task: Task) => void, 
-  onUpdateTask: (task: Partial<Task> & { id: string }) => Promise<void>
-) => {
-  if (!task.communicationDetails || task.communicationDetails.length === 0) return null;
-
-  return (
-    <div className="flex flex-col gap-1 mt-1">
-      {task.communicationDetails.map((comm, idx) => (
-        <div
-          key={`${task.id}-comm-${idx}`}
-          className="text-xs pl-1 border-l-2 border-gray-300"
-        >
-          <div className="flex items-center gap-1">
-            {getTypeIcon(comm.type)}
-            <span className="text-gray-600 truncate">{getTypeLabel(comm.type)}</span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// Types pour les paramètres des fonctions helper
-const getTypeIcon = (type: string): React.ReactNode => {
-  switch (type) {
-    case 'newsletter':
-      return <MailIcon className="h-3 w-3 text-purple-600" />;
-    case 'panneau':
-      return <SignpostIcon className="h-3 w-3 text-yellow-600" />;
-    case 'flyer':
-      return <FileTextIcon className="h-3 w-3 text-emerald-600" />;
-    case 'post_site':
-      return <GlobeIcon className="h-3 w-3 text-indigo-600" />;
-    case 'post_linkedin':
-      return <LinkedinIcon className="h-3 w-3 text-sky-600" />;
-    case 'post_instagram':
-      return <InstagramIcon className="h-3 w-3 text-pink-600" />;
-    case 'carousel':
-      return <ImageIcon className="h-3 w-3 text-purple-600" />;
-    case 'plan_2d_3d':
-      return <LayoutIcon className="h-3 w-3 text-blue-600" />;
-    case 'video':
-      return <VideoIcon className="h-3 w-3 text-red-600" />;
-    case 'idee':
-      return <LightbulbIcon className="h-3 w-3 text-amber-600" />;
-    default:
-      return <FileIcon className="h-3 w-3 text-gray-600" />;
+export default function TaskCalendar({ tasks, onEditTask, onUpdateTask }: TaskCalendarProps) {
+  // Initialiser le système de suivi des communications déplacées
+  if (typeof window !== 'undefined') {
+    // Créer un registre pour les identifiants permanents si nécessaire
+    if (!(window as any).movedCommunications) {
+      console.log("Initialisation du système de suivi des communications...");
+      (window as any).movedCommunications = {};
+    }
+    
+    // Créer un registre pour les communications déplacées récemment
+    if (!(window as any).lastMovedCommunications) {
+      console.log("Initialisation du système de suivi des déplacements récents...");
+      (window as any).lastMovedCommunications = [];
+    }
+    
+    // Créer un identifiant unique pour chaque communication basé sur son contenu
+    if (!(window as any).communicationUUIDs) {
+      console.log("Initialisation du système d'identifiants uniques des communications...");
+      (window as any).communicationUUIDs = {};
+    }
   }
-};
-
-const getTypeLabel = (type: string): string => {
-  const labels: Record<string, string> = {
-    'newsletter': 'Newsletter',
-    'panneau': 'Panneau',
-    'flyer': 'Flyer',
-    'post_site': 'Site web',
-    'post_linkedin': 'LinkedIn',
-    'post_instagram': 'Instagram',
-    'carousel': 'Carousel',
-    'plan_2d_3d': 'Plan 2D/3D',
-    'video': 'Vidéo',
-    'idee': 'Idée',
-    'autre': 'Autre'
+  
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [calendarDays, setCalendarDays] = useState<Date[]>([]);
+  const [displayMode, setDisplayMode] = useState<'month' | 'week'>('month');
+  
+  // Extraire consultant à partir de l'URL pour filtrer les tâches
+  const [consultant, setConsultant] = useState<string | null>(null);
+  
+  // Fonction pour convertir le nom du consultant en email
+  const getConsultantEmail = (name: string | null): string | null => {
+    if (!name) return null;
+    
+    // Liste des consultants disponibles
+    const CONSULTANTS = [
+      { name: "Anne", email: "acoat@arthurloydbretagne.fr" },
+      { name: "Elowan", email: "ejouan@arthurloydbretagne.fr" },
+      { name: "Erwan", email: "eleroux@arthurloydbretagne.fr" },
+      { name: "Julie", email: "jdalet@arthurloydbretagne.fr" },
+      { name: "Justine", email: "jjambon@arthurloydbretagne.fr" },
+      { name: "Morgane", email: "agencebrest@arthurloydbretagne.fr" },
+      { name: "Nathalie", email: "npers@arthurloydbretagne.fr" },
+      { name: "Pierre", email: "pmottais@arthurloydbretagne.fr" },
+      { name: "Pierre-Marie", email: "pmjaumain@arthurloydbretagne.fr" },
+      { name: "Sonia", email: "shadjlarbi@arthur-loyd.com" }
+    ];
+    
+    const found = CONSULTANTS.find(c => c.name.toLowerCase() === name.toLowerCase());
+    return found ? found.email : null;
   };
   
-  return labels[type] || 'Autre';
-};
-
-export default function TaskCalendar({ tasks, onEditTask, onUpdateTask }: TaskCalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(currentDate));
-  const [displayedWeeks, setDisplayedWeeks] = useState<Date[][]>([]);
-  const [isMobile, setIsMobile] = useState(false);
-
-  // Détecter si on est sur mobile
   useEffect(() => {
-    const checkIfMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    checkIfMobile(); // Vérifier l'état initial
-    window.addEventListener('resize', checkIfMobile);
-
-    return () => {
-      window.removeEventListener('resize', checkIfMobile);
-    };
+    // Récupérer le consultant à partir de l'URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const consultantParam = urlParams.get('consultant');
+    setConsultant(consultantParam);
   }, []);
-
-  // Générer les semaines pour l'affichage du calendrier
-  useEffect(() => {
-    const startDate = startOfMonth(visibleMonth);
-    const endDate = endOfMonth(visibleMonth);
-
-    // Obtenir tous les jours du mois
-    const days = eachDayOfInterval({ start: startDate, end: endDate });
-
-    // Trouver le jour de la semaine du premier jour (0 = dimanche, 1 = lundi, ...)
-    const startDay = getDay(startDate);
-
-    // Ajouter les jours du mois précédent pour compléter la première semaine
-    let previousMonthDays = [];
-    for (let i = (startDay === 0 ? 6 : startDay - 1); i > 0; i--) {
-      previousMonthDays.push(addDays(startDate, -i));
-    }
-
-    // Combiner tous les jours
-    const allDays = [...previousMonthDays, ...days];
-
-    // Ajouter les jours du mois suivant pour compléter la dernière semaine
-    const remainingDays = 7 - (allDays.length % 7);
-    if (remainingDays < 7) {
-      for (let i = 1; i <= remainingDays; i++) {
-        allDays.push(addDays(endDate, i));
+  
+  // Filtrer les tâches pour n'afficher que les communications assignées au consultant actuel
+  const filteredTasks = React.useMemo(() => {
+    // Vérifier si le filtre des tâches assignées est actif
+    const isAssignedFilterActive = window.location.search.includes('assignedFilter=true');
+    
+    // Si le filtre des tâches assignées n'est pas actif, montrer toutes les tâches
+    if (!isAssignedFilterActive) return tasks;
+    
+    // Si pas de consultant sélectionné, retourner toutes les tâches
+    if (!consultant) return tasks;
+    
+    // Convertir le nom du consultant en email pour la correspondance
+    const consultantEmail = getConsultantEmail(consultant);
+    if (!consultantEmail) return tasks;
+    
+    // Filtrer pour ne montrer que les communications assignées au consultant
+    return tasks.map(task => {
+      // Copie de la tâche pour éviter de modifier l'original
+      const taskCopy = {...task};
+      
+      // Si la tâche a des détails de communication, filtrer uniquement ceux assignés au consultant
+      if (taskCopy.communicationDetails && taskCopy.communicationDetails.length > 0) {
+        taskCopy.communicationDetails = taskCopy.communicationDetails.filter(comm => 
+          comm.assignedTo?.includes(consultantEmail)
+        );
       }
-    }
-
-    // Diviser en semaines
-    const weeks: Date[][] = [];
-    for (let i = 0; i < allDays.length; i += 7) {
-      weeks.push(allDays.slice(i, i + 7));
-    }
-
-    setDisplayedWeeks(weeks);
-  }, [visibleMonth]);
-
-  // Navigation dans le calendrier
-  const goToNextMonth = () => setVisibleMonth(addMonths(visibleMonth, 1));
-  const goToPreviousMonth = () => setVisibleMonth(subMonths(visibleMonth, 1));
-  const goToCurrentMonth = () => setVisibleMonth(startOfMonth(new Date()));
-
-  // Composant pour un jour qui accepte le drop de tâches
-  const DroppableDay = ({ date, tasks, onEditTask, onUpdateTask }: DroppableDayProps) => {
-    // Filtrer les tâches pour ce jour
-    const dayTasks = tasks.filter((task) =>
-      task.dueDate && isSameDay(new Date(task.dueDate), date)
+      
+      return taskCopy;
+    }).filter(task => 
+      // Garder seulement les tâches avec au moins une communication ou assignées directement
+      task.assignedTo?.includes(consultantEmail) || 
+      (task.communicationDetails && task.communicationDetails.length > 0)
     );
+  }, [tasks, consultant]);
 
-    // Limiter le nombre de tâches affichées sur mobile
-    const maxVisibleTasks = isMobile ? 3 : 10;
-    const visibleTasks = dayTasks.slice(0, maxVisibleTasks);
-    const hiddenTasksCount = dayTasks.length - visibleTasks.length;
+  // Générer les jours du mois pour le calendrier
+  useEffect(() => {
+    const days: Date[] = [];
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    
+    // Obtenir le premier jour du mois
+    const firstDay = new Date(year, month, 1);
+    // Obtenir le jour de la semaine du premier jour (0 = dimanche, 1 = lundi, etc.)
+    const firstDayOfWeek = firstDay.getDay();
+    
+    // Ajouter les jours du mois précédent pour compléter la première semaine
+    const daysFromPrevMonth = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+    for (let i = daysFromPrevMonth; i > 0; i--) {
+      days.push(new Date(year, month, 1 - i));
+    }
+    
+    // Ajouter tous les jours du mois actuel
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(new Date(year, month, i));
+    }
+    
+    // Ajouter les jours du mois suivant pour compléter la dernière semaine
+    const lastDay = new Date(year, month, daysInMonth);
+    const lastDayOfWeek = lastDay.getDay();
+    const daysFromNextMonth = lastDayOfWeek === 0 ? 0 : 7 - lastDayOfWeek;
+    for (let i = 1; i <= daysFromNextMonth; i++) {
+      days.push(new Date(year, month + 1, i));
+    }
+    
+    setCalendarDays(days);
+  }, [currentDate]);
 
-    // Configuration du drop
-    const [{ isOver, canDrop }, drop] = useDrop({
-      accept: ItemTypes.TASK,
-      drop: (item: { task: Task }) => {
-        onUpdateTask({
-          id: item.task.id,
-          dueDate: date
-        });
-      },
-      canDrop: () => isAfter(date, new Date()) || isToday(date),
-      collect: (monitor) => ({
-        isOver: monitor.isOver(),
-        canDrop: monitor.canDrop()
-      })
-    });
-
-    return (
-      <div
-        ref={drop}
-        className={cn(
-          'h-full min-h-24 p-1 overflow-y-auto',
-          isOver && canDrop ? 'bg-green-50 dark:bg-green-900/20' : '',
-          isOver && !canDrop ? 'bg-red-50 dark:bg-red-900/20' : '',
-          !isSameMonth(date, visibleMonth) && 'opacity-50'
-        )}
-      >
-        <div className="flex flex-col gap-1">
-          {visibleTasks.map((item) => (
-            <DraggableTask
-              key={item.id}
-              task={item}
-              onEditTask={onEditTask}
-              onUpdateTask={onUpdateTask}
-              commIndex={undefined}
-              stableCommId={undefined}
-              uuid={undefined}
-            />
-          ))}
-          {hiddenTasksCount > 0 && (
-            <div className="text-xs text-gray-500 mt-1 flex items-center">
-              <LayoutIcon size={12} className="mr-1" /> {hiddenTasksCount} autres tâches
-            </div>
-          )}
-        </div>
-      </div>
-    );
+  // Passer au mois précédent
+  const goToPreviousMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   };
 
-  // Envelopper le composant dans DndProvider
+  // Passer au mois suivant
+  const goToNextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  };
+
+  // Passer au mois actuel
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  // Formater le mois et l'année
+  const formatMonthYear = (date: Date) => {
+    return date.toLocaleDateString('fr-FR', {
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
+  // Jours de la semaine
+  const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="h-full flex flex-col">
-        {/* En-tête du calendrier */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">
-            {format(visibleMonth, 'MMMM yyyy', { locale: fr })}
-          </h2>
-          <div className="flex space-x-2">
-            <Button variant="outline" size="sm" onClick={goToPreviousMonth}>
-              <ChevronLeftIcon className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={goToCurrentMonth}>
-              Aujourd'hui
-            </Button>
-            <Button variant="outline" size="sm" onClick={goToNextMonth}>
-              <ChevronRightIcon className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Grille du calendrier */}
-        <div className="flex-1 grid grid-cols-7 overflow-hidden border rounded-lg">
-          {/* Jours de la semaine */}
-          {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day) => (
-            <div key={day} className="p-2 text-center font-medium bg-muted">
-              {day}
+      <Card className="border-none shadow-none pb-6">
+        <CardContent className="p-0">
+          <div className="flex items-center justify-between p-4 border-b">
+            <div className="flex items-center space-x-2">
+              <h2 className="text-xl font-bold capitalize">{formatMonthYear(currentDate)}</h2>
             </div>
-          ))}
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm" onClick={goToToday}>
+                Aujourd'hui
+              </Button>
+              <Button variant="outline" size="icon" onClick={goToPreviousMonth}>
+                <ChevronLeftIcon className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="icon" onClick={goToNextMonth}>
+                <ChevronRightIcon className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
 
-          {/* Jours du mois */}
-          {displayedWeeks.flatMap((week) =>
-            week.map((day, dayIndex) => (
-              <div
-                key={day.toString()}
-                className={cn(
-                  'border-t border-l p-1 relative',
-                  dayIndex === 6 && 'border-r', // Ajouter une bordure à droite pour le dimanche
-                  isToday(day) && 'bg-blue-50 dark:bg-blue-900/20'
-                )}
-              >
-                {/* Date du jour */}
-                <div className="text-right text-sm mb-1">
-                  {format(day, 'd')}
-                </div>
-                
-                {/* Tâches du jour */}
-                <DroppableDay
-                  date={day}
-                  tasks={tasks}
-                  onEditTask={onEditTask}
-                  onUpdateTask={onUpdateTask}
-                  canDrop={isAfter(day, new Date()) || isToday(day)}
-                />
+          <div className="grid grid-cols-7 border-b">
+            {weekDays.map((day, index) => (
+              <div key={index} className="p-2 text-center text-sm font-medium text-gray-500">
+                {day}
               </div>
-            ))
-          )}
-        </div>
-      </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7 h-[calc(100vh-250px)] overflow-auto">
+            {calendarDays.map((day, index) => {
+              const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+              return (
+                <div
+                  key={index}
+                  className={`border-b border-r p-1 ${
+                    isCurrentMonth ? '' : 'bg-gray-50 text-gray-400'
+                  }`}
+                >
+                  <DroppableDay
+                    date={day}
+                    tasks={filteredTasks}
+                    onEditTask={onEditTask}
+                    onUpdateTask={onUpdateTask}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
     </DndProvider>
   );
 } 
