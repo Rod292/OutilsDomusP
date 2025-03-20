@@ -726,7 +726,6 @@ export const sendTaskAssignedNotification = async (params: {
   isCommunication?: boolean;
   communicationIndex?: number;
   recipientEmail: string;
-  notificationId?: string; // ID unique optionnel pour éviter les notifications dupliquées
 }): Promise<boolean> => {
   try {
     // Vérifier si nous sommes côté client
@@ -755,7 +754,6 @@ export const sendTaskAssignedNotification = async (params: {
       type: notificationType as "task_assigned" | "task_reminder" | "system" | "communication_assigned",
       taskId: params.taskId,
       communicationIndex: params.communicationIndex,
-      notificationId: params.notificationId || `notification_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`, // Utiliser l'ID fourni ou en générer un unique
       mode: 'FCM' // Force l'utilisation de Firebase Cloud Messaging
     };
 
