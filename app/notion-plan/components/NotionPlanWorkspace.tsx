@@ -541,19 +541,33 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
             if (originalIndex < existingCommunications.length) {
               const existingComm = existingCommunications[originalIndex];
               
-              // Fusionner les propriétés
+              // CORRECTION: Vérifier si la date est définie dans la communication existante et pas dans la nouvelle
+              // Si c'est le cas, conserver la date existante
+              const shouldPreserveExistingDate = existingComm.deadline && !newComm.deadline;
+              
+              if (shouldPreserveExistingDate) {
+                console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Préservation de la date existante pour la communication ${originalIndex}:`, 
+                  existingComm.deadline instanceof Date 
+                    ? existingComm.deadline.toLocaleDateString() 
+                    : 'format non-Date'
+                );
+              }
+              
+              // Fusionner les propriétés avec logique spéciale pour deadline
               const updatedComm = {
                 ...existingComm,
                 ...newComm,
-                // Assurez-vous que la date est correctement convertie
-                deadline: newComm.deadline instanceof Date 
-                  ? newComm.deadline 
-                  : (newComm.deadline 
-                    ? new Date(newComm.deadline) 
-                    : null)
+                // Préserver la date existante si la nouvelle date est undefined/null et l'ancienne existe
+                deadline: shouldPreserveExistingDate 
+                  ? existingComm.deadline 
+                  : (newComm.deadline instanceof Date 
+                    ? newComm.deadline 
+                    : (newComm.deadline 
+                      ? new Date(newComm.deadline) 
+                      : null))
               };
               
-              console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour de la date pour comm ${originalIndex}:`, 
+              console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Résultat final de la date pour comm ${originalIndex}:`, 
                 updatedComm.deadline instanceof Date 
                   ? updatedComm.deadline.toLocaleDateString() 
                   : 'sans date'
