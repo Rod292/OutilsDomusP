@@ -1,140 +1,94 @@
-import { NextResponse } from 'next/server';
-import { getFirestore, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
-import { initAdmin } from '@/lib/firebaseAdmin';
-import { adminAuth } from '@/lib/firebaseAdmin';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { NextRequest, NextResponse } from 'next/server';
+import { firestore } from '@/app/lib/firebaseAdmin';
+import { collection, addDoc, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { db } from '@/app/lib/firebase';
 
-// Définir le nom de la collection
-const TOKEN_COLLECTION = 'notificationTokens';
-
-// Fonction pour valider le token d'authentification
-async function validateAuthToken(authToken: string) {
+// Route GET pour récupérer les tokens de notification pour un utilisateur spécifique
+export async function GET(request: NextRequest) {
   try {
-    const decodedToken = await adminAuth.verifyIdToken(authToken);
-    return decodedToken;
-  } catch (error) {
-    console.error('Erreur de validation du token:', error);
-    return null;
-  }
-}
-
-// Route pour supprimer tous les tokens
-export async function DELETE(req: Request) {
-  try {
-    // Vérifier l'authentification
-    const authHeader = req.headers.get('authorization');
+    const { searchParams } = new URL(request.url);
+    const email = searchParams.get('email');
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Token d\'authentification requis' }, 
-        { status: 401 }
-      );
+    if (!email) {
+      return NextResponse.json({ error: 'Email requis' }, { status: 400 });
     }
     
-    const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await validateAuthToken(token);
+    // Rechercher tous les tokens pour cet email
+    const tokensRef = collection(db, 'notificationTokens');
+    const q = query(tokensRef, where('email', '==', email));
+    const querySnapshot = await getDocs(q);
     
-    if (!decodedToken) {
-      return NextResponse.json(
-        { error: 'Token d\'authentification invalide' }, 
-        { status: 401 }
-      );
-    }
-    
-    // Vérifier si l'utilisateur est administrateur
-    if (!decodedToken.admin) {
-      return NextResponse.json(
-        { error: 'Accès refusé. Droits d\'administration requis.' }, 
-        { status: 403 }
-      );
-    }
-    
-    // Préparer la base de données
-    await initAdmin();
-    const db = adminDb;
-    
-    // Récupérer tous les tokens
-    const tokensRef = collection(db, TOKEN_COLLECTION);
-    const tokensSnapshot = await getDocs(tokensRef);
-    
-    // Compter les tokens avant la suppression
-    const tokenCount = tokensSnapshot.size;
-    
-    // Supprimer tous les tokens
-    const deletionPromises = tokensSnapshot.docs.map(doc => deleteDoc(doc.ref));
-    await Promise.all(deletionPromises);
-    
-    return NextResponse.json({
-      success: true,
-      message: `${tokenCount} tokens de notification supprimés avec succès`,
-      count: tokenCount
+    const tokens: any[] = [];
+    querySnapshot.forEach((doc) => {
+      tokens.push({
+        id: doc.id,
+        ...doc.data()
+      });
     });
     
-  } catch (error) {
-    console.error('Erreur lors de la suppression des tokens:', error);
-    return NextResponse.json(
-      { error: 'Erreur serveur lors de la suppression des tokens' }, 
-      { status: 500 }
-    );
-  }
-}
-
-// Route pour récupérer tous les tokens
-export async function GET(req: Request) {
-  try {
-    // Vérifier l'authentification
-    const authHeader = req.headers.get('authorization');
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Token d\'authentification requis' }, 
-        { status: 401 }
-      );
-    }
-    
-    const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await validateAuthToken(token);
-    
-    if (!decodedToken) {
-      return NextResponse.json(
-        { error: 'Token d\'authentification invalide' }, 
-        { status: 401 }
-      );
-    }
-    
-    // Vérifier si l'utilisateur est administrateur
-    if (!decodedToken.admin) {
-      return NextResponse.json(
-        { error: 'Accès refusé. Droits d\'administration requis.' }, 
-        { status: 403 }
-      );
-    }
-    
-    // Préparer la base de données
-    await initAdmin();
-    const db = adminDb;
-    
-    // Récupérer tous les tokens
-    const tokensRef = collection(db, TOKEN_COLLECTION);
-    const tokensSnapshot = await getDocs(tokensRef);
-    
-    // Convertir les documents en JSON
-    const tokens = tokensSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    
-    return NextResponse.json({
-      success: true,
-      count: tokens.length,
-      tokens
-    });
-    
+    return NextResponse.json({ tokens });
   } catch (error) {
     console.error('Erreur lors de la récupération des tokens:', error);
-    return NextResponse.json(
-      { error: 'Erreur serveur lors de la récupération des tokens' }, 
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+  }
+}
+
+// Route POST pour enregistrer ou mettre à jour un token de notification
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { token, email, userId, platform, userAgent } = body;
+    
+    if (!token || !email) {
+      return NextResponse.json({ error: 'Token et email requis' }, { status: 400 });
+    }
+    
+    // Vérifier si ce token existe déjà
+    const tokensRef = collection(db, 'notificationTokens');
+    const q = query(tokensRef, where('token', '==', token));
+    const querySnapshot = await getDocs(q);
+    
+    const timestamp = Date.now();
+    
+    if (!querySnapshot.empty) {
+      // Token existant, mise à jour
+      const docRef = doc(db, 'notificationTokens', querySnapshot.docs[0].id);
+      await updateDoc(docRef, {
+        email,
+        userId: userId || email,
+        platform: platform || 'web',
+        userAgent: userAgent || 'unknown',
+        lastUpdated: timestamp
+      });
+      
+      return NextResponse.json({ 
+        success: true, 
+        id: querySnapshot.docs[0].id,
+        message: 'Token mis à jour' 
+      });
+    } else {
+      // Nouveau token, ajout
+      const newToken = {
+        token,
+        email,
+        userId: userId || email,
+        platform: platform || 'web',
+        userAgent: userAgent || 'unknown',
+        createdAt: timestamp,
+        lastUpdated: timestamp,
+        timestamp: timestamp
+      };
+      
+      const docRef = await addDoc(tokensRef, newToken);
+      
+      return NextResponse.json({ 
+        success: true, 
+        id: docRef.id,
+        message: 'Token enregistré' 
+      });
+    }
+  } catch (error) {
+    console.error('Erreur lors de l\'enregistrement du token:', error);
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 } 
