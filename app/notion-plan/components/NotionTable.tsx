@@ -1208,19 +1208,19 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
   // Fonction pour ajouter un type de communication
   const addCommunicationType = async (taskId: string, type: string) => {
     try {
+      console.log(`Début d'ajout d'une communication ${type} à la tâche ${taskId}`);
+      
+      // Vérifier que la tâche existe
       const task = tasks.find(t => t.id === taskId);
       if (!task) {
         console.error(`Tâche ${taskId} non trouvée pour l'ajout d'une communication`);
         return;
       }
       
-      // Vérifier si la tâche a un mandat signé
+      // Vérifier si la tâche a un mandat signé (avertissement seulement)
       if (!task.mandatSigne) {
         console.warn(`Tâche ${taskId} n'a pas de mandat signé - communication ajoutée quand même`);
-        // On permet l'ajout même sans mandat signé pour plus de flexibilité
       }
-      
-      console.log(`Ajout d'une communication ${type} à la tâche ${taskId}`);
       
       // Liste des types valides (pour validation)
       const validTypes = ['autre', 'carousel', 'flyer', 'idee', 'newsletter', 'panneau', 'plan_2d_3d', 'post_instagram', 'post_linkedin', 'post_site', 'video'] as const;
@@ -1240,12 +1240,12 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       
       console.log("Communications existantes:", communicationDetails);
       
-      // Créer une nouvelle communication
+      // Créer une nouvelle communication avec tous les champs obligatoires
       const newCommunication: CommunicationDetail = {
-        type: type as CommunicationDetail['type'], // Le type est validé au-dessus
+        type: type as CommunicationDetail['type'],
         status: 'à faire',
         priority: 'moyenne',
-        deadline: new Date(),
+        deadline: new Date(), // Date actuelle par défaut
         details: '',
         mediaType: null,
         assignedTo: [],
@@ -1257,17 +1257,26 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       
       console.log("Nouvelles communications:", updatedDetails);
       
-      // Mettre à jour la tâche
-      await onUpdateTask({
-        id: taskId,
-        communicationDetails: updatedDetails
-      });
-      
-      // Forcer un rendu des communications pour qu'elles apparaissent immédiatement
-      setTimeout(() => {
-        console.log("Forçage du rafraîchissement des communications après ajout");
-        setExpandedTasks(prev => ({...prev}));
-      }, 50);
+      try {
+        // Mettre à jour la tâche avec une gestion d'erreur supplémentaire
+        await onUpdateTask({
+          id: taskId,
+          communicationDetails: updatedDetails
+        });
+        
+        console.log("Communication ajoutée avec succès");
+        
+        // Forcer un rendu des communications pour qu'elles apparaissent immédiatement
+        setTimeout(() => {
+          console.log("Forçage du rafraîchissement des communications après ajout");
+          setExpandedTasks(prev => ({...prev}));
+        }, 100); // Augmenter légèrement le délai
+        
+      } catch (error) {
+        console.error("Erreur lors de la mise à jour de la tâche:", error);
+        // Afficher une notification d'erreur à l'utilisateur
+        // TODO: Ajouter une notification d'erreur visuelle
+      }
     } catch (error) {
       console.error("Erreur lors de l'ajout d'une communication:", error);
     }
