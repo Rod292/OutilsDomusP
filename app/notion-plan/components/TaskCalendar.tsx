@@ -431,56 +431,86 @@ const DroppableDay: React.FC<DroppableDayProps> = ({
     }),
   }));
 
-  // Fonction pour trier et limiter les tâches en fonction de la vue mobile ou desktop
-  const prepareTasksForDisplay = () => {
-    // Trier les tâches par priorité
-    const sortedTasks = [...tasks].sort((a, b) => {
-      const priorityOrder: Record<string, number> = { 'haute': 0, 'moyenne': 1, 'basse': 2 };
-      return (priorityOrder[a.priority || 'moyenne'] || 1) - (priorityOrder[b.priority || 'moyenne'] || 1);
+  // Récupérer toutes les tâches et les communications pour cette date
+  const tasksForThisDay = tasks.filter(task => 
+    isTaskOnDate(task, date)
+  );
+
+  // Extraire les communications avec la même date d'échéance que ce jour
+  const communicationsForThisDay = tasks
+    .filter(task => task.communicationDetails && task.communicationDetails.length > 0)
+    .flatMap(task => {
+      if (!task.communicationDetails) return [];
+      
+      return task.communicationDetails
+        .filter(comm => isCommOnDate(comm, date))
+        .map((comm, idx) => ({
+          task,
+          comm,
+          idx
+        }));
     });
 
-    // Pour mobile, limiter à 3 tâches principales
-    const isMobile = window.innerWidth < 768;
-    if (isMobile) {
-      return sortedTasks.slice(0, 3);
-    }
-    
-    // Pour desktop, afficher toutes les tâches
-    return sortedTasks;
-  };
+  console.log(`${date.toLocaleDateString()}: ${tasksForThisDay.length} tâches, ${communicationsForThisDay.length} communications`);
 
-  const tasksToDisplay = prepareTasksForDisplay();
-  const hiddenTasksCount = tasks.length - tasksToDisplay.length;
-
-  // Vérifier si la date est aujourd'hui
-  const isToday = (date: Date) => {
-    const today = new Date();
+  // Fonction pour vérifier si une tâche est à cette date
+  function isTaskOnDate(task: Task, date: Date): boolean {
+    if (!task.dueDate) return false;
+    const taskDate = new Date(task.dueDate);
     return (
-      date.getDate() === today.getDate() &&
-      date.getMonth() === today.getMonth() &&
-      date.getFullYear() === today.getFullYear()
+      taskDate.getDate() === date.getDate() &&
+      taskDate.getMonth() === date.getMonth() &&
+      taskDate.getFullYear() === date.getFullYear()
     );
-  };
+  }
 
-  // Vérifier si la date est dans le mois actuel
-  const isCurrentMonth = (date: Date, currentDate: Date) => {
-    return date.getMonth() === currentDate.getMonth() && 
-           date.getFullYear() === currentDate.getFullYear();
-  };
+  // Fonction pour vérifier si une communication est à cette date
+  function isCommOnDate(comm: CommunicationDetail, date: Date): boolean {
+    if (!comm.deadline) return false;
+    const commDate = new Date(comm.deadline);
+    return (
+      commDate.getDate() === date.getDate() &&
+      commDate.getMonth() === date.getMonth() &&
+      commDate.getFullYear() === date.getFullYear()
+    );
+  }
 
-  const maxTasksToShow = {
-    mobile: 3,  // Nombre max de tâches à afficher sur mobile
-    desktop: 100 // Pas de limite sur desktop
-  };
+  // Fonction pour vérifier si la date est dans le mois actuel
+  function isCurrentMonth(date: Date, currentDate: Date): boolean {
+    return (
+      date.getMonth() === currentDate.getMonth() &&
+      date.getFullYear() === currentDate.getFullYear()
+    );
+  }
 
   // Vérifier si on est sur mobile
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   
-  // Nombre de tâches à afficher en fonction de l'appareil
-  const visibleTasks = tasksToDisplay.slice(0, isMobile ? maxTasksToShow.mobile : maxTasksToShow.desktop);
+  // Limiter le nombre de tâches visibles sur mobile
+  const maxTasksToShow = isMobile ? 3 : 100;
   
-  // S'il y a des tâches supplémentaires non affichées
-  const hasMoreTasks = tasksToDisplay.length > visibleTasks.length;
+  // Nombre total d'éléments (tâches + communications)
+  const totalItems = tasksForThisDay.length + communicationsForThisDay.length;
+  
+  // Nombre d'éléments à afficher (limité sur mobile)
+  const visibleTasksCount = Math.min(tasksForThisDay.length, maxTasksToShow);
+  const remainingSlots = Math.max(0, maxTasksToShow - visibleTasksCount);
+  const visibleCommsCount = Math.min(communicationsForThisDay.length, remainingSlots);
+  
+  // Nombre d'éléments cachés
+  const hiddenItemsCount = totalItems - visibleTasksCount - visibleCommsCount;
+
+  // Trier par priorité (haute > moyenne > basse)
+  const sortedTasks = [...tasksForThisDay].sort((a, b) => {
+    const priorityOrder: Record<string, number> = { 'haute': 0, 'urgente': 0, 'élevée': 0, 'moyenne': 1, 'faible': 2, 'basse': 2 };
+    return (priorityOrder[a.priority || 'moyenne'] || 1) - (priorityOrder[b.priority || 'moyenne'] || 1);
+  });
+
+  // Extraire les tâches visibles
+  const visibleTasks = sortedTasks.slice(0, visibleTasksCount);
+
+  // Extraire les communications visibles (après les tâches)
+  const visibleComms = communicationsForThisDay.slice(0, visibleCommsCount);
 
   return (
     <div
@@ -493,20 +523,45 @@ const DroppableDay: React.FC<DroppableDayProps> = ({
         {date.getDate()}
       </div>
       <div className="space-y-1 max-h-[200px] overflow-y-auto">
-        {visibleTasks.map((item, index) => (
+        {/* Afficher les tâches principales */}
+        {visibleTasks.map((task) => (
           <DraggableTask
-            key={`${item.id}-${index}`}
-            task={item}
+            key={`task-${task.id}`}
+            task={task}
             onEditTask={onEditTask}
             onUpdateTask={onUpdateTask}
-            commIndex={undefined}
-            stableCommId={undefined}
-            uuid={undefined}
           />
         ))}
-        {hasMoreTasks && (
+        
+        {/* Afficher les communications */}
+        {visibleComms.map(({task, comm, idx}) => {
+          // Créer une tâche temporaire avec le titre de la communication
+          const commTypeLabel = getTypeLabel(comm.type);
+          const taskWithCommTitle = {
+            ...task,
+            title: `${commTypeLabel} - ${task.propertyAddress || task.title}`
+          };
+          
+          // UUID stable pour cette communication
+          const commUUID = getOrCreateCommunicationUUID(task.id, comm.type, comm.originalIndex !== undefined ? comm.originalIndex : idx);
+          
+          return (
+            <DraggableTask
+              key={`comm-${task.id}-${idx}-${commUUID}`}
+              task={taskWithCommTitle}
+              onEditTask={onEditTask}
+              onUpdateTask={onUpdateTask}
+              commIndex={idx}
+              stableCommId={comm.type}
+              uuid={commUUID}
+            />
+          );
+        })}
+        
+        {/* Afficher le compteur d'éléments cachés */}
+        {hiddenItemsCount > 0 && (
           <div className="text-xs text-center text-gray-500 mt-1 p-1 bg-gray-100 rounded">
-            +{tasksToDisplay.length - visibleTasks.length} autres
+            +{hiddenItemsCount} autres
           </div>
         )}
       </div>

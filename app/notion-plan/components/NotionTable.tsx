@@ -61,7 +61,10 @@ import {
   PhoneIcon,
   MessageSquareIcon,
   PhoneCallIcon,
-  StarIcon
+  StarIcon,
+  RectangleHorizontalIcon,
+  Ban,
+  MusicIcon
 } from 'lucide-react';
 import {
   Select,
@@ -1136,7 +1139,11 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     const icons: Record<string, React.ReactNode> = {
       'site': <GlobeIcon className="h-2.5 w-2.5 text-indigo-500" />,
       'linkedin': <LinkedinIcon className="h-2.5 w-2.5 text-sky-500" />,
-      'instagram': <InstagramIcon className="h-2.5 w-2.5 text-pink-500" />
+      'instagram': <InstagramIcon className="h-2.5 w-2.5 text-pink-500" />,
+      'facebook': <FacebookIcon className="h-2.5 w-2.5 text-blue-500" />,
+      'tiktok': <MusicIcon className="h-2.5 w-2.5 text-gray-500" />,
+      'youtube': <YoutubeIcon className="h-2.5 w-2.5 text-red-500" />,
+      'autre': <MonitorIcon className="h-2.5 w-2.5 text-gray-500" />
     };
     
     return icons[platform] || <MonitorIcon className="h-2.5 w-2.5 text-gray-500" />;
@@ -1150,6 +1157,9 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       'site': 'bg-indigo-100 text-indigo-800',
       'linkedin': 'bg-sky-100 text-sky-800',
       'instagram': 'bg-pink-100 text-pink-800',
+      'facebook': 'bg-blue-100 text-blue-800', 
+      'tiktok': 'bg-gray-100 text-gray-800',
+      'youtube': 'bg-red-100 text-red-800',
       'autre': 'bg-gray-100 text-gray-800'
     };
     
@@ -1157,6 +1167,9 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       'site': 'Site',
       'linkedin': 'LinkedIn',
       'instagram': 'Insta',
+      'facebook': 'FB',
+      'tiktok': 'TikTok',
+      'youtube': 'YouTube',
       'autre': 'Autre'
     };
     
@@ -1387,26 +1400,31 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       console.log(`Suppression de la communication à l'index ${commIndex} pour la tâche ${taskId}`);
       console.log("Communication à supprimer:", task.communicationDetails[commIndex]);
       
-      // Recréer complètement le tableau de communications sans utiliser filter ou map
-      // pour éviter de propager des valeurs undefined
+      // Création d'un nouveau tableau qui respecte strictement le type CommunicationDetail
       const updatedComms: CommunicationDetail[] = [];
       
       // Parcourir toutes les communications sauf celle à supprimer
       for (let i = 0; i < task.communicationDetails.length; i++) {
         if (i !== commIndex) {
           const comm = task.communicationDetails[i];
-          // Créer un nouvel objet propre pour chaque communication
+          
+          // Extraire les valeurs en respectant les types exacts
+          const type = (comm.type || 'autre') as CommunicationDetail['type'];
+          const platform = comm.platform as CommunicationDetail['platform'];
+          const mediaType = comm.mediaType as CommunicationDetail['mediaType'];
+          const priority = (comm.priority || 'moyenne') as CommunicationDetail['priority'];
+          
+          // Construire un objet propre qui respecte CommunicationDetail
           updatedComms.push({
-            type: comm.type || 'autre',
+            type, 
             details: comm.details || '',
             status: comm.status || 'à faire',
-            priority: comm.priority || 'moyenne',
+            priority,
             assignedTo: Array.isArray(comm.assignedTo) ? [...comm.assignedTo] : [],
             deadline: comm.deadline || null,
-            platform: comm.platform || null,
-            mediaType: comm.mediaType || null,
-            customType: comm.customType || undefined
-            // Ne pas inclure originalIndex
+            platform,
+            mediaType,
+            customType: comm.customType
           });
         }
       }
@@ -1495,46 +1513,48 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="p-0 h-auto">
-            <Badge className={`text-xs font-medium px-1.5 py-0.5 rounded-md cursor-pointer hover:bg-opacity-80 flex items-center ${
-              mediaType ? colorMap[mediaType] || 'bg-gray-200 text-gray-900' : 'bg-gray-200 text-gray-900 border border-dashed border-gray-400'
-            }`}>
-              {mediaType ? (
-                <>
-                  {iconMap[mediaType] || <FileIcon className="h-2.5 w-2.5 mr-0.5" />}
-                  {mediaType}
-                </>
-              ) : (
-                <>
-                  <CameraIcon className="h-2.5 w-2.5 mr-0.5" />
-                  {defaultValue}
-                </>
-              )}
-              <ChevronDownIcon className="h-2.5 w-2.5 ml-0.5 opacity-70" />
-            </Badge>
+          <Button 
+            variant="outline" 
+            className={`border rounded-md px-1.5 py-0.5 h-auto text-xs flex items-center gap-1 ${
+              colorMap[mediaType as string] || 'bg-gray-100 text-gray-800 border-gray-200'
+            }`}
+          >
+            <div className="flex items-center gap-0.5">
+              {mediaType ? iconMap[mediaType as string] || <FileIcon className="h-2.5 w-2.5 mr-0.5" /> : <RectangleHorizontalIcon className="h-2.5 w-2.5 mr-0.5" />}
+              <span>{mediaType || defaultValue}</span>
+            </div>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, "photo")}>
-            <ImageIcon className="h-4 w-4 mr-2 text-violet-600" />
-            <span>Photo</span>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, 'photo')}>
+            <div className="flex items-center">
+              <ImageIcon className="h-4 w-4 mr-2 text-violet-600" />
+              Photo
+            </div>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, "video")}>
-            <VideoIcon className="h-4 w-4 mr-2 text-orange-600" />
-            <span>Vidéo</span>
+          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, 'video')}>
+            <div className="flex items-center">
+              <VideoIcon className="h-4 w-4 mr-2 text-orange-600" />
+              Vidéo
+            </div>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, "texte")}>
-            <FileTextIcon className="h-4 w-4 mr-2 text-cyan-600" />
-            <span>Texte</span>
+          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, 'texte')}>
+            <div className="flex items-center">
+              <FileTextIcon className="h-4 w-4 mr-2 text-cyan-600" />
+              Texte
+            </div>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, "autre")}>
-            <FileIcon className="h-4 w-4 mr-2 text-gray-600" />
-            <span>Autre</span>
+          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, 'autre')}>
+            <div className="flex items-center">
+              <FileIcon className="h-4 w-4 mr-2 text-slate-600" />
+              Autre
+            </div>
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, "non-applicable")}>
-            <XIcon className="h-4 w-4 mr-2 text-gray-600" />
-            <span>Non défini</span>
+          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, 'non-applicable')}>
+            <div className="flex items-center">
+              <Ban className="h-4 w-4 mr-2 text-gray-600" />
+              Non applicable
+            </div>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -1870,6 +1890,121 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
   };
 
   const { toast } = useToast();
+
+  // Fonction pour mettre à jour la plateforme d'une communication
+  const updateCommunicationPlatform = async (taskId: string, commIndex: number, newPlatform: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task || !task.communicationDetails) return;
+    
+    console.log(`Mise à jour de la plateforme pour la communication ${commIndex} de la tâche ${taskId}: ${newPlatform}`);
+    
+    const updatedDetails = [...task.communicationDetails];
+    
+    // Vérifier que l'index est valide
+    if (commIndex < 0 || commIndex >= updatedDetails.length) {
+      console.error(`Index de communication invalide: ${commIndex}`);
+      return;
+    }
+    
+    updatedDetails[commIndex] = {
+      ...updatedDetails[commIndex],
+      platform: newPlatform === "non-applicable" ? null : newPlatform as CommunicationDetail['platform']
+    };
+    
+    await onUpdateTask({
+      id: taskId,
+      communicationDetails: updatedDetails
+    });
+
+    // Afficher notification
+    toast({
+      title: "Plateforme mise à jour",
+      description: `La plateforme a été mise à jour vers ${newPlatform}`,
+      variant: "default"
+    });
+  };
+
+  // Sélecteur de plateforme pour les communications
+  const getPlatformSelector = (platform: string | null | undefined, taskId: string, commIndex: number) => {
+    // Valeur à afficher si pas de plateforme définie
+    const defaultValue = "Non défini";
+    
+    const iconMap: Record<string, React.ReactNode> = {
+      'site': <GlobeIcon className="h-4 w-4 text-indigo-600" />,
+      'linkedin': <LinkedinIcon className="h-4 w-4 text-sky-600" />,
+      'instagram': <InstagramIcon className="h-4 w-4 text-pink-600" />,
+      'facebook': <FacebookIcon className="h-4 w-4 text-blue-600" />,
+      'tiktok': <MusicIcon className="h-4 w-4 text-gray-600" />,
+      'youtube': <YoutubeIcon className="h-4 w-4 text-red-600" />,
+      'autre': <MonitorIcon className="h-4 w-4 text-gray-600" />
+    };
+    
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button 
+            variant="outline" 
+            className="border rounded-md px-1.5 py-0.5 h-auto text-xs flex items-center gap-1"
+          >
+            <div className="flex items-center gap-0.5">
+              {platform ? iconMap[platform] || <MonitorIcon className="h-4 w-4 mr-0.5" /> : <RectangleHorizontalIcon className="h-4 w-4 mr-0.5" />}
+              <span>{platform || defaultValue}</span>
+            </div>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={() => updateCommunicationPlatform(taskId, commIndex, 'site')}>
+            <div className="flex items-center">
+              <GlobeIcon className="h-4 w-4 mr-2 text-indigo-600" />
+              Site Web
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => updateCommunicationPlatform(taskId, commIndex, 'linkedin')}>
+            <div className="flex items-center">
+              <LinkedinIcon className="h-4 w-4 mr-2 text-sky-600" />
+              LinkedIn
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => updateCommunicationPlatform(taskId, commIndex, 'instagram')}>
+            <div className="flex items-center">
+              <InstagramIcon className="h-4 w-4 mr-2 text-pink-600" />
+              Instagram
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => updateCommunicationPlatform(taskId, commIndex, 'facebook')}>
+            <div className="flex items-center">
+              <FacebookIcon className="h-4 w-4 mr-2 text-blue-600" />
+              Facebook
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => updateCommunicationPlatform(taskId, commIndex, 'tiktok')}>
+            <div className="flex items-center">
+              <MusicIcon className="h-4 w-4 mr-2 text-gray-600" />
+              TikTok
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => updateCommunicationPlatform(taskId, commIndex, 'youtube')}>
+            <div className="flex items-center">
+              <YoutubeIcon className="h-4 w-4 mr-2 text-red-600" />
+              YouTube
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => updateCommunicationPlatform(taskId, commIndex, 'autre')}>
+            <div className="flex items-center">
+              <MonitorIcon className="h-4 w-4 mr-2 text-gray-600" />
+              Autre
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => updateCommunicationPlatform(taskId, commIndex, 'non-applicable')}>
+            <div className="flex items-center">
+              <Ban className="h-4 w-4 mr-2 text-gray-600" />
+              Non applicable
+            </div>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
 
   return (
     <div className="w-full">
