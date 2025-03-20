@@ -1388,10 +1388,25 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       console.log("Communication à supprimer:", task.communicationDetails[commIndex]);
       
       // Créer une copie des communications sans celle à supprimer
-      const updatedComms = task.communicationDetails.filter((_, index) => index !== commIndex);
+      const updatedComms = task.communicationDetails
+        .filter((_, index) => index !== commIndex)
+        .map(comm => {
+          // Créer une copie propre de chaque communication
+          const cleanComm: Record<string, any> = { ...comm };
+          
+          // S'assurer qu'aucune valeur undefined n'est présente
+          Object.keys(cleanComm).forEach(key => {
+            if (cleanComm[key] === undefined) {
+              cleanComm[key] = null;
+            }
+          });
+          
+          return cleanComm;
+        });
+      
       console.log("Communications après suppression:", updatedComms);
       
-      // Mettre à jour la tâche dans Firestore
+      // Mettre à jour la tâche dans Firestore avec les communications nettoyées
       await onUpdateTask({
         id: taskId,
         communicationDetails: updatedComms
@@ -1404,11 +1419,21 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
           // Réinitialiser l'état d'expansion pour forcer le rendu
           return {...prev};
         });
-      }, 50);
+      }, 100);
       
-      console.log(`Communication supprimée avec succès. Nombre de communications restantes: ${updatedComms.length}`);
+      toast({
+        title: "Communication supprimée",
+        description: "La communication a été supprimée avec succès",
+        variant: "default"
+      });
+      
     } catch (error) {
       console.error("Erreur lors de la suppression de la communication:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer la communication",
+        variant: "destructive"
+      });
     }
   };
 
