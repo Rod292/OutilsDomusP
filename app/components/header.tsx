@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { RefreshCw, ChevronLeft, LogOut, Menu, X, FileSpreadsheet, Home, ClipboardCheck, Star, UserIcon, BookOpen, Mail } from "lucide-react"
+import { RefreshCw, ChevronLeft, LogOut, Menu, X, FileSpreadsheet, Home, ClipboardCheck, Star, UserIcon, BookOpen, Mail, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCallback, useEffect, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -241,6 +241,12 @@ export function Header() {
                           <DropdownMenuItem onClick={() => navigateTo("/newsletter")} className="flex items-center p-2 cursor-pointer">
                             <Mail className="mr-2 h-4 w-4 text-[#DC0032]" />
                             <span className="dark:text-gray-200">Newsletter</span>
+                          </DropdownMenuItem>
+                        </motion.div>
+                        <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                          <DropdownMenuItem onClick={() => navigateTo("/notifications")} className="flex items-center p-2 cursor-pointer">
+                            <Bell className="mr-2 h-4 w-4 text-[#DC0032]" />
+                            <span className="dark:text-gray-200">Notifications</span>
                           </DropdownMenuItem>
                         </motion.div>
                       </motion.div>
