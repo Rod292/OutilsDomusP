@@ -336,36 +336,37 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
     
-    // Récupérer les tokens actifs
+    // Récupérer les tokens en évitant les doublons
     const tokens: string[] = [];
+    const uniqueDeviceTokens = new Set<string>();
+    const tokensWithDeviceInfo: Array<{token: string, platform: string, isAppleDevice: boolean}> = [];
+    
     tokensSnapshot.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
       const tokenData = doc.data();
       if (tokenData.token && tokenData.token !== 'local-notifications-mode') {
-        tokens.push(tokenData.token);
+        // Vérifier si nous avons déjà ce token
+        if (!uniqueDeviceTokens.has(tokenData.token)) {
+          uniqueDeviceTokens.add(tokenData.token);
+          tokens.push(tokenData.token);
+          
+          // Ajouter des infos sur la plateforme pour faire des ajustements par appareil
+          const isAppleDevice = tokenData.userAgent?.toLowerCase().includes('iphone') || 
+                              tokenData.userAgent?.toLowerCase().includes('ipad') || 
+                              tokenData.userAgent?.toLowerCase().includes('mac') ||
+                              tokenData.platform?.toLowerCase().includes('iphone') ||
+                              tokenData.platform?.toLowerCase().includes('ipad') ||
+                              tokenData.platform?.toLowerCase().includes('mac');
+                              
+          tokensWithDeviceInfo.push({
+            token: tokenData.token,
+            platform: tokenData.platform || 'unknown',
+            isAppleDevice
+          });
+        }
       }
     });
-
-    // Chercher également tous les tokens liés à l'email de l'utilisateur
-    // pour envoyer la notification à tous ses appareils
-    let allTokens = [...tokens];
-    if (consultantName) {
-      const emailTokensQuery = await db.collection('notificationTokens')
-        .where('email', '==', userEmail)
-        .get();
-      
-      if (!emailTokensQuery.empty) {
-        emailTokensQuery.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
-          const tokenData = doc.data();
-          if (tokenData.token && 
-              tokenData.token !== 'local-notifications-mode' && 
-              !tokens.includes(tokenData.token)) {
-            allTokens.push(tokenData.token);
-          }
-        });
-      }
-    }
-
-    if (allTokens.length === 0) {
+    
+    if (tokens.length === 0) {
       console.log(`Aucun token FCM valide trouvé pour l'utilisateur ${userId}, suggestion du mode local`);
       return NextResponse.json({
         success: false,
@@ -380,68 +381,106 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
     
-    // Construire le message FCM
-    const message = {
-      notification: {
-        title,
-        body,
-      },
-      data: {
+    try {
+      // Vérifier si la notification concerne Instagram et si c'est un appareil Apple
+      const isInstagramNotification = 
+        (body?.toLowerCase().includes('instagram') || 
+         title?.toLowerCase().includes('instagram') ||
+         type?.toLowerCase().includes('instagram') ||
+         data?.communicationType?.toLowerCase() === 'post_instagram');
+      
+      // Initialiser Firebase Cloud Messaging si ce n'est pas déjà fait
+      const messaging = admin.messaging();
+      
+      // Ajuster le titre et le corps de la notification pour les appareils iOS
+      const notificationTitle = title;
+      const notificationBody = body;
+      
+      // Constuire les données de la notification
+      // CORRECTION: Utiliser sanitizeFirestoreData pour éliminer les undefined
+      const sanitizedData = sanitizeFirestoreData({
         type,
-        userId,
-        ...(taskId ? { taskId } : {})
-      },
-      tokens: allTokens
-    };
-    
-    // Envoyer la notification avec FCM en utilisant sendEachForMulticast qui est la méthode standard
-    const messaging = admin.messaging();
-    if (!messaging) {
-      return NextResponse.json({
-        success: false, 
-        useLocalMode: true,
-        notification: {
-          title,
-          body,
-          taskId,
-          type
-        },
-        warning: 'Firebase Messaging non initialisé, utilisation du mode local'
+        taskId: taskId || null,
+        ...data // Inclure les autres données (comme communicationIndex)
       });
-    }
-    
-    const response = await messaging.sendEachForMulticast(message);
-    
-    console.log(`Notification envoyée à tous les appareils de ${userEmail} (${allTokens.length} appareils):`, {
-      success: response.successCount,
-      failure: response.failureCount,
-      tokens: allTokens.length
-    });
-    
-    // Si l'envoi a échoué pour tous les tokens, suggérer le mode local
-    if (response.successCount === 0 && response.failureCount > 0) {
+      
+      // Pour éviter les notifications en double sur iOS (spécifiquement pour Instagram)
+      let tokensToNotify = tokens;
+      
+      if (isInstagramNotification) {
+        // Pour les notifications Instagram, ne notifier qu'un seul appareil iOS par utilisateur
+        // Cela évite les doubles notifications sur iPhone
+        const appleDeviceTokens = tokensWithDeviceInfo.filter(t => t.isAppleDevice).map(t => t.token);
+        const nonAppleDeviceTokens = tokensWithDeviceInfo.filter(t => !t.isAppleDevice).map(t => t.token);
+        
+        // Si l'utilisateur a des appareils Apple, n'en notifier qu'un seul pour Instagram
+        if (appleDeviceTokens.length > 0) {
+          // Prendre seulement le token de l'appareil Apple le plus récent
+          tokensToNotify = [appleDeviceTokens[0], ...nonAppleDeviceTokens];
+          console.log(`Notification Instagram: Limitation à un seul appareil Apple (${appleDeviceTokens.length} disponibles)`);
+        }
+      }
+      
+      // Envoyer les notifications avec les tokens filtrés
+      const response = await messaging.sendEachForMulticast({
+        tokens: tokensToNotify,
+        notification: {
+          title: notificationTitle,
+          body: notificationBody
+        },
+        data: sanitizedData,
+        // Options spécifiques pour iOS
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+              badge: 1,
+              // Éviter le groupement des notifications Instagram
+              'thread-id': isInstagramNotification ? `instagram-${Date.now()}` : type
+            }
+          }
+        }
+      });
+      
+      console.log(`Notification envoyée à tous les appareils de ${userEmail} (${tokensToNotify.length} appareils):`, {
+        success: response.successCount,
+        failure: response.failureCount,
+        tokens: tokensToNotify.length
+      });
+      
+      // Si l'envoi a échoué pour tous les tokens, suggérer le mode local
+      if (response.successCount === 0 && response.failureCount > 0) {
+        return NextResponse.json({
+          success: false,
+          sent: 0,
+          failed: response.failureCount,
+          useLocalMode: true,
+          notification: {
+            title,
+            body,
+            taskId,
+            type
+          },
+          warning: 'Tous les envois FCM ont échoué, essayez le mode local'
+        });
+      }
+      
       return NextResponse.json({
-        success: false,
-        sent: 0,
+        success: true,
+        sent: response.successCount,
         failed: response.failureCount,
-        useLocalMode: true,
-        notification: {
-          title,
-          body,
-          taskId,
-          type
-        },
-        warning: 'Tous les envois FCM ont échoué, essayez le mode local'
+        total: tokensToNotify.length,
       });
+    } catch (error) {
+      console.error('Erreur lors de la vérification de la notification:', error);
+      return NextResponse.json(
+        { 
+          error: 'Erreur interne du serveur lors de la vérification de la notification',
+          useLocalMode: true, // Suggérer le mode local en cas d'erreur
+        },
+        { status: 500 }
+      );
     }
-    
-    return NextResponse.json({
-      success: true,
-      sent: response.successCount,
-      failed: response.failureCount,
-      total: allTokens.length,
-    });
-    
   } catch (error) {
     console.error('Erreur lors de l\'envoi de la notification:', error);
     return NextResponse.json(
