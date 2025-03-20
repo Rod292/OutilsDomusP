@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -694,6 +694,41 @@ export default function TaskCalendar({ tasks, onEditTask, onUpdateTask }: TaskCa
     );
   }, [tasks, consultant]);
 
+  // Filtrer les tâches effectives avec les mêmes règles que filteredTasks
+  const effectiveFilteredTasks = React.useMemo(() => {
+    // Vérifier si le filtre des tâches assignées est actif
+    const isAssignedFilterActive = window.location.search.includes('assignedFilter=true');
+    
+    // Si le filtre des tâches assignées n'est pas actif, montrer toutes les tâches
+    if (!isAssignedFilterActive) return filteredTasks;
+    
+    // Si pas de consultant sélectionné, retourner toutes les tâches
+    if (!consultant) return filteredTasks;
+    
+    // Convertir le nom du consultant en email pour la correspondance
+    const consultantEmail = getConsultantEmail(consultant);
+    if (!consultantEmail) return filteredTasks;
+    
+    // Filtrer pour ne montrer que les communications assignées au consultant
+    return filteredTasks.map(task => {
+      // Copie de la tâche pour éviter de modifier l'original
+      const taskCopy = {...task};
+      
+      // Si la tâche a des détails de communication, filtrer uniquement ceux assignés au consultant
+      if (taskCopy.communicationDetails && taskCopy.communicationDetails.length > 0) {
+        taskCopy.communicationDetails = taskCopy.communicationDetails.filter(comm => 
+          comm.assignedTo?.includes(consultantEmail)
+        );
+      }
+      
+      return taskCopy;
+    }).filter(task => 
+      // Garder seulement les tâches avec au moins une communication ou assignées directement
+      task.assignedTo?.includes(consultantEmail) || 
+      (task.communicationDetails && task.communicationDetails.length > 0)
+    );
+  }, [filteredTasks, consultant]);
+
   // Générer les jours du mois pour le calendrier
   useEffect(() => {
     const days: Date[] = [];
@@ -754,6 +789,21 @@ export default function TaskCalendar({ tasks, onEditTask, onUpdateTask }: TaskCa
   // Jours de la semaine
   const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
+  // Ajouter un état local pour stocker les données les plus récentes
+  const [latestTasks, setLatestTasks] = useState<Task[]>(tasks);
+  const [forceRefresh, setForceRefresh] = useState<number>(0);
+  
+  // Utiliser les tâches les plus récentes pour le rendu
+  const effectiveTasks = useMemo(() => {
+    return latestTasks;
+  }, [latestTasks, forceRefresh]);
+  
+  // Ajouter un écouteur d'événement pour les mises à jour de tâches
+  useEffect(() => {
+    // Mettre à jour l'état local avec les props initiales
+    setLatestTasks(tasks);
+  }, [tasks]);
+  
   // Ajouter un écouteur d'événement pour les mises à jour de tâches
   useEffect(() => {
     const handleTasksUpdated = (event: CustomEvent) => {
@@ -761,6 +811,13 @@ export default function TaskCalendar({ tasks, onEditTask, onUpdateTask }: TaskCa
       // Rafraîchir l'affichage du calendrier lorsque des tâches sont mises à jour
       const updatedTasks = event.detail.tasks;
       console.log("Tâches mises à jour reçues:", updatedTasks.length);
+      
+      // Mise à jour de l'état local avec les nouvelles données
+      setLatestTasks(updatedTasks);
+      
+      // Forcer un rafraîchissement du composant
+      setForceRefresh(prev => prev + 1);
+      console.log("Calendrier rafraîchi avec les dernières données");
     };
 
     // Typer correctement l'événement pour TypeScript
@@ -806,14 +863,14 @@ export default function TaskCalendar({ tasks, onEditTask, onUpdateTask }: TaskCa
               const isCurrentMonth = day.getMonth() === currentDate.getMonth();
               return (
                 <div
-                  key={index}
+                  key={`${index}-${forceRefresh}`}
                   className={`border-b border-r p-1 ${
                     isCurrentMonth ? '' : 'bg-gray-50 text-gray-400'
                   }`}
                 >
                   <DroppableDay
                     date={day}
-                    tasks={filteredTasks}
+                    tasks={effectiveFilteredTasks}
                     onEditTask={onEditTask}
                     onUpdateTask={onUpdateTask}
                   />
