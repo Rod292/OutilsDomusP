@@ -759,145 +759,102 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
   });
 
   // Fonction pour ajouter un consultant à une sous-tâche de communication
-  const addCommunicationAssignee = async (
-    taskId: string,
-    communicationIndex: number,
-    emailToAdd: string
-  ) => {
-    if (!user?.email) {
-      console.error("L'utilisateur n'est pas connecté");
-      return;
-    }
-
+  const addCommunicationAssignee = async (taskId: string, communicationIndex: number, memberUid: string) => {
+    // Créer un identifiant unique pour éviter les notifications dupliquées
+    const uniqueNotificationId = `task_${taskId}_comm_${communicationIndex}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    
     try {
-      console.log(
-        `Ajout d'un assigné pour la communication ${communicationIndex} à la tâche ${taskId}: ${emailToAdd}`
-      );
-
+      console.log(`Ajout d'un assigné pour la communication ${communicationIndex} de la tâche ${taskId}: ${memberUid}`);
+      
       // Récupérer la tâche actuelle
       const taskRef = doc(db, 'tasks', taskId);
       const taskSnapshot = await getDoc(taskRef);
-
+      
       if (!taskSnapshot.exists()) {
         console.error(`Tâche ${taskId} introuvable`);
         return;
       }
-
+      
       const taskData = taskSnapshot.data();
       let communicationDetails = [...(taskData.communicationDetails || [])];
-
+      
       if (communicationIndex >= communicationDetails.length) {
-        console.error(
-          `L'index de communication ${communicationIndex} est hors limites`
-        );
+        console.error(`L'index de communication ${communicationIndex} est hors limites`);
         return;
-      }
-
-      // Vérifier si l'utilisateur est déjà assigné
-      if (
-        communicationDetails[communicationIndex].assignedTo &&
-        communicationDetails[communicationIndex].assignedTo.includes(emailToAdd)
-      ) {
-        console.log(`${emailToAdd} est déjà assigné à cette communication`);
-        return;
-      }
-
-      // Ajouter le nouvel utilisateur à la liste des assignés
-      if (!communicationDetails[communicationIndex].assignedTo) {
-        communicationDetails[communicationIndex].assignedTo = [];
       }
       
-      communicationDetails[communicationIndex].assignedTo.push(emailToAdd);
-
-      // Mettre à jour le document
+      // Vérifier si ce membre est déjà assigné
+      if (communicationDetails[communicationIndex].assignedTo === memberUid) {
+        console.log(`Le membre ${memberUid} est déjà assigné à cette communication`);
+        return;
+      }
+      
+      // Assigner le membre à la communication
+      communicationDetails[communicationIndex].assignedTo = memberUid;
+      
+      // Obtenir les informations du membre assigné et le type de communication
+      let memberName = memberUid;
+      let memberEmail = '';
+      
+      // Chercher dans la liste des tâches pour trouver le membre par son UID
+      const currentTask = tasks.find(t => t.id === taskId);
+      const communicationType = currentTask?.communicationDetails?.[communicationIndex]?.type || 'Communication';
+      
+      // Mettre à jour Firestore et l'interface
       await updateDoc(taskRef, {
-        communicationDetails,
+        [`communicationDetails.${communicationIndex}.assignedTo`]: memberUid,
         updatedAt: serverTimestamp()
       });
-
-      // Envoyer une notification si l'utilisateur assigné a une adresse e-mail
-      if (emailToAdd) {
-        try {
-          // Préparer les données de notification
-          const taskTitle = taskData.title || 'Tâche sans titre';
-          const communicationType = communicationDetails[communicationIndex].type || 'Communication';
-          const notificationId = `task_communication_${taskId}_${communicationIndex}_${Date.now()}`;
-          const consultantName = emailToAdd.split('@')[0] || emailToAdd;
-
-          // Construire les données de notification
-          const notificationData = {
-            userId: `${user.email}_${consultantName}`,
-            title: '📬 Nouvelle communication assignée',
-            body: `${consultantName} a été assigné à la communication "${communicationType}" pour la tâche "${taskTitle}".`,
-            type: 'task_communication_assigned',
-            taskId,
-            communicationIndex,
-            notificationId,
-            mode: 'FCM'
-          };
-
-          console.log('Envoi de notification pour la communication assignée:', notificationData);
-
-          // Tentative d'envoi via le service de notification
-          try {
-            const result = await sendTaskAssignedNotification({
-              userId: `${user.email}_${consultantName}`,
-              title: notificationData.title,
-              body: notificationData.body,
-              taskId,
-              isCommunication: true,
-              communicationIndex,
-              recipientEmail: emailToAdd
-            });
-            
-            console.log('Résultat de sendTaskAssignedNotification:', result);
-            // Si la notification a été envoyée avec succès, on s'arrête ici
-            // Plus besoin de l'envoi direct ci-dessous
-          } catch (notifServiceError) {
-            console.error('Erreur du service de notification:', notifServiceError);
-            // On ne fait rien - si le service a échoué, on ne tente pas un deuxième envoi
-          }
-        } catch (notifError) {
-          console.error('Erreur lors de la préparation de la notification:', notifError);
-        }
-      }
-
-      // Mettre à jour l'interface sans utiliser setTasks
-      // On utilise onUpdateTask pour informer le composant parent de la mise à jour
-      // et laisser le parent gérer la mise à jour de l'état
+      
+      // Mettre à jour l'interface via le callback onUpdateTask
       await onUpdateTask({
         id: taskId,
         communicationDetails
       });
-
-      // Forcer la mise à jour locale de l'affichage
-      setFilteredTasks(currentFilteredTasks => 
-        currentFilteredTasks.map(t => 
-          t.id === taskId 
-            ? { ...t, communicationDetails } 
-            : t
-        )
-      );
-
-      if (toast) {
-        toast({
-          title: 'Collaborateur ajouté',
-          description: `${emailToAdd} a été ajouté à la communication`,
-          variant: 'success'
+      
+      // Envoyer une notification si l'utilisateur actuel existe
+      if (user) {
+        // Préparer les données de notification
+        const taskTitle = currentTask?.title || 'Tâche sans titre';
+        const assignedByFullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+        
+        // Construire le message de notification
+        const notificationTitle = `${communicationType} assignée`;
+        const notificationBody = `${assignedByFullName} vous a assigné à une communication ${communicationType} pour la tâche: ${taskTitle}`;
+        
+        console.log('Envoi de notification pour la communication assignée:', {
+          title: notificationTitle,
+          body: notificationBody,
+          taskId,
+          communicationIndex,
+          notificationId: uniqueNotificationId
         });
+        
+        // Envoi de la notification
+        const notificationSent = await sendTaskAssignedNotification({
+          userId: user.uid,
+          title: notificationTitle,
+          body: notificationBody,
+          taskId,
+          isCommunication: true,
+          communicationIndex,
+          recipientEmail: memberEmail || memberUid,
+          notificationId: uniqueNotificationId
+        });
+        
+        if (notificationSent) {
+          toast.success("Notification envoyée avec succès");
+        } else {
+          console.warn("Échec de l'envoi de notification");
+        }
       }
+      
+      // Afficher un toast de confirmation
+      toast.success(`Communication assignée avec succès`);
+      
     } catch (error) {
-      console.error(
-        'Erreur lors de l\'ajout d\'un assigné à la communication:',
-        error
-      );
-      if (toast) {
-        toast({
-          title: 'Erreur',
-          description: 'Impossible d\'ajouter le collaborateur à la communication',
-          variant: 'destructive'
-        });
-      }
+      console.error("Erreur lors de l'assignation:", error);
+      toast.error("Erreur lors de l'assignation");
     }
   };
 
