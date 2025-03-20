@@ -10,25 +10,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger,
-  DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useToast } from "@/components/ui/use-toast";
 import { 
   PlusIcon, 
   MoreHorizontalIcon, 
@@ -43,7 +25,7 @@ import {
   YoutubeIcon,
   MailIcon,
   SignpostIcon,
-  FileIcon, 
+  FileIcon,
   SlidersHorizontalIcon,
   MonitorIcon,
   TrashIcon,
@@ -61,11 +43,24 @@ import {
   PhoneIcon,
   MessageSquareIcon,
   PhoneCallIcon,
-  StarIcon,
-  RectangleHorizontalIcon,
-  Ban,
-  MusicIcon
+  StarIcon
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { Task, TeamMember, CommunicationDetail } from '../types';
 import {
   Select,
   SelectContent,
@@ -78,7 +73,10 @@ import { useAssignedToFilter } from '../hooks/useAssignedToFilter';
 import { Input } from '@/components/ui/input';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Task, TeamMember, CommunicationDetail } from '../types';
+import { useToast } from "@/components/ui/use-toast";
+import { useTasks } from '../hooks/useTasks';
+import { ComboboxDemo } from './ComboboxDemo';
+import { NotionContext } from '../context/NotionContext';
 import { sendTaskAssignedNotification } from '@/app/services/notificationService';
 import { getBadgeColor } from '../utils/badgeHelper';
 
@@ -483,51 +481,35 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
 
   // Fonction pour mettre à jour la date d'une communication
   const updateCommunicationDate = async (taskId: string, commIndex: number, newDate: Date | null) => {
-    console.log(`Mise à jour de la date pour la communication ${commIndex} de la tâche ${taskId}`);
-    
-    // Trouver la tâche
     const task = tasks.find(t => t.id === taskId);
-    if (!task || !task.communicationDetails) {
-      console.error(`Tâche non trouvée ou sans communications: ${taskId}`);
-      return;
-    }
+    if (!task || !task.communicationDetails) return;
+    
+    console.log(`Mise à jour de la date pour la communication ${commIndex} de la tâche ${taskId}: ${newDate}`);
+    
+    const updatedDetails = [...task.communicationDetails];
     
     // Vérifier que l'index est valide
-    if (commIndex < 0 || commIndex >= task.communicationDetails.length) {
+    if (commIndex < 0 || commIndex >= updatedDetails.length) {
       console.error(`Index de communication invalide: ${commIndex}`);
       return;
     }
     
-    try {
-      // Créer une copie des communications existantes
-      const updatedDetails = [...task.communicationDetails];
-      
-      // S'assurer que tous les champs requis sont définis
-      updatedDetails[commIndex] = {
-        type: updatedDetails[commIndex].type || 'autre',
-        deadline: newDate,
-        status: updatedDetails[commIndex].status || 'à faire',
-        details: updatedDetails[commIndex].details || '',
-        priority: updatedDetails[commIndex].priority || 'moyenne',
-        assignedTo: updatedDetails[commIndex].assignedTo || [],
-        platform: updatedDetails[commIndex].platform || null,
-        mediaType: updatedDetails[commIndex].mediaType || null,
-        customType: updatedDetails[commIndex].customType || '',
-        originalIndex: updatedDetails[commIndex].originalIndex !== undefined ? updatedDetails[commIndex].originalIndex : commIndex
-      };
-      
-      console.log(`Communication mise à jour:`, updatedDetails[commIndex]);
-      
-      // Mise à jour de la tâche avec les nouvelles communications
-      await onUpdateTask({
-        id: taskId,
-        communicationDetails: updatedDetails
-      });
-      
-      console.log(`Date de communication mise à jour avec succès`);
-    } catch (error) {
-      console.error("Erreur lors de la mise à jour de la date:", error);
-    }
+    // Conserver toutes les propriétés existantes, y compris l'index original
+    const existingComm = updatedDetails[commIndex];
+    const originalIndex = existingComm.originalIndex !== undefined ? existingComm.originalIndex : commIndex;
+    
+    updatedDetails[commIndex] = {
+      ...existingComm,
+      deadline: newDate,
+      originalIndex // Préserver l'index original
+    };
+    
+    console.log(`Communication mise à jour à l'index ${commIndex}, index original: ${originalIndex}`);
+    
+    await onUpdateTask({
+      id: taskId,
+      communicationDetails: updatedDetails
+    });
   };
 
   // Fonction pour mettre à jour le type de média
@@ -1155,11 +1137,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     const icons: Record<string, React.ReactNode> = {
       'site': <GlobeIcon className="h-2.5 w-2.5 text-indigo-500" />,
       'linkedin': <LinkedinIcon className="h-2.5 w-2.5 text-sky-500" />,
-      'instagram': <InstagramIcon className="h-2.5 w-2.5 text-pink-500" />,
-      'facebook': <FacebookIcon className="h-2.5 w-2.5 text-blue-500" />,
-      'tiktok': <MusicIcon className="h-2.5 w-2.5 text-gray-500" />,
-      'youtube': <YoutubeIcon className="h-2.5 w-2.5 text-red-500" />,
-      'autre': <MonitorIcon className="h-2.5 w-2.5 text-gray-500" />
+      'instagram': <InstagramIcon className="h-2.5 w-2.5 text-pink-500" />
     };
     
     return icons[platform] || <MonitorIcon className="h-2.5 w-2.5 text-gray-500" />;
@@ -1173,9 +1151,6 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       'site': 'bg-indigo-100 text-indigo-800',
       'linkedin': 'bg-sky-100 text-sky-800',
       'instagram': 'bg-pink-100 text-pink-800',
-      'facebook': 'bg-blue-100 text-blue-800', 
-      'tiktok': 'bg-gray-100 text-gray-800',
-      'youtube': 'bg-red-100 text-red-800',
       'autre': 'bg-gray-100 text-gray-800'
     };
     
@@ -1183,9 +1158,6 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       'site': 'Site',
       'linkedin': 'LinkedIn',
       'instagram': 'Insta',
-      'facebook': 'FB',
-      'tiktok': 'TikTok',
-      'youtube': 'YouTube',
       'autre': 'Autre'
     };
     
@@ -1235,113 +1207,73 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
 
   // Fonction pour ajouter un type de communication
   const addCommunicationType = async (taskId: string, type: string) => {
-    console.log(`Début de l'ajout d'une communication de type ${type} à la tâche ${taskId}`);
-    
     try {
-      if (!user?.email) {
-        console.error("L'utilisateur n'est pas connecté");
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) {
+        console.error(`Tâche ${taskId} non trouvée pour l'ajout d'une communication`);
         return;
       }
-
-      // Récupérer la tâche actuelle
-      const taskRef = doc(db, 'tasks', taskId);
-      const taskSnapshot = await getDoc(taskRef);
-
-      if (!taskSnapshot.exists()) {
-        console.error(`Tâche ${taskId} introuvable`);
-        toast({
-          title: 'Erreur',
-          description: 'Tâche introuvable',
-          variant: 'destructive'
-        });
-        return;
+      
+      // Vérifier si la tâche a un mandat signé
+      if (!task.mandatSigne) {
+        console.warn(`Tâche ${taskId} n'a pas de mandat signé - communication ajoutée quand même`);
+        // On permet l'ajout même sans mandat signé pour plus de flexibilité
       }
-
-      const taskData = taskSnapshot.data();
-      console.log("Communications existantes:", taskData.communicationDetails || []);
-
-      // Vérifier que la tâche a un mandat signé (recommandé mais pas bloquant)
-      if (!taskData.mandateSigned) {
-        console.warn(`Tâche ${taskId} n'a pas de mandat signé. Continuer quand même.`);
-      }
-
+      
+      console.log(`Ajout d'une communication ${type} à la tâche ${taskId}`);
+      
+      // Liste des types valides (pour validation)
+      const validTypes = ['autre', 'carousel', 'flyer', 'idee', 'newsletter', 'panneau', 'plan_2d_3d', 'post_instagram', 'post_linkedin', 'post_site', 'video'] as const;
+      type ValidCommunicationType = typeof validTypes[number];
+      
       // Vérifier que le type est valide
-      const validTypes = ['newsletter', 'panneau', 'flyer', 'post_site', 'post_linkedin', 'post_instagram', 'carousel', 'video', 'plan_2d_3d', 'idee', 'autre'];
-      if (!validTypes.includes(type)) {
+      const isValidType = (t: string): t is ValidCommunicationType => 
+        validTypes.includes(t as any);
+      
+      if (!isValidType(type)) {
         console.error(`Type de communication invalide: ${type}`);
-        toast({
-          title: 'Erreur',
-          description: `Type de communication invalide: ${type}`,
-          variant: 'destructive'
-        });
         return;
       }
-
-      // Créer une nouvelle communication avec des valeurs par défaut
-      const newCommunication: Record<string, any> = {
-        type: type || 'autre',
+      
+      // Obtenir la liste actuelle des communications ou initialiser un tableau vide
+      const communicationDetails = task.communicationDetails || [];
+      
+      console.log("Communications existantes:", communicationDetails);
+      
+      // Créer une nouvelle communication
+      const newCommunication: CommunicationDetail = {
+        type: type as CommunicationDetail['type'], // Le type est validé au-dessus
         status: 'à faire',
         priority: 'moyenne',
-        deadline: null,
-        platform: type.includes('post_') ? type.replace('post_', '') : null,
-        mediaType: type === 'video' ? 'video' : (type === 'carousel' ? 'photo' : null),
+        deadline: new Date(),
         details: '',
+        mediaType: null,
         assignedTo: []
+        // Ne pas inclure d'originalIndex ici, il sera géré par handleUpdateTask
       };
-
-      // S'assurer que tous les champs sont définis et valides pour Firestore
-      Object.keys(newCommunication).forEach(key => {
-        // Si une valeur est undefined, la remplacer par null (Firestore accepte null mais pas undefined)
-        if (newCommunication[key] === undefined) {
-          newCommunication[key] = null;
-        }
-      });
-
-      // Ajouter la nouvelle communication à la liste existante
-      const existingCommunications = taskData.communicationDetails || [];
-      const communicationDetails = [...existingCommunications, newCommunication];
-
-      // Mettre à jour la tâche avec la nouvelle liste de communications
-      await updateDoc(taskRef, {
-        communicationDetails,
-        updatedAt: serverTimestamp()
-      });
-
-      console.log(`Communication de type ${type} ajoutée avec succès`);
-
-      // Mettre à jour l'état local des tâches et forcer un rafraîchissement
-      await onUpdateTask({
-        id: taskId,
-        communicationDetails
-      });
-
-      // Forcer l'affichage des communications par l'expansion de la tâche
-      setExpandedTasks((prev) => ({
-        ...prev,
-        [taskId]: true
-      }));
-
-      // Afficher une notification de succès
-      toast({
-        title: 'Communication ajoutée',
-        description: `Communication de type ${type} ajoutée avec succès`,
-        variant: 'default'
-      });
-
-      // Forcer un rafraîchissement supplémentaire après un court délai
-      setTimeout(() => {
-        onUpdateTask({
+      
+      // Ajouter la nouvelle communication à la liste
+      const updatedDetails = [...communicationDetails, newCommunication];
+      
+      console.log("Nouvelles communications:", updatedDetails);
+      
+      // Mettre à jour la tâche
+      try {
+        await onUpdateTask({
           id: taskId,
-          communicationDetails
+          communicationDetails: updatedDetails
         });
-      }, 300);
+        
+        // Forcer un rendu des communications pour qu'elles apparaissent immédiatement
+        setTimeout(() => {
+          console.log("Forçage du rafraîchissement des communications après ajout");
+          setExpandedTasks(prev => ({...prev}));
+        }, 50);
+      } catch (updateError) {
+        console.error("Erreur lors de la mise à jour de la tâche avec la nouvelle communication:", updateError);
+      }
     } catch (error) {
-      console.error('Erreur lors de l\'ajout de la communication:', error);
-      toast({
-        title: 'Erreur',
-        description: 'Impossible d\'ajouter la communication',
-        variant: 'destructive'
-      });
+      console.error("Erreur lors de l'ajout d'une communication:", error);
     }
   };
 
@@ -1396,36 +1328,46 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     });
   };
 
-  // Fonction pour supprimer une communication
+  // Fonction pour supprimer une communication spécifique
   const removeCommunication = async (taskId: string, commIndex: number) => {
-    console.log(`Suppression de la communication ${commIndex} de la tâche ${taskId}`);
-    
-    // Trouver la tâche
-    const task = tasks.find(t => t.id === taskId);
-    if (!task || !task.communicationDetails) {
-      console.error(`Tâche non trouvée ou sans communications: ${taskId}`);
-      return;
-    }
-    
-    // Vérifier que l'index est valide
-    if (commIndex < 0 || commIndex >= task.communicationDetails.length) {
-      console.error(`Index de communication invalide: ${commIndex}`);
-      return;
-    }
-    
     try {
-      // Filtrer la communication à supprimer
-      const updatedDetails = task.communicationDetails.filter((_, index) => index !== commIndex);
+      const task = tasks.find(t => t.id === taskId);
+      if (!task || !task.communicationDetails) return;
       
-      console.log(`Communication supprimée, il reste ${updatedDetails.length} communications`);
+      // Vérifier si l'index est valide
+      if (commIndex < 0 || commIndex >= task.communicationDetails.length) {
+        console.error(`Index de communication invalide: ${commIndex}`);
+        return;
+      }
       
-      // Mise à jour de la tâche avec les communications restantes
+      // Confirmation de suppression
+      if (!window.confirm(`Êtes-vous sûr de vouloir supprimer cette communication ?`)) {
+        return;
+      }
+      
+      console.log(`Suppression de la communication à l'index ${commIndex} pour la tâche ${taskId}`);
+      console.log("Communication à supprimer:", task.communicationDetails[commIndex]);
+      
+      // Créer une copie des communications sans celle à supprimer
+      const updatedComms = task.communicationDetails.filter((_, index) => index !== commIndex);
+      console.log("Communications après suppression:", updatedComms);
+      
+      // Mettre à jour la tâche dans Firestore
       await onUpdateTask({
         id: taskId,
-        communicationDetails: updatedDetails.length > 0 ? updatedDetails : [] // S'assurer qu'on envoie un tableau vide et non undefined
+        communicationDetails: updatedComms
       });
       
-      console.log(`Communication supprimée avec succès`);
+      // Forcer un rafraîchissement de l'interface
+      setTimeout(() => {
+        console.log("Forçage du rafraîchissement de l'interface après suppression");
+        setExpandedTasks(prev => {
+          // Réinitialiser l'état d'expansion pour forcer le rendu
+          return {...prev};
+        });
+      }, 50);
+      
+      console.log(`Communication supprimée avec succès. Nombre de communications restantes: ${updatedComms.length}`);
     } catch (error) {
       console.error("Erreur lors de la suppression de la communication:", error);
     }
@@ -1481,48 +1423,46 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button 
-            variant="outline" 
-            className={`border rounded-md px-1.5 py-0.5 h-auto text-xs flex items-center gap-1 ${
-              colorMap[mediaType as string] || 'bg-gray-100 text-gray-800 border-gray-200'
-            }`}
-          >
-            <div className="flex items-center gap-0.5">
-              {mediaType ? iconMap[mediaType as string] || <FileIcon className="h-2.5 w-2.5 mr-0.5" /> : <RectangleHorizontalIcon className="h-2.5 w-2.5 mr-0.5" />}
-              <span>{mediaType || defaultValue}</span>
-            </div>
+          <Button variant="ghost" className="p-0 h-auto">
+            <Badge className={`text-xs font-medium px-1.5 py-0.5 rounded-md cursor-pointer hover:bg-opacity-80 flex items-center ${
+              mediaType ? colorMap[mediaType] || 'bg-gray-200 text-gray-900' : 'bg-gray-200 text-gray-900 border border-dashed border-gray-400'
+            }`}>
+              {mediaType ? (
+                <>
+                  {iconMap[mediaType] || <FileIcon className="h-2.5 w-2.5 mr-0.5" />}
+                  {mediaType}
+                </>
+              ) : (
+                <>
+                  <CameraIcon className="h-2.5 w-2.5 mr-0.5" />
+                  {defaultValue}
+                </>
+              )}
+              <ChevronDownIcon className="h-2.5 w-2.5 ml-0.5 opacity-70" />
+            </Badge>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, 'photo')}>
-            <div className="flex items-center">
-              <ImageIcon className="h-4 w-4 mr-2 text-violet-600" />
-              Photo
-            </div>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, "photo")}>
+            <ImageIcon className="h-4 w-4 mr-2 text-violet-600" />
+            <span>Photo</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, 'video')}>
-            <div className="flex items-center">
-              <VideoIcon className="h-4 w-4 mr-2 text-orange-600" />
-              Vidéo
-            </div>
+          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, "video")}>
+            <VideoIcon className="h-4 w-4 mr-2 text-orange-600" />
+            <span>Vidéo</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, 'texte')}>
-            <div className="flex items-center">
-              <FileTextIcon className="h-4 w-4 mr-2 text-cyan-600" />
-              Texte
-            </div>
+          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, "texte")}>
+            <FileTextIcon className="h-4 w-4 mr-2 text-cyan-600" />
+            <span>Texte</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, 'autre')}>
-            <div className="flex items-center">
-              <FileIcon className="h-4 w-4 mr-2 text-slate-600" />
-              Autre
-            </div>
+          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, "autre")}>
+            <FileIcon className="h-4 w-4 mr-2 text-gray-600" />
+            <span>Autre</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, 'non-applicable')}>
-            <div className="flex items-center">
-              <Ban className="h-4 w-4 mr-2 text-gray-600" />
-              Non applicable
-            </div>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => updateCommunicationMediaType(taskId, commIndex, "non-applicable")}>
+            <XIcon className="h-4 w-4 mr-2 text-gray-600" />
+            <span>Non défini</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -1857,184 +1797,354 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     }
   };
 
-  const { toast } = useToast();
-
-  // Fonction pour mettre à jour la plateforme d'une communication
-  const updateCommunicationPlatform = async (taskId: string, commIndex: number, newPlatform: string) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (!task || !task.communicationDetails) return;
-    
-    console.log(`Mise à jour de la plateforme pour la communication ${commIndex} de la tâche ${taskId}: ${newPlatform}`);
-    
-    const updatedDetails = [...task.communicationDetails];
-    
-    // Vérifier que l'index est valide
-    if (commIndex < 0 || commIndex >= updatedDetails.length) {
-      console.error(`Index de communication invalide: ${commIndex}`);
-      return;
-    }
-    
-    updatedDetails[commIndex] = {
-      ...updatedDetails[commIndex],
-      platform: newPlatform === "non-applicable" ? null : newPlatform as CommunicationDetail['platform']
-    };
-    
-    await onUpdateTask({
-      id: taskId,
-      communicationDetails: updatedDetails
-    });
-
-    // Afficher notification
-    toast({
-      title: "Plateforme mise à jour",
-      description: `La plateforme a été mise à jour vers ${newPlatform}`,
-      variant: "default"
-    });
-  };
-
-  // Sélecteur de plateforme pour les communications
-  const getPlatformSelector = (platform: string | null | undefined, taskId: string, commIndex: number) => {
-    // Valeur à afficher si pas de plateforme définie
-    const defaultValue = "Non défini";
-    
-    const iconMap: Record<string, React.ReactNode> = {
-      'site': <GlobeIcon className="h-4 w-4 text-indigo-600" />,
-      'linkedin': <LinkedinIcon className="h-4 w-4 text-sky-600" />,
-      'instagram': <InstagramIcon className="h-4 w-4 text-pink-600" />,
-      'facebook': <FacebookIcon className="h-4 w-4 text-blue-600" />,
-      'tiktok': <MusicIcon className="h-4 w-4 text-gray-600" />,
-      'youtube': <YoutubeIcon className="h-4 w-4 text-red-600" />,
-      'autre': <MonitorIcon className="h-4 w-4 text-gray-600" />
-    };
-    
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button 
-            variant="outline" 
-            className="border rounded-md px-1.5 py-0.5 h-auto text-xs flex items-center gap-1"
-          >
-            <div className="flex items-center gap-0.5">
-              {platform ? iconMap[platform] || <MonitorIcon className="h-4 w-4 mr-0.5" /> : <RectangleHorizontalIcon className="h-4 w-4 mr-0.5" />}
-              <span>{platform || defaultValue}</span>
-            </div>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem onClick={() => updateCommunicationPlatform(taskId, commIndex, 'site')}>
-            <div className="flex items-center">
-              <GlobeIcon className="h-4 w-4 mr-2 text-indigo-600" />
-              Site Web
-            </div>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => updateCommunicationPlatform(taskId, commIndex, 'linkedin')}>
-            <div className="flex items-center">
-              <LinkedinIcon className="h-4 w-4 mr-2 text-sky-600" />
-              LinkedIn
-            </div>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => updateCommunicationPlatform(taskId, commIndex, 'instagram')}>
-            <div className="flex items-center">
-              <InstagramIcon className="h-4 w-4 mr-2 text-pink-600" />
-              Instagram
-            </div>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => updateCommunicationPlatform(taskId, commIndex, 'facebook')}>
-            <div className="flex items-center">
-              <FacebookIcon className="h-4 w-4 mr-2 text-blue-600" />
-              Facebook
-            </div>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => updateCommunicationPlatform(taskId, commIndex, 'tiktok')}>
-            <div className="flex items-center">
-              <MusicIcon className="h-4 w-4 mr-2 text-gray-600" />
-              TikTok
-            </div>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => updateCommunicationPlatform(taskId, commIndex, 'youtube')}>
-            <div className="flex items-center">
-              <YoutubeIcon className="h-4 w-4 mr-2 text-red-600" />
-              YouTube
-            </div>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => updateCommunicationPlatform(taskId, commIndex, 'autre')}>
-            <div className="flex items-center">
-              <MonitorIcon className="h-4 w-4 mr-2 text-gray-600" />
-              Autre
-            </div>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => updateCommunicationPlatform(taskId, commIndex, 'non-applicable')}>
-            <div className="flex items-center">
-              <Ban className="h-4 w-4 mr-2 text-gray-600" />
-              Non applicable
-            </div>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  };
-
   return (
-    <div className="container max-w-full p-0">
-      {/* ... autres éléments ... */}
-
-      <div className="rounded-md border mt-4">
-        <Table>
-          {/* ... autres éléments ... */}
-
+    <div className="w-full">
+      <div className="rounded-md border overflow-hidden">
+        <Table className="border">
+          <TableHeader>
+            <TableRow className="h-8">
+              <TableHead className="w-[280px] font-bold py-2">Contenu</TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-gray-50 font-bold py-2 w-[120px]"
+                onClick={() => handleSort('status')}
+              >
+                <div className="flex items-center gap-1">
+                  Statut
+                  {sortField === 'status' && (
+                    sortDirection === 'asc' 
+                      ? <ChevronUpIcon className="h-3.5 w-3.5" /> 
+                      : <ChevronDownIcon className="h-3.5 w-3.5" />
+                  )}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-gray-50 font-bold py-2 w-[100px]" 
+                onClick={() => handleSort('priority')}
+              >
+                <div className="flex items-center gap-1">
+                  Priorité
+                  {sortField === 'priority' && (
+                    sortDirection === 'asc' 
+                      ? <ChevronUpIcon className="h-3.5 w-3.5" /> 
+                      : <ChevronDownIcon className="h-3.5 w-3.5" />
+                  )}
+                </div>
+              </TableHead>
+              <TableHead className="font-bold py-2 w-[180px]">
+                <div className="flex items-center gap-1">
+                  <span>Assigné à</span>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                        <SlidersHorizontalIcon className="h-3.5 w-3.5" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[200px] p-2" align="start">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Filtrer par personne</p>
+                        {allAssignees.map(email => {
+                          const consultant = CONSULTANTS.find(c => c.email === email);
+                          const name = consultant ? consultant.name : email.split('@')[0];
+                          
+                          return (
+                            <div key={email} className="flex items-center space-x-2">
+                              <input 
+                                type="checkbox" 
+                                id={`assignee-${email}`}
+                                checked={assignedToFilter.includes(email)}
+                                onChange={() => toggleAssignedToFilter(email)}
+                                className="rounded border-gray-300 text-[#DC0032] focus:ring-[#DC0032]"
+                              />
+                              <label htmlFor={`assignee-${email}`} className="text-sm cursor-pointer">
+                                {name}
+                              </label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-gray-50 font-bold py-2 w-[150px]"
+                onClick={() => handleSort('dueDate')}
+              >
+                <div className="flex items-center gap-1">
+                  Date
+                  {sortField === 'dueDate' && (
+                    sortDirection === 'asc' 
+                      ? <ChevronUpIcon className="h-3.5 w-3.5" /> 
+                      : <ChevronDownIcon className="h-3.5 w-3.5" />
+                  )}
+                </div>
+              </TableHead>
+              <TableHead className="text-right w-[90px] font-bold py-2">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
           <TableBody>
-            {sortedTasks.map(task => (
-              <React.Fragment key={task.id}>
-                {/* ... autres éléments ... */}
-
-                {/* Panel de communications déplié */}
-                {expandedTasks[task.id] && task.communicationDetails && task.communicationDetails.length > 0 && (
-                  <>
-                    {/* En-tête du panel de communications */}
-                    <TableRow className="bg-gray-50">
-                      {/* ... autres colonnes ... */}
-                    </TableRow>
-                    
-                    {/* Communications */}
-                    {task.communicationDetails.map((comm, index) => (
-                      <TableRow 
-                        key={`${task.id}-comm-${index}`} 
-                        className="bg-gray-50 hover:bg-gray-100"
-                      >
-                        <TableCell className="pl-12">
+            {filteredTasks.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-4 text-gray-500">
+                  Aucune tâche pour le moment. Cliquez sur "Ajouter" pour créer une nouvelle tâche.
+                </TableCell>
+              </TableRow>
+            ) : 
+              filteredTasks.flatMap((task) => {
+                // Toujours considérer les tâches avec des communications comme ayant des sous-tâches
+                const hasSubItems = true;
+                const isExpanded = expandedTasks[task.id] || false;
+                
+                // Ligne principale de la tâche
+                const mainRow = (
+                  <TableRow 
+                    key={task.id} 
+                    className={`cursor-pointer hover:bg-gray-50 ${isExpanded ? 'border-b-0' : ''}`}
+                    onClick={() => toggleTaskExpansion(task.id)}
+                  >
+                    <TableCell className="py-1.5 w-[40%]">
+                      <div className="flex items-start gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className={`h-5 w-5 p-0 ${expandedTasks[task.id] ? 'transform rotate-90' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleTaskExpansion(task.id);
+                          }}
+                        >
+                          <ChevronRightIcon className="h-4 w-4" />
+                        </Button>
+                        <div className="flex flex-col ml-1">
                           <div className="flex items-center gap-1">
-                            <TypeBadge 
-                              type={comm.type || 'autre'} 
-                              taskId={task.id} 
-                              commIndex={index} 
-                              customType={comm.customType}
-                            />
-                            {comm.platform && (
-                              <span className="ml-1.5">
-                                {getPlatformBadge(comm.platform)}
-                              </span>
-                            )}
-                            {comm.mediaType && (
-                              <span className="ml-1.5">
-                                {getMediaTypeBadge(comm.mediaType, task.id, index)}
-                              </span>
+                            <span className="font-medium">{task.title}</span>
+                            
+                            {task.mandatSigne && (
+                              <Badge variant="outline" className="ml-1.5 text-xs bg-green-50 text-green-700 border-green-200 hover:bg-green-100">
+                                Mandat signé
+                              </Badge>
                             )}
                           </div>
+                          
+                          {/* Utiliser le composant DescriptionCell pour l'édition de la description */}
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <DescriptionCell description={task.description} taskId={task.id} />
+                          </div>
+                          
+                          <div className="flex items-center text-gray-500 text-xs mt-0.5">
+                            {task.dossierNumber && (
+                              <span className="mr-2">№ {task.dossierNumber}</span>
+                            )}
+                            {task.propertyAddress && (
+                              <span>{task.propertyAddress}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5 w-[15%]">
+                      {getStatusBadge(task.status, task.id)}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5 w-[15%]">
+                      {getPriorityBadge(task.priority, task.id)}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5">
+                      {getAssignedToDisplay(task.assignedTo || [], task.id)}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()} className="py-1.5">
+                      <DatePickerCell date={task.dueDate} taskId={task.id} />
+                    </TableCell>
+                    <TableCell className="text-right py-1.5 w-[5%]" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className={`h-6 w-6 p-0 ${task.isFavorite ? 'text-yellow-500' : 'text-gray-400 hover:text-yellow-500'}`}
+                          onClick={() => toggleFavorite(task.id)}
+                          title={task.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+                        >
+                          <StarIcon className="h-4 w-4" fill={task.isFavorite ? "currentColor" : "none"} />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 w-6 p-0 text-gray-500 hover:text-gray-900"
+                          onClick={() => onEditTask(task)}
+                        >
+                          <PencilIcon className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 w-6 p-0 text-gray-500 hover:text-red-600"
+                          onClick={() => onDeleteTask(task.id)}
+                        >
+                          <TrashIcon className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+                
+                // Sous-lignes pour les détails de communication
+                const commRows = isExpanded ? [
+                  // Ligne pour ajouter un nouveau type de communication
+                  <TableRow 
+                    key={`${task.id}-add-comm`} 
+                    className="bg-gray-50 border-b"
+                  >
+                    <TableCell colSpan={6} className="pl-10 py-0.5">
+                      <div className="flex items-center justify-start">
+                        {/* Menu déroulant pour ajouter un type de communication */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="text-xs py-1 h-7 gap-1">
+                              <PlusIcon className="h-3 w-3" />
+                              Ajouter une communication ou une tâche
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'autre')}>
+                              <FileIcon className="h-3.5 w-3.5 mr-2 text-gray-600" />
+                              <span>Autre</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'carousel')}>
+                              <ImageIcon className="h-3.5 w-3.5 mr-2 text-purple-600" />
+                              <span>Carousel</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'flyer')}>
+                              <FileTextIcon className="h-3.5 w-3.5 mr-2 text-emerald-600" />
+                              <span>Flyer</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'idee')}>
+                              <LightbulbIcon className="h-3.5 w-3.5 mr-2 text-amber-600" />
+                              <span>Idée</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'newsletter')}>
+                              <MailIcon className="h-3.5 w-3.5 mr-2 text-purple-600" />
+                              <span>Newsletter</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'panneau')}>
+                              <SignpostIcon className="h-3.5 w-3.5 mr-2 text-yellow-600" />
+                              <span>Panneau</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'plan_2d_3d')}>
+                              <LayoutIcon className="h-3.5 w-3.5 mr-2 text-blue-600" />
+                              <span>Plan 2D/3D</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'post_instagram')}>
+                              <InstagramIcon className="h-3.5 w-3.5 mr-2 text-pink-600" />
+                              <span>Post Instagram</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'post_linkedin')}>
+                              <LinkedinIcon className="h-3.5 w-3.5 mr-2 text-sky-600" />
+                              <span>Post LinkedIn</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addCommunicationType(task.id, 'post_site')}>
+                              <GlobeIcon className="h-3.5 w-3.5 mr-2 text-indigo-600" />
+                              <span>Post Site</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>,
+                  
+                  // Rendu des détails de communication s'il y en a
+                  ...(task.communicationDetails && task.communicationDetails.length > 0
+                    ? sortCommunications(task.communicationDetails).map((comm, index) => (
+                        <TableRow 
+                          key={`${task.id}-comm-${index}`} 
+                          className="bg-gray-50 hover:bg-gray-100"
+                        >
+                          <TableCell className="pl-10 py-1">
+                            <div className="flex flex-wrap items-center gap-1">
+                              <TypeBadge type={comm.type} taskId={task.id} commIndex={index} customType={comm.customType} />
+                              {getPlatformBadge(comm.platform)}
+                              {getMediaTypeBadge(comm.mediaType, task.id, index)}
+                            </div>
+                            <div className="mt-1 ml-2">
+                              <CommunicationDescriptionCell details={comm.details} taskId={task.id} commIndex={index} />
+                            </div>
+                          </TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()} className="py-1">
+                            <Select 
+                              value={comm.status} 
+                              onValueChange={(value) => updateCommunicationStatus(task.id, index, value)}
+                            >
+                              <SelectTrigger className={`px-1.5 py-0.5 text-xs rounded-md w-full max-w-[150px] h-5 ${
+                                comm.status === 'idée' ? 'bg-purple-100 text-purple-800' :
+                                comm.status === 'en développement' ? 'bg-indigo-200 text-indigo-900' :
+                                comm.status === 'à faire' ? 'bg-yellow-100 text-yellow-800' :
+                                comm.status === 'en cours' ? 'bg-blue-100 text-blue-800' :
+                                comm.status === 'à tourner' ? 'bg-orange-100 text-orange-800' :
+                                comm.status === 'à éditer' ? 'bg-pink-100 text-pink-800' :
+                                comm.status === 'écrire légende' ? 'bg-cyan-100 text-cyan-800' :
+                                comm.status === 'prêt à publier' ? 'bg-emerald-100 text-emerald-800' :
+                                comm.status === 'publié' ? 'bg-green-100 text-green-800' :
+                                comm.status === 'archivé' ? 'bg-gray-100 text-gray-800' :
+                                comm.status === 'terminée' ? 'bg-green-100 text-green-800' :
+                                'bg-gray-100 text-gray-800'
+                              } border-0 focus:ring-1 focus:ring-offset-0`}>
+                                <SelectValue>{comm.status}</SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="idée">Idée</SelectItem>
+                                <SelectItem value="en développement">En développement</SelectItem>
+                                <SelectItem value="à faire">À faire</SelectItem>
+                                <SelectItem value="en cours">En cours</SelectItem>
+                                <SelectItem value="attente validation">Attente validation</SelectItem>
+                                <SelectItem value="à tourner">À tourner</SelectItem>
+                                <SelectItem value="à éditer">À éditer</SelectItem>
+                                <SelectItem value="écrire légende">Écrire légende</SelectItem>
+                                <SelectItem value="prêt à publier">Prêt à publier</SelectItem>
+                                <SelectItem value="publié">Publié</SelectItem>
+                                <SelectItem value="archivé">Archivé</SelectItem>
+                                <SelectItem value="terminée">Terminée</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()} className="py-1">
+                            {getCommunicationPriorityBadge(comm.priority || 'moyenne', task.id, index)}
+                          </TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()} className="py-1">
+                            {getAssignedToDisplay(comm.assignedTo || [], task.id, true, index)}
+                          </TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()} className="py-1">
+                            <DatePickerCell date={comm.deadline} taskId={task.id} isCommunication={true} commIndex={index} />
+                          </TableCell>
+                          <TableCell className="text-right py-1">
+                            <div className="flex items-center justify-end">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-5 w-5 p-0 text-gray-500 hover:text-gray-900"
+                                onClick={() => onEditTask(task)}
+                              >
+                                <PencilIcon className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-5 w-5 p-0 text-gray-500 hover:text-red-600"
+                                onClick={() => removeCommunication(task.id, index)}
+                              >
+                                <TrashIcon className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    : [<TableRow key={`${task.id}-no-comm`} className="bg-gray-50">
+                        <TableCell colSpan={6} className="pl-10 text-xs text-gray-500 italic py-1">
+                          Aucun détail de communication. Utilisez le bouton + pour en ajouter.
                         </TableCell>
-                        
-                        {/* ... autres cellules ... */}
-                        
-                        <TableCell className="w-48">
-                          {getPlatformSelector(comm.platform, task.id, index)}
-                        </TableCell>
-                        
-                        {/* ... autres cellules ... */}
-                      </TableRow>
-                    ))}
-                  </>
-                )}
-              </React.Fragment>
-            ))}
+                      </TableRow>]
+                  )
+                ] : [];
+                
+                return [mainRow, ...commRows];
+              })}
           </TableBody>
         </Table>
       </div>

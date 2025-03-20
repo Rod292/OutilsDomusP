@@ -333,7 +333,7 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
     }
   }, [tasks]);
 
-  const handleCreateTask = async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleCreateTask = async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> => {
     try {
       console.log("Création d'une nouvelle tâche:", task);
       console.log("Statut mandatSigne lors de la création:", task.mandatSigne, typeof task.mandatSigne);
@@ -352,50 +352,46 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
         tags: task.tags || [],
         assignedTo: task.assignedTo || '',
         actionType: task.actionType || 'autre',
-        createdBy: 'utilisateur@example.com', // À remplacer par l'utilisateur connecté
+        createdBy: user?.email || 'utilisateur@example.com',
       };
       
       const docRef = await addDoc(collection(db, "tasks"), taskData);
       console.log("Tâche créée avec succès avec l'ID:", docRef.id);
       
-      // Retourner la tâche créée avec son ID
-      return {
-        id: docRef.id,
-        ...taskData,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      } as Task;
-      
-      // Note: Nous n'avons plus besoin de mettre à jour manuellement l'état tasks
-      // car l'écouteur onSnapshot s'en chargera automatiquement
+      // On ne retourne plus de Task comme avant
     } catch (error) {
       console.error("Erreur lors de la création de la tâche:", error);
       throw error;
     }
   };
 
-  const handleUpdateTask = async (task: Partial<Task> & { id: string }) => {
-    console.log("GESTIONNAIRE DE MISE À JOUR: Début de mise à jour de tâche avec ID:", task.id);
-    
+  const handleUpdateTask = async (task: Partial<Task> & { id: string }): Promise<void> => {
+      console.log("GESTIONNAIRE DE MISE À JOUR: Début de mise à jour de tâche avec ID:", task.id);
+      
+      // Si des communications sont présentes, les loguer explicitement
+      if (task.communicationDetails) {
+        console.log("Communication details reçus:", JSON.stringify(task.communicationDetails, null, 2));
+      }
+      
     // Générer un ID unique pour cette mise à jour spécifique
     const updateId = `update-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`;
-    console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Démarrage de l'opération...`);
-    
+      console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Démarrage de l'opération...`);
+      
     try {
       // Récupérer d'abord les données actuelles pour les tâches avec communicationDetails
       let existingCommunications: CommunicationDetail[] = [];
       let currentAssignedTo: string[] = [];
       
       if (task.communicationDetails || task.assignedTo) {
-        const taskRef = doc(db, 'tasks', task.id);
+      const taskRef = doc(db, 'tasks', task.id);
         const taskSnap = await getDoc(taskRef);
         
         if (taskSnap.exists()) {
           const taskData = taskSnap.data();
           
-          if (task.communicationDetails) {
+      if (task.communicationDetails) {
             existingCommunications = taskData.communicationDetails || [];
-            console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Traitement spécial pour mise à jour de communications`);
+        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Traitement spécial pour mise à jour de communications`);
           }
           
           if (task.assignedTo) {
@@ -419,6 +415,10 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
         
         console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Données actuelles récupérées de Firestore:`, current);
         console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Nouvelles données à appliquer:`, incoming);
+        
+        // Si on a des communications où originalIndex est undefined, ce sont des nouvelles
+        const hasNewCommunications = task.communicationDetails.some(comm => comm.originalIndex === undefined);
+        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Présence de nouvelles communications:`, hasNewCommunications);
         
         // Préparer le tableau de communications final
         updatedCommunications = [];
@@ -484,6 +484,13 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
               delete updatedComm.originalIndex;
               
               updatedCommunications.push(updatedComm);
+            } else {
+              // Si l'originalIndex est en dehors de la plage existante,
+              // considérer comme une nouvelle communication
+              console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Index original ${originalIndex} hors limites, traitement comme nouvelle communication`);
+              const newCommCopy = { ...newComm };
+              delete newCommCopy.originalIndex;
+              updatedCommunications.push(newCommCopy);
             }
           }
         });
@@ -507,7 +514,18 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
       // Copier toutes les propriétés de task sauf id
       Object.entries(task).forEach(([key, value]) => {
         if (key !== 'id' && value !== undefined) {
-          updateData[key] = value;
+          // Traitement spécial pour communicationDetails pour s'assurer que les dates sont en format Timestamp
+          if (key === 'communicationDetails' && Array.isArray(value)) {
+            // Convertir toutes les dates en Timestamp pour Firestore
+            updateData[key] = value.map((comm: any) => ({
+              ...comm,
+              deadline: comm.deadline ? Timestamp.fromDate(new Date(comm.deadline)) : null,
+              // Supprimer l'originalIndex pour la sauvegarde
+              originalIndex: undefined
+            }));
+          } else {
+            updateData[key] = value;
+          }
         }
       });
       
@@ -533,22 +551,9 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
           if (newAssignees.length > 0 && user?.email) {
             console.log(`Nouveaux assignés détectés: ${newAssignees.join(', ')}`);
             
-            // Vérifier si l'utilisateur actuel est concerné par cette notification
-            // Envoyer uniquement si l'utilisateur actuel est l'assigné ou s'il est celui qui a créé la tâche
-            const userIsCreator = taskData.createdBy === user.email;
-            const userIsAssignedToTask = task.assignedTo.includes(user.email);
-            
-            // Pour chaque nouvel assigné, envoyer une notification seulement si pertinent
+            // Pour chaque nouvel assigné, envoyer une notification
             for (const assignee of newAssignees) {
               try {
-                // Ne pas envoyer de notification à moins que:
-                // 1. L'utilisateur connecté soit celui qui a créé la tâche, OU
-                // 2. L'utilisateur connecté soit l'assigné (il reçoit une notification de sa propre assignation)
-                if (!userIsCreator && !userIsAssignedToTask && assignee !== user.email) {
-                  console.log(`Notification ignorée pour ${assignee} car l'utilisateur ${user.email} n'est pas concerné`);
-                  continue;
-                }
-                
                 console.log(`Préparation notification pour ${assignee}`);
                 const consultantName = assignee.split('@')[0] || assignee;
                 
