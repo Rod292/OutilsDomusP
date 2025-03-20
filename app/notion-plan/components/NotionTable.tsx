@@ -1240,17 +1240,47 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       
       console.log("Communications existantes:", communicationDetails);
       
-      // Créer une nouvelle communication
+      // Créer une nouvelle communication avec tous les champs nécessaires explicitement définis
       const newCommunication: CommunicationDetail = {
-        type: type as CommunicationDetail['type'], // Le type est validé au-dessus
+        type: type as CommunicationDetail['type'],
         status: 'à faire',
         priority: 'moyenne',
         deadline: new Date(),
         details: '',
         mediaType: null,
         assignedTo: []
-        // Ne pas inclure d'originalIndex ici, il sera géré par handleUpdateTask
       };
+      
+      // S'assurer qu'aucun champ n'est undefined
+      Object.keys(newCommunication).forEach(key => {
+        if (newCommunication[key as keyof CommunicationDetail] === undefined) {
+          console.warn(`Champ ${key} est undefined, définition d'une valeur par défaut`);
+          
+          // Définir des valeurs par défaut pour éviter les undefined
+          switch(key) {
+            case 'type':
+              (newCommunication as any)[key] = 'autre';
+              break;
+            case 'status':
+              (newCommunication as any)[key] = 'à faire';
+              break;
+            case 'priority':
+              (newCommunication as any)[key] = 'moyenne';
+              break;
+            case 'details':
+              (newCommunication as any)[key] = '';
+              break;
+            case 'mediaType':
+              (newCommunication as any)[key] = null;
+              break;
+            case 'assignedTo':
+              (newCommunication as any)[key] = [];
+              break;
+            default:
+              (newCommunication as any)[key] = null;
+          }
+        }
+      });
       
       // Ajouter la nouvelle communication à la liste
       const updatedDetails = [...communicationDetails, newCommunication];

@@ -123,6 +123,31 @@ const getActionTypeColor = (type: string): string => {
   return colors[type] || 'bg-gray-500 hover:bg-gray-600';
 };
 
+// Fonction utilitaire pour nettoyer les undefined de manière récursive
+const cleanUndefinedValues = (obj: any): any => {
+  // Si c'est null ou pas un objet, retourner tel quel
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  
+  // Si c'est un tableau, nettoyer chaque élément
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanUndefinedValues(item));
+  }
+  
+  // Pour les objets, supprimer les propriétés undefined et nettoyer les sous-objets
+  const result: Record<string, any> = {};
+  
+  Object.entries(obj).forEach(([key, value]) => {
+    if (value !== undefined) {
+      // Nettoyer récursivement si c'est un objet
+      result[key] = cleanUndefinedValues(value);
+    }
+  });
+  
+  return result;
+};
+
 export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -404,6 +429,26 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
       // Traitement spécial pour les communications si nécessaire
       let updatedCommunications = existingCommunications;
       if (task.communicationDetails) {
+        // Vérifier explicitement que communicationDetails est un tableau
+        if (!Array.isArray(task.communicationDetails)) {
+          console.error(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: communicationDetails n'est pas un tableau, correction...`);
+          task.communicationDetails = [];
+        }
+        
+        // Filtrer d'abord pour supprimer tout élément non valide
+        const validCommunications = task.communicationDetails.filter(comm => {
+          if (!comm || typeof comm !== 'object') {
+            console.error(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Communication invalide détectée et supprimée`, comm);
+            return false;
+          }
+          return true;
+        });
+        
+        if (validCommunications.length !== task.communicationDetails.length) {
+          console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: ${task.communicationDetails.length - validCommunications.length} communications invalides ont été supprimées`);
+          task.communicationDetails = validCommunications;
+        }
+        
         // Comparer les communications actuelles avec les nouvelles pour détecter les changements
         const incoming = task.communicationDetails.map(comm => 
           `${comm.originalIndex !== undefined ? comm.originalIndex : 'new'}: ${comm.type} - ${comm.deadline instanceof Date ? comm.deadline.toLocaleDateString() : 'sans date'}`
@@ -517,23 +562,56 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
           // Traitement spécial pour communicationDetails pour s'assurer que les dates sont en format Timestamp
           if (key === 'communicationDetails' && Array.isArray(value)) {
             // Convertir toutes les dates en Timestamp pour Firestore
-            updateData[key] = value.map((comm: any) => ({
-              ...comm,
-              deadline: comm.deadline ? Timestamp.fromDate(new Date(comm.deadline)) : null,
-              // Supprimer l'originalIndex pour la sauvegarde
-              originalIndex: undefined
-            }));
+            updateData[key] = value.map((comm: any) => {
+              // Créer un nouvel objet pour éviter de modifier l'original
+              const cleanComm: Record<string, any> = {};
+              
+              // Copier seulement les champs définis (pas de undefined)
+              Object.entries(comm).forEach(([commKey, commValue]) => {
+                if (commValue !== undefined) {
+                  cleanComm[commKey] = commValue;
+                }
+              });
+              
+              // Traiter la date correctement
+              if (comm.deadline) {
+                cleanComm.deadline = Timestamp.fromDate(new Date(comm.deadline));
+              } else {
+                cleanComm.deadline = null;
+              }
+              
+              // S'assurer que les champs requis sont présents avec des valeurs par défaut
+              if (!cleanComm.type) cleanComm.type = 'autre';
+              if (!cleanComm.status) cleanComm.status = 'à faire';
+              if (!cleanComm.priority) cleanComm.priority = 'moyenne';
+              if (!cleanComm.details) cleanComm.details = '';
+              if (!cleanComm.assignedTo) cleanComm.assignedTo = [];
+              
+              return cleanComm;
+            });
           } else {
             updateData[key] = value;
           }
         }
       });
       
-      console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Données finales pour la mise à jour:`, Object.keys(updateData).join(', '));
+      console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Données finales pour la mise à jour:`, JSON.stringify(updateData, null, 2));
       
-      // Effectuer la mise à jour
+      // Vérification finale pour s'assurer qu'aucune valeur undefined n'est envoyée à Firestore
+      const cleanUpdateData = cleanUndefinedValues(updateData);
+      
+      // Vérifier si des valeurs ont été nettoyées en comparant les chaînes JSON
+      const originalJson = JSON.stringify(updateData);
+      const cleanedJson = JSON.stringify(cleanUpdateData);
+      
+      if (originalJson !== cleanedJson) {
+        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Des valeurs undefined ont été supprimées`);
+        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Données nettoyées:`, cleanedJson);
+      }
+      
+      // Effectuer la mise à jour avec les données nettoyées
       const taskRef = doc(db, 'tasks', task.id);
-      await updateDoc(taskRef, updateData);
+      await updateDoc(taskRef, cleanUpdateData);
       
       console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Mise à jour effectuée avec succès`);
       
