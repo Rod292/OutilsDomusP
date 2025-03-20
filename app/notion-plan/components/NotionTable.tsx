@@ -1,26 +1,34 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, KeyboardEvent, useContext } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Table, TableBody, TableCaption, TableCell, 
-  TableHead, TableHeader, TableRow 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
 } from "@/components/ui/table";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  DropdownMenu, DropdownMenuContent, 
-  DropdownMenuItem, DropdownMenuTrigger,
-  DropdownMenuSeparator
-} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { sendTaskAssignedNotification } from '@/services/notificationService';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from "@/components/ui/use-toast";
 import { 
   PlusIcon, 
   MoreHorizontalIcon, 
@@ -67,10 +75,8 @@ import { useAssignedToFilter } from '../hooks/useAssignedToFilter';
 import { Input } from '@/components/ui/input';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useToast } from "@/components/ui/use-toast";
-import { useTasks } from '../hooks/useTasks';
-import { ComboboxDemo } from './ComboboxDemo';
-import { NotionContext } from '../context/NotionContext';
+import { Task, TeamMember, CommunicationDetail } from '../types';
+import { sendTaskAssignedNotification } from '@/app/services/notificationService';
 import { getBadgeColor } from '../utils/badgeHelper';
 
 // Liste des consultants disponibles pour l'assignation des tâches
