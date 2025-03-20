@@ -599,7 +599,7 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
               // Traiter la date correctement
               if (comm.deadline) {
                 cleanComm.deadline = Timestamp.fromDate(new Date(comm.deadline));
-              } else {
+            } else {
                 cleanComm.deadline = null;
               }
               
