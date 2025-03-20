@@ -1250,15 +1250,14 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
 
       // Créer une nouvelle communication avec des valeurs par défaut
       const newCommunication = {
-        type,
+        type: type || 'autre',
         status: 'à faire',
         priority: 'moyenne',
         deadline: null,
         platform: type.includes('post_') ? type.replace('post_', '') : null,
         mediaType: type === 'video' ? 'video' : (type === 'carousel' ? 'photo' : null),
         details: '',
-        assignedTo: [], // Tableau vide par défaut
-        originalIndex: taskData.communicationDetails ? taskData.communicationDetails.length : 0
+        assignedTo: [] // Tableau vide par défaut
       };
 
       // Ajouter la nouvelle communication à la liste existante
@@ -1273,7 +1272,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       console.log(`Communication de type ${type} ajoutée avec succès`);
 
       // Mettre à jour l'état local des tâches et forcer un rafraîchissement
-      onUpdateTask({
+      await onUpdateTask({
         id: taskId,
         communicationDetails
       });
@@ -1288,12 +1287,11 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       toast({
         title: 'Communication ajoutée',
         description: `Communication de type ${type} ajoutée avec succès`,
-        variant: 'success'
+        variant: 'default'
       });
 
       // Forcer un rafraîchissement supplémentaire après un court délai
       setTimeout(() => {
-        console.log("Rafraîchissement des communications");
         onUpdateTask({
           id: taskId,
           communicationDetails
