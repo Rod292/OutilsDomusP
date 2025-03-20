@@ -734,63 +734,66 @@ export default function TaskCalendar({ tasks, onEditTask, onUpdateTask }: TaskCa
     );
   };
 
+  // Envelopper le composant dans DndProvider
   return (
-    <div className="h-full flex flex-col">
-      {/* En-tête du calendrier */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold">
-          {format(visibleMonth, 'MMMM yyyy', { locale: fr })}
-        </h2>
-        <div className="flex space-x-2">
-          <Button variant="outline" size="sm" onClick={goToPreviousMonth}>
-            <ChevronLeftIcon className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={goToCurrentMonth}>
-            Aujourd'hui
-          </Button>
-          <Button variant="outline" size="sm" onClick={goToNextMonth}>
-            <ChevronRightIcon className="h-4 w-4" />
-          </Button>
+    <DndProvider backend={HTML5Backend}>
+      <div className="h-full flex flex-col">
+        {/* En-tête du calendrier */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">
+            {format(visibleMonth, 'MMMM yyyy', { locale: fr })}
+          </h2>
+          <div className="flex space-x-2">
+            <Button variant="outline" size="sm" onClick={goToPreviousMonth}>
+              <ChevronLeftIcon className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={goToCurrentMonth}>
+              Aujourd'hui
+            </Button>
+            <Button variant="outline" size="sm" onClick={goToNextMonth}>
+              <ChevronRightIcon className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Grille du calendrier */}
+        <div className="flex-1 grid grid-cols-7 overflow-hidden border rounded-lg">
+          {/* Jours de la semaine */}
+          {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day) => (
+            <div key={day} className="p-2 text-center font-medium bg-muted">
+              {day}
+            </div>
+          ))}
+
+          {/* Jours du mois */}
+          {displayedWeeks.flatMap((week) =>
+            week.map((day, dayIndex) => (
+              <div
+                key={day.toString()}
+                className={cn(
+                  'border-t border-l p-1 relative',
+                  dayIndex === 6 && 'border-r', // Ajouter une bordure à droite pour le dimanche
+                  isToday(day) && 'bg-blue-50 dark:bg-blue-900/20'
+                )}
+              >
+                {/* Date du jour */}
+                <div className="text-right text-sm mb-1">
+                  {format(day, 'd')}
+                </div>
+                
+                {/* Tâches du jour */}
+                <DroppableDay
+                  date={day}
+                  tasks={tasks}
+                  onEditTask={onEditTask}
+                  onUpdateTask={onUpdateTask}
+                  canDrop={isAfter(day, new Date()) || isToday(day)}
+                />
+              </div>
+            ))
+          )}
         </div>
       </div>
-
-      {/* Grille du calendrier */}
-      <div className="flex-1 grid grid-cols-7 overflow-hidden border rounded-lg">
-        {/* Jours de la semaine */}
-        {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day) => (
-          <div key={day} className="p-2 text-center font-medium bg-muted">
-            {day}
-          </div>
-        ))}
-
-        {/* Jours du mois */}
-        {displayedWeeks.flatMap((week) =>
-          week.map((day, dayIndex) => (
-            <div
-              key={day.toString()}
-              className={cn(
-                'border-t border-l p-1 relative',
-                dayIndex === 6 && 'border-r', // Ajouter une bordure à droite pour le dimanche
-                isToday(day) && 'bg-blue-50 dark:bg-blue-900/20'
-              )}
-            >
-              {/* Date du jour */}
-              <div className="text-right text-sm mb-1">
-                {format(day, 'd')}
-              </div>
-              
-              {/* Tâches du jour */}
-              <DroppableDay
-                date={day}
-                tasks={tasks}
-                onEditTask={onEditTask}
-                onUpdateTask={onUpdateTask}
-                canDrop={isAfter(day, new Date()) || isToday(day)}
-              />
-            </div>
-          ))
-        )}
-      </div>
-    </div>
+    </DndProvider>
   );
 } 
