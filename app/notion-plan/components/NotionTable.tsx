@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -1828,6 +1828,8 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       console.error("Erreur lors de la mise à jour de l'état favori:", error);
     }
   };
+
+  const { toast } = useToast();
 
   return (
     <div className="w-full">
