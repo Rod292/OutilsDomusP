@@ -533,9 +533,22 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
           if (newAssignees.length > 0 && user?.email) {
             console.log(`Nouveaux assignés détectés: ${newAssignees.join(', ')}`);
             
-            // Pour chaque nouvel assigné, envoyer une notification
+            // Vérifier si l'utilisateur actuel est concerné par cette notification
+            // Envoyer uniquement si l'utilisateur actuel est l'assigné ou s'il est celui qui a créé la tâche
+            const userIsCreator = taskData.createdBy === user.email;
+            const userIsAssignedToTask = task.assignedTo.includes(user.email);
+            
+            // Pour chaque nouvel assigné, envoyer une notification seulement si pertinent
             for (const assignee of newAssignees) {
               try {
+                // Ne pas envoyer de notification à moins que:
+                // 1. L'utilisateur connecté soit celui qui a créé la tâche, OU
+                // 2. L'utilisateur connecté soit l'assigné (il reçoit une notification de sa propre assignation)
+                if (!userIsCreator && !userIsAssignedToTask && assignee !== user.email) {
+                  console.log(`Notification ignorée pour ${assignee} car l'utilisateur ${user.email} n'est pas concerné`);
+                  continue;
+                }
+                
                 console.log(`Préparation notification pour ${assignee}`);
                 const consultantName = assignee.split('@')[0] || assignee;
                 
