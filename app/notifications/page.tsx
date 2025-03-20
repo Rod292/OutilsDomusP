@@ -1,11 +1,23 @@
 import { Metadata } from 'next';
 import NotificationManager from '../components/notifications/NotificationManager';
 import { Header } from '../components/header';
+import { Suspense } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export const metadata: Metadata = {
   title: 'Gestion des notifications',
   description: 'Gérez vos appareils recevant des notifications pour chaque consultant',
 };
+
+// Composant de fallback pendant le chargement
+function NotificationsLoading() {
+  return (
+    <div className="w-full space-y-4">
+      <Skeleton className="h-8 w-full max-w-sm" />
+      <Skeleton className="h-96 w-full rounded-md" />
+    </div>
+  );
+}
 
 export default function NotificationsPage() {
   return (
@@ -21,7 +33,9 @@ export default function NotificationsPage() {
             </p>
           </div>
           
-          <NotificationManager />
+          <Suspense fallback={<NotificationsLoading />}>
+            <NotificationManager />
+          </Suspense>
         </div>
       </div>
     </div>

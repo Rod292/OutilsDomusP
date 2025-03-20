@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { firestore } from '@/app/lib/firebaseAdmin';
-import { collection, addDoc, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { db } from '@/app/lib/firebase';
 
 // Route GET pour récupérer les tokens de notification pour un utilisateur spécifique
@@ -13,10 +12,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Email requis' }, { status: 400 });
     }
     
-    // Rechercher tous les tokens pour cet email
-    const tokensRef = collection(db, 'notificationTokens');
-    const q = query(tokensRef, where('email', '==', email));
-    const querySnapshot = await getDocs(q);
+    // Rechercher tous les tokens pour cet email en utilisant firestore Admin
+    const tokensRef = firestore.collection('notificationTokens');
+    const querySnapshot = await tokensRef.where('email', '==', email).get();
     
     const tokens: any[] = [];
     querySnapshot.forEach((doc) => {
@@ -43,17 +41,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Token et email requis' }, { status: 400 });
     }
     
-    // Vérifier si ce token existe déjà
-    const tokensRef = collection(db, 'notificationTokens');
-    const q = query(tokensRef, where('token', '==', token));
-    const querySnapshot = await getDocs(q);
+    // Vérifier si ce token existe déjà avec firestore Admin
+    const tokensRef = firestore.collection('notificationTokens');
+    const querySnapshot = await tokensRef.where('token', '==', token).get();
     
     const timestamp = Date.now();
     
     if (!querySnapshot.empty) {
       // Token existant, mise à jour
-      const docRef = doc(db, 'notificationTokens', querySnapshot.docs[0].id);
-      await updateDoc(docRef, {
+      const docRef = tokensRef.doc(querySnapshot.docs[0].id);
+      await docRef.update({
         email,
         userId: userId || email,
         platform: platform || 'web',
@@ -79,7 +76,7 @@ export async function POST(request: NextRequest) {
         timestamp: timestamp
       };
       
-      const docRef = await addDoc(tokensRef, newToken);
+      const docRef = await tokensRef.add(newToken);
       
       return NextResponse.json({ 
         success: true, 
