@@ -110,16 +110,26 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
   // État local pour gérer l'expansion des tâches avec des communications multiples
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>(initialExpandedTasks);
   
+  // État pour les tâches filtrées
+  const [filteredTasks, setFilteredTasks] = useState<Task[]>(tasks);
+  
   // États pour les filtres et tri
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Utiliser le hook global de filtre d'assignation au lieu de l'état local
   const { assignedToFilter, setAssignedToFilter } = useAssignedToFilter();
   
   // Récupérer l'email de l'utilisateur connecté
   const { user } = useAuth();
+  const { toast } = useToast();
   const currentUserEmail = user?.email || '';
+  
+  // Synchroniser les tâches externes avec l'état local des tâches filtrées
+  useEffect(() => {
+    setFilteredTasks(tasks);
+  }, [tasks]);
   
   // Synchroniser les filtres avec l'URL lors du chargement initial
   useEffect(() => {
@@ -849,34 +859,42 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
         }
       }
 
-      // Met à jour la tâche dans l'état local
-      setTasks((prevTasks) => {
-        return prevTasks.map((t) => {
-          if (t.id === taskId) {
-            return {
-              ...t,
-              communicationDetails
-            };
-          }
-          return t;
-        });
+      // Mettre à jour l'interface sans utiliser setTasks
+      // On utilise onUpdateTask pour informer le composant parent de la mise à jour
+      // et laisser le parent gérer la mise à jour de l'état
+      await onUpdateTask({
+        id: taskId,
+        communicationDetails
       });
 
-      toast({
-        title: 'Collaborateur ajouté',
-        description: `${emailToAdd} a été ajouté à la communication`,
-        variant: 'success'
-      });
+      // Forcer la mise à jour locale de l'affichage
+      setFilteredTasks(currentFilteredTasks => 
+        currentFilteredTasks.map(t => 
+          t.id === taskId 
+            ? { ...t, communicationDetails } 
+            : t
+        )
+      );
+
+      if (toast) {
+        toast({
+          title: 'Collaborateur ajouté',
+          description: `${emailToAdd} a été ajouté à la communication`,
+          variant: 'success'
+        });
+      }
     } catch (error) {
       console.error(
         'Erreur lors de l\'ajout d\'un assigné à la communication:',
         error
       );
-      toast({
-        title: 'Erreur',
-        description: 'Impossible d\'ajouter le collaborateur à la communication',
-        variant: 'destructive'
-      });
+      if (toast) {
+        toast({
+          title: 'Erreur',
+          description: 'Impossible d\'ajouter le collaborateur à la communication',
+          variant: 'destructive'
+        });
+      }
     }
   };
 
@@ -1174,6 +1192,25 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
   // Date picker component
   const DatePickerCell = ({ date, taskId, isCommunication = false, commIndex = -1 }: 
     { date: Date | null | undefined, taskId: string, isCommunication?: boolean, commIndex?: number }) => {
+    
+    // Validation de la date pour éviter les erreurs de formattage
+    const isValidDate = (dateValue: Date | null | undefined): boolean => {
+      if (!dateValue) return false;
+      const timestamp = new Date(dateValue).getTime();
+      return !isNaN(timestamp);
+    };
+    
+    // Formattage sécurisé de la date
+    const safeFormatDate = (dateValue: Date | null | undefined): string => {
+      if (!dateValue || !isValidDate(dateValue)) return "Date non définie";
+      try {
+        return format(new Date(dateValue), "dd MMM yyyy", { locale: fr });
+      } catch (error) {
+        console.error("Erreur de formatage de date:", error);
+        return "Date invalide";
+      }
+    };
+    
     return (
       <Popover>
         <PopoverTrigger asChild>
@@ -1182,13 +1219,13 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
             className="px-1.5 py-0.5 h-auto flex items-center gap-1 justify-start min-w-[140px] hover:bg-gray-100 rounded text-xs"
           >
             <CalendarIcon className="h-3.5 w-3.5 text-gray-500" />
-            {date ? format(new Date(date), "dd MMM yyyy", { locale: fr }) : "Date non définie"}
+            {safeFormatDate(date)}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="p-0 w-auto" align="start">
           <Calendar
             mode="single"
-            selected={date ? new Date(date) : undefined}
+            selected={isValidDate(date) ? new Date(date!) : undefined}
             onSelect={(day: Date | undefined) => {
               if (isCommunication && commIndex >= 0) {
                 // Mise à jour de la date d'une communication
@@ -1240,12 +1277,17 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       
       console.log("Communications existantes:", communicationDetails);
       
+      // Créer une date valide pour éviter les erreurs de formattage
+      const currentDate = new Date();
+      // S'assurer que la date est valide en vérifiant si elle peut être convertie en timestamp
+      const validDeadline = isNaN(currentDate.getTime()) ? null : currentDate;
+      
       // Créer une nouvelle communication avec tous les champs nécessaires explicitement définis
       const newCommunication: CommunicationDetail = {
         type: type as CommunicationDetail['type'],
         status: 'à faire',
         priority: 'moyenne',
-        deadline: new Date(),
+        deadline: validDeadline, // Utiliser une date valide ou null
         details: '',
         mediaType: null,
         assignedTo: []
