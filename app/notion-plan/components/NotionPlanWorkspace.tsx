@@ -408,15 +408,21 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
       let currentAssignedTo: string[] = [];
       
       if (task.communicationDetails || task.assignedTo) {
-      const taskRef = doc(db, 'tasks', task.id);
+        const taskRef = doc(db, 'tasks', task.id);
         const taskSnap = await getDoc(taskRef);
         
         if (taskSnap.exists()) {
           const taskData = taskSnap.data();
           
-      if (task.communicationDetails) {
-            existingCommunications = taskData.communicationDetails || [];
-        console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Traitement spécial pour mise à jour de communications`);
+          if (task.communicationDetails) {
+            // S'assurer que existingCommunications est toujours un tableau
+            if (taskData.communicationDetails && Array.isArray(taskData.communicationDetails)) {
+              existingCommunications = taskData.communicationDetails;
+            } else {
+              console.warn(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: communicationDetails n'est pas un tableau dans Firestore, initialisation avec un tableau vide`);
+              existingCommunications = [];
+            }
+            console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Traitement spécial pour mise à jour de communications`);
           }
           
           if (task.assignedTo) {
@@ -454,9 +460,18 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
           `${comm.originalIndex !== undefined ? comm.originalIndex : 'new'}: ${comm.type} - ${comm.deadline instanceof Date ? comm.deadline.toLocaleDateString() : 'sans date'}`
         );
         
-        const current = existingCommunications.map((comm, idx) => 
-          `${idx}: ${comm.type} - ${comm.deadline instanceof Date ? new Date(comm.deadline).toLocaleDateString() : 'sans date'}`
-        );
+        // S'assurer que existingCommunications est bien un tableau avant d'appeler map
+        let current: string[] = [];
+        if (Array.isArray(existingCommunications)) {
+          current = existingCommunications.map((comm, idx) => 
+            `${idx}: ${comm.type} - ${comm.deadline instanceof Date ? new Date(comm.deadline).toLocaleDateString() : 'sans date'}`
+          );
+        } else {
+          console.error(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: existingCommunications n'est pas un tableau, impossible d'appeler map. Valeur actuelle:`, existingCommunications);
+          // Convertir existingCommunications en tableau si ce n'est pas déjà le cas
+          existingCommunications = Array.isArray(existingCommunications) ? existingCommunications : [];
+          current = [];
+        }
         
         console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Données actuelles récupérées de Firestore:`, current);
         console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Nouvelles données à appliquer:`, incoming);
@@ -475,16 +490,24 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
         
         // Rechercher les communications supprimées (présentes dans existingCommunications mais pas dans task.communicationDetails)
         const indexToRemove: number[] = [];
-        existingCommunications.forEach((comm, idx) => {
-          // Vérifier si cette communication existe toujours dans les nouvelles données
-          const stillExists = task.communicationDetails!.some(newComm => 
-            (newComm.originalIndex !== undefined && newComm.originalIndex === idx)
-          );
-          
-          if (!stillExists) {
-            indexToRemove.push(idx);
-          }
-        });
+        
+        // Double vérification que existingCommunications est un tableau avant d'appeler forEach
+        if (Array.isArray(existingCommunications)) {
+          existingCommunications.forEach((comm, idx) => {
+            // Vérifier si cette communication existe toujours dans les nouvelles données
+            const stillExists = task.communicationDetails!.some(newComm => 
+              (newComm.originalIndex !== undefined && newComm.originalIndex === idx)
+            );
+            
+            if (!stillExists) {
+              indexToRemove.push(idx);
+            }
+          });
+        } else {
+          console.error(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: existingCommunications n'est pas un tableau lors de la détection des suppressions. Valeur:`, existingCommunications);
+          // Convertir en tableau vide pour continuer
+          existingCommunications = [];
+        }
         
         console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Index supprimés:`, indexToRemove);
         
