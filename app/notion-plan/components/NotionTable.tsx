@@ -1391,15 +1391,20 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       const updatedComms = task.communicationDetails
         .filter((_, index) => index !== commIndex)
         .map(comm => {
-          // Créer une copie propre de chaque communication
-          const cleanComm: Record<string, any> = { ...comm };
-          
-          // S'assurer qu'aucune valeur undefined n'est présente
-          Object.keys(cleanComm).forEach(key => {
-            if (cleanComm[key] === undefined) {
-              cleanComm[key] = null;
-            }
-          });
+          // Garantir que toutes les propriétés requises du type CommunicationDetail sont présentes
+          const cleanComm: CommunicationDetail = {
+            type: comm.type || 'autre', // propriété obligatoire, valeur par défaut 'autre'
+            details: comm.details || '',
+            status: comm.status || 'à faire',
+            priority: comm.priority || 'moyenne',
+            assignedTo: Array.isArray(comm.assignedTo) ? comm.assignedTo : [],
+            deadline: comm.deadline || null,
+            platform: comm.platform || null,
+            mediaType: comm.mediaType || null,
+            customType: comm.customType || undefined,
+            // Ne pas inclure originalIndex dans les données persistées
+            originalIndex: undefined
+          };
           
           return cleanComm;
         });
@@ -1421,6 +1426,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
         });
       }, 100);
       
+      // Afficher une notification à l'utilisateur
       toast({
         title: "Communication supprimée",
         description: "La communication a été supprimée avec succès",
