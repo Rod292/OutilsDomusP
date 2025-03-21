@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, onSnapshot, deleteDoc, serverTimestamp, orderBy, Firestore, Timestamp, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { PlusIcon, CalendarIcon, ListChecksIcon, TagIcon, ChevronDownIcon, MenuIcon, FilterIcon, SearchIcon, XIcon, UserIcon, UsersIcon, TableIcon, LayoutIcon } from 'lucide-react';
+import { PlusIcon, CalendarIcon, ListChecksIcon, TagIcon, ChevronDownIcon, MenuIcon, FilterIcon, SearchIcon, XIcon, UserIcon, UsersIcon, TableIcon, LayoutIcon, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -1183,6 +1183,15 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
                     size="default"
                     className="mr-1"
                   />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="mr-2"
+                    onClick={() => window.location.href = '/notifications/preferences'}
+                    title="Préférences des notifications"
+                  >
+                    <Settings className="h-5 w-5" />
+                  </Button>
                   <div className="flex items-center space-x-2">
                     {/* Bouton de création de tâche */}
                     <Button 

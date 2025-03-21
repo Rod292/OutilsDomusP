@@ -1,7 +1,7 @@
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { app } from '../lib/firebase';
 import { Timestamp } from 'firebase/firestore';
-import { getFirestore, collection, addDoc, getDocs, query, where, updateDoc, serverTimestamp, Firestore, deleteDoc, doc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, getDocs, query, where, updateDoc, serverTimestamp, Firestore, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 import { NOTIFICATION_CONFIG } from '../api/notifications/config';
 
 const NOTIFICATION_COLLECTION = 'notifications';
@@ -447,6 +447,13 @@ export const requestNotificationPermission = async (userId: string): Promise<boo
       return false;
     }
 
+    // Extraire l'email utilisateur et le consultant depuis userId (format: email_consultant)
+    const [userEmail, consultantName] = userId.split('_');
+    if (!userEmail || !consultantName) {
+      console.error('Format d\'ID utilisateur invalide pour la demande de permission');
+      return false;
+    }
+
     // Vérifier si les notifications sont déjà autorisées
     if (Notification.permission === 'granted') {
       console.log('Permissions de notification déjà accordées, enregistrement du token...');
@@ -505,6 +512,45 @@ export const requestNotificationPermission = async (userId: string): Promise<boo
       console.log('Mode FCM désactivé - utilisation du mode local');
     }
     
+    // Mettre à jour les préférences de notification pour n'activer que ce consultant
+    try {
+      const db = getFirestore();
+      if (db) {
+        // 1. Récupérer toutes les préférences actuelles de l'utilisateur
+        const prefsQuery = query(
+          collection(db, "notificationPreferences"),
+          where("userId", "==", userEmail)
+        );
+        
+        const prefsSnapshot = await getDocs(prefsQuery);
+        const batch = writeBatch(db);
+        
+        // 2. Supprimer toutes les préférences existantes
+        prefsSnapshot.forEach((document) => {
+          batch.delete(document.ref);
+        });
+        
+        // 3. Créer une nouvelle préférence uniquement pour le consultant actuel
+        const prefDoc = doc(collection(db, "notificationPreferences"));
+        batch.set(prefDoc, {
+          userId: userEmail,
+          consultantEmail: `${consultantName}@arthurloydbretagne.fr`, // Format d'email basé sur le nom
+          consultantName: consultantName,
+          taskAssigned: true,
+          communicationAssigned: true,
+          taskReminders: true,
+          createdAt: new Date()
+        });
+        
+        // 4. Appliquer les modifications
+        await batch.commit();
+        console.log(`Préférences de notification mises à jour pour n'activer que ${consultantName}`);
+      }
+    } catch (prefError) {
+      console.error('Erreur lors de la mise à jour des préférences de notification:', prefError);
+      // Ne pas échouer pour cette erreur
+    }
+    
     // Enregistrer le token dans la base de données
     const tokenSaved = await saveNotificationToken(userId, token);
     
@@ -515,7 +561,7 @@ export const requestNotificationPermission = async (userId: string): Promise<boo
         try {
           await sendLocalNotification({
             title: NOTIFICATION_CONFIG.MESSAGES.ACTIVATED,
-            body: 'Vous recevrez des notifications pour les nouvelles tâches assignées.',
+            body: `Vous recevrez des notifications pour ${consultantName}.`,
             data: {
               type: 'system',
               userId
