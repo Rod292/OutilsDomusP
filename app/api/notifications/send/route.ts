@@ -81,10 +81,27 @@ async function checkNotificationPreferences(
       return true; // Par défaut, autoriser l'envoi
     }
     
+    // Mapper le nom du consultant à son email réel
+    const CONSULTANTS = [
+      { name: "Anne", email: "acoat@arthurloydbretagne.fr" },
+      { name: "Elowan", email: "ejouan@arthurloydbretagne.fr" },
+      { name: "Erwan", email: "eleroux@arthurloydbretagne.fr" },
+      { name: "Julie", email: "jdalet@arthurloydbretagne.fr" },
+      { name: "Justine", email: "jjambon@arthurloydbretagne.fr" },
+      { name: "Morgane", email: "agencebrest@arthurloydbretagne.fr" },
+      { name: "Nathalie", email: "npers@arthurloydbretagne.fr" },
+      { name: "Pierre", email: "pmottais@arthurloydbretagne.fr" },
+      { name: "Pierre-Marie", email: "pmjaumain@arthurloydbretagne.fr" },
+      { name: "Sonia", email: "shadjlarbi@arthur-loyd.com" }
+    ];
+    
+    const consultant = CONSULTANTS.find(c => c.name.toLowerCase() === consultantName.toLowerCase());
+    const consultantEmail = consultant ? consultant.email : `${consultantName.toLowerCase()}@arthurloydbretagne.fr`;
+    
     // Rechercher les préférences avec l'API admin
     const prefsQuery = db.collection(PREFERENCES_COLLECTION)
       .where('userId', '==', userEmail)
-      .where('consultantEmail', '==', `${consultantName}@arthurloydbretagne.fr`);
+      .where('consultantEmail', '==', consultantEmail);
     
     const prefsSnapshot = await prefsQuery.get();
     

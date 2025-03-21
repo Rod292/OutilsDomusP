@@ -7,6 +7,20 @@ import { NOTIFICATION_CONFIG } from '../api/notifications/config';
 const NOTIFICATION_COLLECTION = 'notifications';
 const TOKEN_COLLECTION = 'notificationTokens';
 
+// Liste des consultants avec leurs emails
+const CONSULTANTS = [
+  { name: "Anne", email: "acoat@arthurloydbretagne.fr" },
+  { name: "Elowan", email: "ejouan@arthurloydbretagne.fr" },
+  { name: "Erwan", email: "eleroux@arthurloydbretagne.fr" },
+  { name: "Julie", email: "jdalet@arthurloydbretagne.fr" },
+  { name: "Justine", email: "jjambon@arthurloydbretagne.fr" },
+  { name: "Morgane", email: "agencebrest@arthurloydbretagne.fr" },
+  { name: "Nathalie", email: "npers@arthurloydbretagne.fr" },
+  { name: "Pierre", email: "pmottais@arthurloydbretagne.fr" },
+  { name: "Pierre-Marie", email: "pmjaumain@arthurloydbretagne.fr" },
+  { name: "Sonia", email: "shadjlarbi@arthur-loyd.com" }
+];
+
 /**
  * Enregistre une notification dans la base de données
  * @param notification Notification à enregistrer
@@ -255,9 +269,13 @@ export const checkConsultantPermission = async (userEmail: string, consultantNam
       return false;
     }
 
+    // Trouver l'email correct du consultant dans la liste
+    const consultant = CONSULTANTS.find(c => c.name.toLowerCase() === consultantName.toLowerCase());
+    const consultantEmail = consultant ? consultant.email : `${consultantName.toLowerCase()}@arthurloydbretagne.fr`;
+    
     // Construire l'identifiant de notification (email_consultant)
     const notificationId = `${userEmail}_${consultantName}`;
-    console.log(`Vérification des permissions pour: ${notificationId}`);
+    console.log(`Vérification des permissions pour: ${notificationId} (${consultantEmail})`);
     
     // Vérifier dans Firebase si des tokens existent pour cet identifiant
     const db = getFirestore();
@@ -516,6 +534,10 @@ export const requestNotificationPermission = async (userId: string): Promise<boo
     try {
       const db = getFirestore();
       if (db) {
+        // Trouver l'email correct du consultant dans la liste
+        const consultant = CONSULTANTS.find(c => c.name.toLowerCase() === consultantName.toLowerCase());
+        const consultantEmail = consultant ? consultant.email : `${consultantName.toLowerCase()}@arthurloydbretagne.fr`;
+        
         // 1. Récupérer toutes les préférences actuelles de l'utilisateur
         const prefsQuery = query(
           collection(db, "notificationPreferences"),
@@ -534,7 +556,7 @@ export const requestNotificationPermission = async (userId: string): Promise<boo
         const prefDoc = doc(collection(db, "notificationPreferences"));
         batch.set(prefDoc, {
           userId: userEmail,
-          consultantEmail: `${consultantName}@arthurloydbretagne.fr`, // Format d'email basé sur le nom
+          consultantEmail: consultantEmail,
           consultantName: consultantName,
           taskAssigned: true,
           communicationAssigned: true,
