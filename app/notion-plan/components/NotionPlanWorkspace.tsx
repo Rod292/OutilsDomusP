@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { Switch } from "@/components/ui/switch";
 
 // Composants personnalisés
 import SidebarNav from './SidebarNav';
@@ -44,6 +45,7 @@ import { Header } from '../../components/header';
 import { Task, TeamMember, CommunicationDetail } from '../types';
 import GlobalNotificationButton from '@/app/components/notifications/GlobalNotificationButton';
 import { sendTaskAssignedNotification } from '@/app/services/notificationService';
+import ActiveUserBadge from './ActiveUserBadge';
 
 // Types
 interface NotionPlanWorkspaceProps {
@@ -1195,10 +1197,16 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
                 </div>
               </div>
 
-              <NotionTabs 
-                activeView={activeView} 
-                onViewChange={setActiveView} 
-              />
+              {/* Badge indiquant l'utilisateur actif */}
+              <ActiveUserBadge consultant={consultant} />
+              
+              {/* Filtres et vues */}
+              <div className="mb-6">
+                <NotionTabs 
+                  activeView={activeView} 
+                  onViewChange={setActiveView} 
+                />
+              </div>
 
               <div className="bg-white rounded-lg border shadow-sm">
                 <div className="p-0">

@@ -6,11 +6,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, RefreshCw, Smartphone, Laptop, Server, AlertCircle } from 'lucide-react';
+import { Trash2, RefreshCw, Smartphone, Laptop, Server, AlertCircle, Eraser } from 'lucide-react';
 import { collection, getDocs, doc, deleteDoc, query, where } from 'firebase/firestore';
 import { db } from '@/app/lib/firebase';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useToast } from '@/components/ui/use-toast';
+import { cleanupDuplicateTokens } from "@/app/services/notificationService";
+import CleanupNotificationsButton from './CleanupNotificationsButton';
 
 interface NotificationToken {
   id: string;
@@ -76,6 +78,40 @@ export default function NotificationManager() {
       fetchTokens();
     }
   }, [user?.email]);
+  
+  // Fonction pour nettoyer les tokens dupliqués
+  const cleanupTokens = async () => {
+    if (!user?.email) return;
+
+    try {
+      // Appeler la fonction de nettoyage
+      const deletedCount = await cleanupDuplicateTokens(user.email);
+      
+      if (deletedCount > 0) {
+        toast({
+          title: "Nettoyage effectué",
+          description: `${deletedCount} notification${deletedCount > 1 ? 's' : ''} dupliquée${deletedCount > 1 ? 's' : ''} supprimée${deletedCount > 1 ? 's' : ''}.`,
+          variant: "default",
+        });
+        
+        // Rafraîchir la liste
+        fetchTokens();
+      } else {
+        toast({
+          title: "Aucun doublon trouvé",
+          description: "Tous vos appareils sont correctement enregistrés.",
+          variant: "default",
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors du nettoyage des tokens:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de nettoyer les notifications.",
+        variant: "destructive",
+      });
+    }
+  };
   
   // Fonction pour supprimer un token de notification
   const deleteToken = async (tokenId: string) => {
@@ -220,6 +256,12 @@ export default function NotificationManager() {
               </TabsList>
               
               <TabsContent value={selectedTab} className="mt-0">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-medium">Appareils enregistrés</h3>
+                    <CleanupNotificationsButton onSuccess={fetchTokens} />
+                  </div>
+                </div>
                 <Table>
                   <TableHeader>
                     <TableRow>

@@ -1,7 +1,7 @@
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { app } from '../lib/firebase';
 import { Timestamp } from 'firebase/firestore';
-import { getFirestore, collection, addDoc, getDocs, query, where, updateDoc, serverTimestamp, Firestore } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, getDocs, query, where, updateDoc, serverTimestamp, Firestore, deleteDoc, doc } from 'firebase/firestore';
 import { NOTIFICATION_CONFIG } from '../api/notifications/config';
 
 const NOTIFICATION_COLLECTION = 'notifications';
@@ -707,10 +707,114 @@ export const logNotificationPermissionStatus = () => {
   return Notification.permission;
 };
 
+/**
+ * Nettoie les tokens dupliqués pour un utilisateur donné
+ * Ne garde que le token le plus récent pour chaque appareil Apple
+ * @param userId Identifiant de l'utilisateur pour lequel nettoyer les tokens
+ * @returns Promise<number> Nombre de tokens supprimés
+ */
+export const cleanupDuplicateTokens = async (userId: string): Promise<number> => {
+  try {
+    if (typeof window === 'undefined') {
+      console.log('Impossible de nettoyer les tokens côté serveur');
+      return 0;
+    }
+    
+    console.log(`Nettoyage des tokens dupliqués pour l'utilisateur ${userId}...`);
+    
+    const db = getFirestore();
+    if (!db) {
+      console.error('Firestore non initialisé');
+      return 0;
+    }
+    
+    // Récupérer tous les tokens de l'utilisateur
+    const tokensRef = collection(db, TOKEN_COLLECTION);
+    const q = query(tokensRef, where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      console.log(`Aucun token trouvé pour l'utilisateur ${userId}`);
+      return 0;
+    }
+    
+    // Mapper les tokens par plateforme
+    const tokensByPlatform: Record<string, {id: string, timestamp: number, isApple: boolean}[]> = {};
+    
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const userAgent = (data.userAgent || '').toLowerCase();
+      const platform = data.platform || 'unknown';
+      
+      // Déterminer si c'est un appareil Apple
+      const isApple = userAgent.includes('iphone') || 
+                       userAgent.includes('ipad') || 
+                       userAgent.includes('macintosh') ||
+                       platform.toLowerCase().includes('iphone') ||
+                       platform.toLowerCase().includes('ipad') ||
+                       platform.toLowerCase().includes('mac');
+      
+      // Utiliser une clé simplifiée pour regrouper les appareils similaires
+      let deviceKey = 'other';
+      if (userAgent.includes('iphone')) deviceKey = 'iphone';
+      else if (userAgent.includes('ipad')) deviceKey = 'ipad';
+      else if (userAgent.includes('macintosh')) deviceKey = 'mac';
+      else if (userAgent.includes('android')) deviceKey = 'android';
+      
+      if (!tokensByPlatform[deviceKey]) {
+        tokensByPlatform[deviceKey] = [];
+      }
+      
+      tokensByPlatform[deviceKey].push({
+        id: doc.id,
+        timestamp: data.timestamp || 0,
+        isApple
+      });
+    });
+    
+    // Pour chaque plateforme, garder uniquement le token le plus récent
+    const tokensToDelete: string[] = [];
+    
+    Object.keys(tokensByPlatform).forEach(platform => {
+      const tokens = tokensByPlatform[platform];
+      
+      // Trier par timestamp décroissant (le plus récent d'abord)
+      tokens.sort((a, b) => b.timestamp - a.timestamp);
+      
+      // Garder le premier (plus récent) et marquer les autres pour suppression
+      if (tokens.length > 1) {
+        // Garder uniquement le token le plus récent
+        const tokensToRemove = tokens.slice(1);
+        tokensToRemove.forEach(token => {
+          tokensToDelete.push(token.id);
+        });
+      }
+    });
+    
+    // Supprimer les tokens marqués
+    let deletedCount = 0;
+    for (const tokenId of tokensToDelete) {
+      try {
+        await deleteDoc(doc(db, TOKEN_COLLECTION, tokenId));
+        deletedCount++;
+      } catch (error) {
+        console.error(`Erreur lors de la suppression du token ${tokenId}:`, error);
+      }
+    }
+    
+    console.log(`${deletedCount} token(s) dupliqué(s) supprimé(s) pour l'utilisateur ${userId}`);
+    return deletedCount;
+  } catch (error) {
+    console.error('Erreur lors du nettoyage des tokens dupliqués:', error);
+    return 0;
+  }
+};
+
 // Ajouter debugNotifications à window pour pouvoir l'appeler depuis la console
 if (typeof window !== 'undefined') {
   (window as any).debugNotifications = debugNotifications;
   (window as any).sendLocalNotification = sendLocalNotification;
+  (window as any).cleanupDuplicateTokens = cleanupDuplicateTokens;
 }
 
 /**

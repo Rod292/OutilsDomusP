@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { RefreshCw, ChevronLeft, LogOut, Menu, X, FileSpreadsheet, Home, ClipboardCheck, Star, UserIcon, BookOpen, Mail, Bell } from "lucide-react"
+import { RefreshCw, ChevronLeft, LogOut, Menu, X, FileSpreadsheet, Home, ClipboardCheck, Star, UserIcon, BookOpen, Mail, Bell, Eraser } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCallback, useEffect, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -17,6 +17,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion"
 import { ThemeToggle } from "../../components/ui/theme-toggle"
 import NotificationPermission from "./NotificationPermission"
+import CleanupNotificationsButton from "./notifications/CleanupNotificationsButton"
 
 // Variantes d'animation pour le menu
 const menuVariants = {
@@ -247,6 +248,19 @@ export function Header() {
                           <DropdownMenuItem onClick={() => navigateTo("/notifications")} className="flex items-center p-2 cursor-pointer">
                             <Bell className="mr-2 h-4 w-4 text-[#DC0032]" />
                             <span className="dark:text-gray-200">Notifications</span>
+                          </DropdownMenuItem>
+                        </motion.div>
+                        <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                          <DropdownMenuItem asChild>
+                            <div className="flex items-center p-2 cursor-pointer">
+                              <Eraser className="mr-2 h-4 w-4 text-[#DC0032]" />
+                              <CleanupNotificationsButton 
+                                variant="ghost"
+                                size="sm"
+                                showText={true}
+                                className="w-full p-0 text-sm justify-start font-normal h-auto dark:text-gray-200"
+                              />
+                            </div>
                           </DropdownMenuItem>
                         </motion.div>
                       </motion.div>
