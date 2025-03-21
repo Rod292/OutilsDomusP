@@ -195,6 +195,82 @@ export const saveNotificationToken = async (userId: string, token: string): Prom
       return false;
     }
     
+    // Déterminer le type d'appareil actuel
+    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : 'unknown';
+    const platform = typeof navigator !== 'undefined' ? navigator.platform : 'unknown';
+    
+    // Déterminer si c'est un appareil Apple
+    const isApple = userAgent.includes('iphone') || 
+                   userAgent.includes('ipad') || 
+                   userAgent.includes('macintosh') ||
+                   platform.toLowerCase().includes('iphone') ||
+                   platform.toLowerCase().includes('ipad') ||
+                   platform.toLowerCase().includes('mac');
+    
+    // Catégoriser l'appareil
+    let deviceType = 'other';
+    if (userAgent.includes('iphone')) deviceType = 'iphone';
+    else if (userAgent.includes('ipad')) deviceType = 'ipad';
+    else if (userAgent.includes('macintosh')) deviceType = 'mac';
+    else if (userAgent.includes('android')) deviceType = 'android';
+    
+    // Si l'option de nettoyage forcé est activée, nettoyer les tokens obsolètes
+    if (NOTIFICATION_CONFIG.FORCE_TOKEN_CLEANUP) {
+      // Récupérer tous les tokens existants pour cet utilisateur
+      const allTokensQuery = query(
+        collection(db, TOKEN_COLLECTION),
+        where('userId', '==', userId)
+      );
+      
+      const allTokensSnapshot = await getDocs(allTokensQuery);
+      
+      if (!allTokensSnapshot.empty) {
+        // Regrouper les tokens par type d'appareil
+        const tokensByDevice: Record<string, {id: string, token: string, timestamp: number}[]> = {};
+        
+        allTokensSnapshot.forEach(doc => {
+          const data = doc.data();
+          const tokenUserAgent = (data.userAgent || '').toLowerCase();
+          
+          // Déterminer le type d'appareil
+          let tokenDeviceType = 'other';
+          if (tokenUserAgent.includes('iphone')) tokenDeviceType = 'iphone';
+          else if (tokenUserAgent.includes('ipad')) tokenDeviceType = 'ipad';
+          else if (tokenUserAgent.includes('macintosh')) tokenDeviceType = 'mac';
+          else if (tokenUserAgent.includes('android')) tokenDeviceType = 'android';
+          
+          if (!tokensByDevice[tokenDeviceType]) {
+            tokensByDevice[tokenDeviceType] = [];
+          }
+          
+          tokensByDevice[tokenDeviceType].push({
+            id: doc.id,
+            token: data.token,
+            timestamp: data.timestamp || 0
+          });
+        });
+        
+        // Pour le type d'appareil actuel, supprimer tous les tokens sauf celui qu'on veut enregistrer
+        if (tokensByDevice[deviceType]) {
+          // Trouver tous les tokens de ce type d'appareil sauf le token actuel
+          const tokensToDelete = tokensByDevice[deviceType]
+            .filter(t => t.token !== token);
+          
+          console.log(`${tokensToDelete.length} anciens tokens à supprimer pour le type d'appareil ${deviceType}`);
+          
+          // Supprimer chaque token obsolète
+          for (const tokenData of tokensToDelete) {
+            try {
+              await deleteDoc(doc(db, TOKEN_COLLECTION, tokenData.id));
+              console.log(`Token obsolète supprimé: ${tokenData.id.substring(0, 8)}...`);
+            } catch (deleteError) {
+              console.error(`Erreur lors de la suppression du token ${tokenData.id}:`, deleteError);
+            }
+          }
+        }
+      }
+    }
+    
     // Vérifier si ce token existe déjà pour cet utilisateur
     const tokensRef = collection(db, TOKEN_COLLECTION);
     const q = query(tokensRef, 
@@ -210,7 +286,8 @@ export const saveNotificationToken = async (userId: string, token: string): Prom
       await updateDoc(docRef, {
         timestamp: Date.now(),
         lastUpdated: serverTimestamp(),
-        email // Ajouter/mettre à jour l'email
+        email, // Ajouter/mettre à jour l'email
+        deviceType // Ajouter/mettre à jour le type d'appareil
       });
       console.log(`Token existant mis à jour pour l'utilisateur: ${userId}`);
       return true;
@@ -225,11 +302,13 @@ export const saveNotificationToken = async (userId: string, token: string): Prom
       createdAt: serverTimestamp(),
       lastUpdated: serverTimestamp(),
       platform: typeof navigator !== 'undefined' ? navigator.platform : 'unknown',
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      deviceType, // Ajouter le type d'appareil
+      isApple // Indiquer si c'est un appareil Apple
     };
     
     await addDoc(tokensRef, tokenData);
-    console.log(`Nouveau token enregistré pour l'utilisateur: ${userId}`);
+    console.log(`Nouveau token enregistré pour l'utilisateur: ${userId} (appareil: ${deviceType})`);
     
     return true;
   } catch (error) {

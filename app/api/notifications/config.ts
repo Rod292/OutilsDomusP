@@ -22,6 +22,17 @@ export const NOTIFICATION_CONFIG = {
   STORE_NOTIFICATIONS: true,
   
   /**
+   * Limite de tokens FCM par utilisateur et par type d'appareil
+   * Cette limite aide à éviter les doublons de notifications
+   */
+  MAX_TOKENS_PER_DEVICE_TYPE: 1,
+  
+  /**
+   * Force le nettoyage des tokens lors de chaque enregistrement
+   */
+  FORCE_TOKEN_CLEANUP: true,
+  
+  /**
    * Textes utilisés dans l'interface pour les notifications
    */
   MESSAGES: {

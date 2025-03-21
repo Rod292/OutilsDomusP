@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Notification enregistrée (mode FCM désactivé)',
-        useLocalMode: true, // Indique au client qu'il doit utiliser le mode local
+        useLocalMode: true,
         notification: {
           title,
           body,
@@ -212,134 +212,18 @@ export async function POST(request: NextRequest) {
     const tokensSnapshot = await tokensQuery;
 
     if (tokensSnapshot.empty) {
-      console.log(`Aucun token FCM trouvé pour l'utilisateur ${userId}, recherche de tokens par email: ${userEmail}`);
-      
-      // Si aucun token trouvé pour la combinaison spécifique, essayer de trouver des tokens pour l'email
-      // Cela permettra d'envoyer des notifications à tous les appareils de l'utilisateur
-      if (consultantName) {
-        const emailTokensQuery = await db.collection('notificationTokens')
-          .where('email', '==', userEmail)
-          .get();
-        
-        if (emailTokensQuery.empty) {
-          console.log(`Aucun token trouvé pour l'email ${userEmail}, suggestion du mode local`);
-          return NextResponse.json({
-            success: false,
-            useLocalMode: true,
-            notification: {
-              title,
-              body,
-              taskId,
-              type
-            },
-            warning: `Aucun token FCM trouvé pour l'utilisateur ${userEmail}`
-          }, { status: 404 });
-        }
-        
-        // Utiliser les tokens trouvés par email
-        const tokens: string[] = [];
-        emailTokensQuery.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
-          const tokenData = doc.data();
-          if (tokenData.token && tokenData.token !== 'local-notifications-mode') {
-            tokens.push(tokenData.token);
-          }
-        });
-        
-        if (tokens.length === 0) {
-          console.log(`Aucun token FCM valide trouvé pour l'email ${userEmail}, suggestion du mode local`);
-          return NextResponse.json({
-            success: false,
-            useLocalMode: true,
-            notification: {
-              title,
-              body,
-              taskId,
-              type
-            },
-            warning: `Aucun token FCM valide trouvé pour l'email ${userEmail}`
-          }, { status: 404 });
-        }
-        
-        // Construire le message FCM
-        const message = {
-          notification: {
-            title,
-            body,
-          },
-          data: {
-            type,
-            userId,
-            ...(taskId ? { taskId } : {})
-          },
-          tokens
-        };
-        
-        // Envoyer la notification avec FCM
-        const messaging = admin.messaging();
-        if (!messaging) {
-          return NextResponse.json({
-            success: false, 
-            useLocalMode: true,
-            notification: {
-              title,
-              body,
-              taskId,
-              type
-            },
-            warning: 'Firebase Messaging non initialisé, utilisation du mode local'
-          });
-        }
-        
-        const response = await messaging.sendEachForMulticast(message);
-        
-        console.log(`Notification envoyée à tous les appareils de ${userEmail} (${tokens.length} appareils):`, {
-          success: response.successCount,
-          failure: response.failureCount,
-          tokens: tokens.length
-        });
-        
-        // Si l'envoi a échoué pour tous les tokens, suggérer le mode local
-        if (response.successCount === 0 && response.failureCount > 0) {
-          return NextResponse.json({
-            success: false,
-            sent: 0,
-            failed: response.failureCount,
-            useLocalMode: true,
-            notification: {
-              title,
-              body,
-              taskId,
-              type
-            },
-            warning: 'Tous les envois FCM ont échoué, essayez le mode local'
-          });
-        }
-        
-        return NextResponse.json({
-          success: true,
-          sent: response.successCount,
-          failed: response.failureCount,
-          total: tokens.length,
-        });
-      }
-      
+      console.log(`Aucun token trouvé pour l'utilisateur ${userId}`);
       return NextResponse.json({
         success: false,
-        useLocalMode: true,
-        notification: {
-          title,
-          body,
-          taskId,
-          type
-        },
-        warning: `Aucun token FCM trouvé pour l'utilisateur ${userId}`
-      }, { status: 404 });
+        error: 'Aucun token trouvé',
+        useLocalMode: true
+      });
     }
-    
+
     // Récupérer les tokens en évitant les doublons
     const tokens: string[] = [];
     const uniqueDeviceTokens = new Set<string>();
-    const tokensWithDeviceInfo: Array<{token: string, platform: string, isAppleDevice: boolean}> = [];
+    const tokensWithDeviceInfo: Array<{token: string, platform: string, isAppleDevice: boolean, timestamp: number}> = [];
     
     tokensSnapshot.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
       const tokenData = doc.data();
@@ -360,13 +244,30 @@ export async function POST(request: NextRequest) {
           tokensWithDeviceInfo.push({
             token: tokenData.token,
             platform: tokenData.platform || 'unknown',
-            isAppleDevice
+            isAppleDevice,
+            timestamp: tokenData.timestamp || Date.now()
           });
         }
       }
     });
-    
-    if (tokens.length === 0) {
+
+    // Trier les tokens Apple par timestamp (le plus récent d'abord)
+    const sortedAppleTokens = tokensWithDeviceInfo
+      .filter(t => t.isAppleDevice)
+      .sort((a, b) => b.timestamp - a.timestamp);
+
+    // Récupérer les tokens non-Apple
+    const nonAppleTokens = tokensWithDeviceInfo
+      .filter(t => !t.isAppleDevice)
+      .map(t => t.token);
+
+    // Pour les appareils Apple, ne garder que le token le plus récent
+    const tokensToNotify = [
+      ...(sortedAppleTokens.length > 0 ? [sortedAppleTokens[0].token] : []),
+      ...nonAppleTokens
+    ];
+
+    if (tokensToNotify.length === 0) {
       console.log(`Aucun token FCM valide trouvé pour l'utilisateur ${userId}, suggestion du mode local`);
       return NextResponse.json({
         success: false,
@@ -380,101 +281,68 @@ export async function POST(request: NextRequest) {
         warning: `Aucun token FCM valide trouvé pour l'utilisateur ${userId}`
       }, { status: 404 });
     }
-    
+
     try {
-      // Vérifier si la notification concerne Instagram et si c'est un appareil Apple
-      const isInstagramNotification = 
-        (body?.toLowerCase().includes('instagram') || 
-         title?.toLowerCase().includes('instagram') ||
-         type?.toLowerCase().includes('instagram') ||
-         data?.communicationType?.toLowerCase() === 'post_instagram');
-      
-      // Initialiser Firebase Cloud Messaging si ce n'est pas déjà fait
+      // Initialiser Firebase Cloud Messaging
       const messaging = admin.messaging();
       
-      // Ajuster le titre et le corps de la notification pour les appareils iOS
-      const notificationTitle = title;
-      const notificationBody = body;
-      
-      // Constuire les données de la notification
-      // CORRECTION: Utiliser sanitizeFirestoreData pour éliminer les undefined
-      const sanitizedData = sanitizeFirestoreData({
-        type,
-        taskId: taskId || null,
-        ...data // Inclure les autres données (comme communicationIndex)
-      });
-      
-      // Pour éviter les notifications en double sur iOS pour tous les types de notifications
-      let tokensToNotify = tokens;
-      
-      // Récupérer les tokens pour les appareils Apple et non-Apple
-      const appleDeviceTokens = tokensWithDeviceInfo.filter(t => t.isAppleDevice).map(t => t.token);
-      const nonAppleDeviceTokens = tokensWithDeviceInfo.filter(t => !t.isAppleDevice).map(t => t.token);
-      
-      // Si l'utilisateur a des appareils Apple, n'en notifier qu'un seul pour éviter les doublons
-      if (appleDeviceTokens.length > 0) {
-        // Prendre seulement le token de l'appareil Apple le plus récent
-        tokensToNotify = [appleDeviceTokens[0], ...nonAppleDeviceTokens];
-        console.log(`Notification: Limitation à un seul appareil Apple (${appleDeviceTokens.length} disponibles)`);
-      }
-      
-      // Envoyer les notifications avec les tokens filtrés
+      // Construire le message FCM avec les options spécifiques pour iOS
       const response = await messaging.sendEachForMulticast({
         tokens: tokensToNotify,
         notification: {
-          title: notificationTitle,
-          body: notificationBody
+          title,
+          body
         },
-        data: sanitizedData,
-        // Options spécifiques pour iOS
+        data: {
+          type,
+          taskId: taskId || '',
+          userId,
+          click_action: 'FLUTTER_NOTIFICATION_CLICK'
+        },
+        // Options spécifiques pour iOS pour améliorer le regroupement
         apns: {
           payload: {
             aps: {
               sound: 'default',
               badge: 1,
-              // Utiliser un thread-id constant pour chaque type de notification
-              // pour éviter les doublons et améliorer le regroupement
-              'thread-id': isInstagramNotification ? 'instagram' : type || 'default'
+              // Utiliser un thread-id qui restera constant pour toutes les notifications destinées au même userId
+              // Cela forcera iOS à remplacer/regrouper les notifications plutôt que les afficher séparément
+              'thread-id': userId,
+              // Ajouter le paramètre content-available pour réveiller l'app
+              'content-available': 1,
+              // Ajouter un identifiant de catégorie pour aider au regroupement
+              'category': type || 'default',
+              // Forcer le mode de présentation alert pour les notifications
+              'mutable-content': 1
             }
+          },
+          headers: {
+            // Ajouter des en-têtes pour le déduplication
+            "apns-collapse-id": taskId || userId
           }
         }
       });
-      
-      console.log(`Notification envoyée à tous les appareils de ${userEmail} (${tokensToNotify.length} appareils):`, {
+
+      console.log(`Notification envoyée (${tokensToNotify.length} appareils):`, {
         success: response.successCount,
         failure: response.failureCount,
-        tokens: tokensToNotify.length
+        appleDevices: sortedAppleTokens.length,
+        nonAppleDevices: nonAppleTokens.length
       });
-      
-      // Si l'envoi a échoué pour tous les tokens, suggérer le mode local
-      if (response.successCount === 0 && response.failureCount > 0) {
-        return NextResponse.json({
-          success: false,
-          sent: 0,
-          failed: response.failureCount,
-          useLocalMode: true,
-          notification: {
-            title,
-            body,
-            taskId,
-            type
-          },
-          warning: 'Tous les envois FCM ont échoué, essayez le mode local'
-        });
-      }
-      
+
       return NextResponse.json({
         success: true,
         sent: response.successCount,
         failed: response.failureCount,
-        total: tokensToNotify.length,
+        total: tokensToNotify.length
       });
+
     } catch (error) {
-      console.error('Erreur lors de la vérification de la notification:', error);
+      console.error('Erreur lors de l\'envoi de la notification:', error);
       return NextResponse.json(
         { 
-          error: 'Erreur interne du serveur lors de la vérification de la notification',
-          useLocalMode: true, // Suggérer le mode local en cas d'erreur
+          error: 'Erreur interne du serveur lors de l\'envoi de la notification',
+          useLocalMode: true
         },
         { status: 500 }
       );
