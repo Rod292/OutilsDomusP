@@ -48,6 +48,9 @@ const DraggableTask = ({
   // Récupérer le type de communication
   const commType = commDetails?.type || null;
   
+  // Déterminer s'il s'agit d'une tâche principale ou d'une communication
+  const isMainTask = commIndex === undefined;
+  
   // IMPORTANT: Utiliser l'UUID passé par le parent qui est déjà correct
   // plutôt que d'en générer un nouveau qui pourrait être différent
   const communicationUUID = uuid || '';
@@ -211,6 +214,12 @@ const DraggableTask = ({
       <div className="flex items-start gap-1 mb-1">
         <div className="flex-1 min-w-0">
           <div className="font-medium text-sm truncate">{task.title}</div>
+          {/* Badge pour indiquer qu'il s'agit d'une tâche principale */}
+          {isMainTask && (
+            <div className="mt-1 w-fit text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 border border-blue-200">
+              Tâche principale
+            </div>
+          )}
         </div>
       </div>
       
@@ -477,7 +486,7 @@ const DroppableDay = ({
         
         const sameDate = normalizedTaskDate.getTime() === normalizedCellDate.getTime();
         
-        if (sameDate && (!task.communicationDetails || task.communicationDetails.length === 0)) {
+        if (sameDate) {
           // Log de débogage
           console.log(`[SYNC DEBUG] Affichage de la tâche principale ${task.id} à la date ${normalizedTaskDate.toLocaleDateString()}`);
           
