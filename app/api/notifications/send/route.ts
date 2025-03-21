@@ -257,21 +257,6 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    // Chercher les tokens FCM pour cet utilisateur dans Firestore
-    if (!db) {
-      return NextResponse.json({
-        success: false,
-        useLocalMode: true,
-        notification: {
-          title,
-          body,
-          taskId,
-          type
-        },
-        warning: 'Firebase Admin non initialisé, utilisation du mode local'
-      });
-    }
-    
     // IMPORTANTE MODIFICATION: Chercher tous les tokens pour cet email utilisateur
     // et pour la combinaison spécifique email_consultant
     let tokensQuery;
@@ -289,15 +274,39 @@ export async function POST(request: NextRequest) {
         .get();
     }
 
-    const tokensSnapshot = await tokensQuery;
+    let tokensSnapshot = await tokensQuery;
 
     if (tokensSnapshot.empty) {
-      console.log(`Aucun token trouvé pour l'utilisateur ${userId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Aucun token trouvé',
-        useLocalMode: true
-      });
+      console.log(`Aucun token trouvé pour l'utilisateur ${userId} avec la recherche principale`);
+      
+      // Si aucun token n'est trouvé avec userId, essayer de chercher par email
+      if (consultantName) {
+        console.log(`Tentative de recherche de tokens par email: ${userEmail}`);
+        const emailTokensQuery = db.collection(TOKEN_COLLECTION)
+          .where('email', '==', userEmail)
+          .get();
+          
+        const emailTokensSnapshot = await emailTokensQuery;
+        
+        if (emailTokensSnapshot.empty) {
+          console.log(`Aucun token trouvé par email pour ${userEmail}`);
+          return NextResponse.json({
+            success: false,
+            error: 'Aucun token trouvé',
+            useLocalMode: true
+          });
+        } else {
+          console.log(`${emailTokensSnapshot.size} token(s) trouvé(s) par email pour ${userEmail}`);
+          // Utiliser ces tokens à la place
+          tokensSnapshot = emailTokensSnapshot;
+        }
+      } else {
+        return NextResponse.json({
+          success: false,
+          error: 'Aucun token trouvé',
+          useLocalMode: true
+        });
+      }
     } else {
       console.log(`${tokensSnapshot.size} token(s) trouvé(s) pour l'utilisateur ${userId}`);
     }

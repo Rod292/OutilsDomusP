@@ -6,6 +6,8 @@ import { Bell, BellOff, BellRing } from 'lucide-react';
 import { requestNotificationPermission, checkConsultantPermission } from '@/app/services/notificationService';
 import { useAuth } from '@/app/hooks/useAuth';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { getFirestore } from 'firebase/firestore';
+import { query, collection, getDocs, where } from 'firebase/firestore';
 
 interface GlobalNotificationButtonProps {
   consultantName: string;
@@ -33,6 +35,36 @@ export default function GlobalNotificationButton({
           setPermissionStatus('default');
         });
     }
+  }, [user?.email, consultantName]);
+
+  // Vérifier si des tokens existent pour cet utilisateur
+  useEffect(() => {
+    const checkNotificationToken = async () => {
+      if (user?.email && consultantName) {
+        try {
+          const db = getFirestore();
+          if (!db) return;
+          
+          const notificationId = `${user.email}_${consultantName}`;
+          const q = query(
+            collection(db, 'notificationTokens'),
+            where('userId', '==', notificationId)
+          );
+          
+          const snapshot = await getDocs(q);
+          if (snapshot.empty) {
+            console.log(`Aucun token trouvé pour ${notificationId}, affichage d'un indicateur d'erreur`);
+            setPermissionStatus(snapshot.empty ? 'missing' : permissionStatus);
+          } else {
+            console.log(`${snapshot.size} token(s) trouvé(s) pour ${notificationId}`);
+          }
+        } catch (error) {
+          console.error('Erreur lors de la vérification des tokens:', error);
+        }
+      }
+    };
+    
+    checkNotificationToken();
   }, [user?.email, consultantName]);
 
   // Identifiant pour les notifications - combinaison de l'email de l'utilisateur et du consultant
@@ -81,6 +113,10 @@ export default function GlobalNotificationButton({
     icon = <BellOff className="h-5 w-5 text-red-500" />;
     tooltipText = 'Notifications bloquées - Cliquez pour ouvrir les paramètres';
     buttonClass += ' text-red-500';
+  } else if (permissionStatus === 'missing') {
+    icon = <Bell className="h-5 w-5 text-yellow-500" />;
+    tooltipText = `Aucun token trouvé pour ${consultantName} - Cliquez pour activer`;
+    buttonClass += ' text-yellow-500 animate-pulse';
   }
 
   const handleClick = (e: React.MouseEvent) => {

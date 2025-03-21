@@ -7,6 +7,7 @@ import { requestNotificationPermission, logNotificationPermissionStatus, checkCo
 import { useAuth } from '../hooks/useAuth';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSearchParams } from 'next/navigation';
+import { getFirestore, query, collection, getDocs, where } from 'firebase/firestore';
 
 interface NotificationPermissionProps {
   className?: string;
@@ -37,6 +38,32 @@ export default function NotificationPermission({ className, iconOnly = true }: N
           .then(hasPermission => {
             console.log(`Vérification des permissions pour ${consultant}: ${hasPermission ? 'activées' : 'désactivées'}`);
             setConsultantPermissionStatus(hasPermission ? 'granted' : 'default');
+            
+            // Vérifier si des tokens existent pour cet utilisateur
+            const checkNotificationToken = async () => {
+              try {
+                const db = getFirestore();
+                if (!db) return;
+                
+                const notificationId = `${user.email}_${consultant}`;
+                const q = query(
+                  collection(db, 'notificationTokens'),
+                  where('userId', '==', notificationId)
+                );
+                
+                const snapshot = await getDocs(q);
+                if (snapshot.empty && hasPermission) {
+                  console.log(`Aucun token trouvé pour ${notificationId}, mais permissions accordées`);
+                  setConsultantPermissionStatus('missing');
+                } else if (!snapshot.empty) {
+                  console.log(`${snapshot.size} token(s) trouvé(s) pour ${notificationId}`);
+                }
+              } catch (error) {
+                console.error('Erreur lors de la vérification des tokens:', error);
+              }
+            };
+            
+            checkNotificationToken();
           })
           .catch(error => {
             console.error(`Erreur lors de la vérification des permissions pour ${consultant}:`, error);
@@ -101,6 +128,16 @@ export default function NotificationPermission({ className, iconOnly = true }: N
         onClick: handleRequestPermission, // Permettre la réactivation
         disabled: false,
         className: iconOnly ? 'text-green-500' : 'text-green-600'
+      };
+    } else if (consultantPermissionStatus === 'missing') {
+      return {
+        icon: <Bell className={`h-5 w-5 ${iconOnly ? 'text-yellow-500' : ''} animate-pulse`} />,
+        text: 'Réactivation nécessaire',
+        tooltip: `Aucun token trouvé pour ${consultant} - Cliquez pour réactiver`,
+        variant: 'ghost' as const,
+        onClick: handleRequestPermission,
+        disabled: false,
+        className: iconOnly ? 'text-yellow-500' : 'text-yellow-600'
       };
     } else if (permissionStatus === 'denied') {
       return {
