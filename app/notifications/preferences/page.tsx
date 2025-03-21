@@ -1,5 +1,8 @@
 "use client";
 
+// Forcer le mode dynamique pour cette page
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/app/hooks/useAuth";
 import { getFirestore, collection, query, where, getDocs, doc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
