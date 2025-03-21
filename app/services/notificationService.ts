@@ -878,11 +878,75 @@ export const cleanupDuplicateTokens = async (userId: string): Promise<number> =>
   }
 };
 
+/**
+ * Vérifie si un utilisateur a des tokens FCM enregistrés et affiche les informations
+ * @param email Email de l'utilisateur
+ * @param consultantName Nom du consultant (optionnel)
+ * @returns Promise<boolean> True si des tokens ont été trouvés
+ */
+export const checkTokensForUser = async (email: string, consultantName?: string): Promise<boolean> => {
+  try {
+    console.log(`Vérification des tokens pour ${email}${consultantName ? ` et ${consultantName}` : ''}`);
+    
+    const db = getFirestore();
+    if (!db) {
+      console.error('Firestore non initialisé');
+      return false;
+    }
+    
+    // Construire l'ID de notification en fonction des paramètres
+    const notificationId = consultantName ? `${email}_${consultantName}` : email;
+    console.log(`ID de notification: ${notificationId}`);
+    
+    // Chercher les tokens par userId et par email
+    const byUserIdQuery = query(
+      collection(db, TOKEN_COLLECTION),
+      where('userId', '==', notificationId)
+    );
+    
+    const byEmailQuery = query(
+      collection(db, TOKEN_COLLECTION),
+      where('email', '==', email)
+    );
+    
+    const [byUserIdSnapshot, byEmailSnapshot] = await Promise.all([
+      getDocs(byUserIdQuery),
+      getDocs(byEmailQuery)
+    ]);
+    
+    console.log(`Tokens trouvés par userId (${notificationId}): ${byUserIdSnapshot.size}`);
+    console.log(`Tokens trouvés par email (${email}): ${byEmailSnapshot.size}`);
+    
+    byUserIdSnapshot.forEach(doc => {
+      const data = doc.data();
+      console.log(`Token par userId: ${doc.id}`);
+      console.log(`  Platform: ${data.platform}`);
+      console.log(`  User Agent: ${data.userAgent?.substring(0, 50)}...`);
+      console.log(`  Date: ${data.timestamp ? new Date(data.timestamp).toLocaleString() : 'inconnue'}`);
+    });
+    
+    byEmailSnapshot.forEach(doc => {
+      const data = doc.data();
+      console.log(`Token par email: ${doc.id}`);
+      console.log(`  UserId: ${data.userId}`);
+      console.log(`  Platform: ${data.platform}`);
+      console.log(`  User Agent: ${data.userAgent?.substring(0, 50)}...`);
+      console.log(`  Date: ${data.timestamp ? new Date(data.timestamp).toLocaleString() : 'inconnue'}`);
+    });
+    
+    return byUserIdSnapshot.size > 0 || byEmailSnapshot.size > 0;
+  } catch (error) {
+    console.error('Erreur lors de la vérification des tokens:', error);
+    return false;
+  }
+};
+
 // Ajouter debugNotifications à window pour pouvoir l'appeler depuis la console
 if (typeof window !== 'undefined') {
   (window as any).debugNotifications = debugNotifications;
   (window as any).sendLocalNotification = sendLocalNotification;
   (window as any).cleanupDuplicateTokens = cleanupDuplicateTokens;
+  (window as any).checkTokensForUser = checkTokensForUser;
 }
 
 /**

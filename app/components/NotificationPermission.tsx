@@ -57,6 +57,8 @@ export default function NotificationPermission({ className, iconOnly = true }: N
     
     setLoading(true);
     try {
+      console.log(`Demande de permission pour les notifications pour: ${notificationId}`);
+      
       // Même si les notifications sont déjà activées, on permet de les réactiver
       // Cela permet de renouveler le token FCM si nécessaire
       const result = await requestNotificationPermission(notificationId);
@@ -68,6 +70,7 @@ export default function NotificationPermission({ className, iconOnly = true }: N
       } else {
         setPermissionStatus('denied');
         setConsultantPermissionStatus('default');
+        console.error(`Échec de l'activation des notifications pour: ${notificationId}`);
       }
     } catch (error) {
       console.error('Erreur lors de la demande de permission:', error);

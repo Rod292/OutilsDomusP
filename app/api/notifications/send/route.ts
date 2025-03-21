@@ -277,11 +277,13 @@ export async function POST(request: NextRequest) {
     let tokensQuery;
     if (consultantName) {
       // Format spécifique email_consultant
+      console.log(`Recherche de tokens pour userId spécifique: ${userId} (email: ${userEmail}, consultant: ${consultantName})`);
       tokensQuery = db.collection(TOKEN_COLLECTION)
         .where('userId', '==', userId)
         .get();
     } else {
       // Dans le cas d'une notification sans consultant spécifique, utiliser seulement l'email
+      console.log(`Recherche de tokens pour email: ${userEmail} (sans consultant spécifique)`);
       tokensQuery = db.collection(TOKEN_COLLECTION)
         .where('email', '==', userEmail)
         .get();
@@ -296,6 +298,8 @@ export async function POST(request: NextRequest) {
         error: 'Aucun token trouvé',
         useLocalMode: true
       });
+    } else {
+      console.log(`${tokensSnapshot.size} token(s) trouvé(s) pour l'utilisateur ${userId}`);
     }
 
     // Récupérer les tokens en évitant les doublons
