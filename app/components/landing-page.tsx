@@ -281,7 +281,7 @@ export const LandingPage: React.FC = () => {
                 <CardDescription className="text-center text-gray-600 dark:text-gray-300">
                   {user
                     ? "Cliquez sur votre nom pour accéder à votre espace personnel"
-                    : "Connectez-vous pour accéder à vos états des lieux"}
+                    : "Connectez-vous pour accéder à vos outils"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-6 py-6">

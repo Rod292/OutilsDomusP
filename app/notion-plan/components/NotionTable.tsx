@@ -411,9 +411,32 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
         return;
       }
       
-      // Convertir la date si nécessaire
-      const dateToStore = newDate;
-      console.log("Date à enregistrer:", dateToStore);
+      // Valider la date avant de l'utiliser
+      let dateToStore: Date | null = null;
+      if (newDate) {
+        try {
+          // S'assurer que la date est valide
+          if (newDate instanceof Date && !isNaN(newDate.getTime())) {
+            dateToStore = newDate;
+            console.log(`Date valide pour mise à jour de tâche: ${dateToStore.toISOString()}`);
+          } else {
+            // Tenter de créer une date valide
+            const attemptedDate = new Date(newDate);
+            if (!isNaN(attemptedDate.getTime())) {
+              dateToStore = attemptedDate;
+              console.log(`Date convertie valide pour tâche: ${dateToStore.toISOString()}`);
+            } else {
+              console.error(`Date invalide fournie pour tâche: ${newDate}`);
+              dateToStore = null;
+            }
+          }
+        } catch (dateError) {
+          console.error(`Erreur lors de la validation de la date de tâche: ${dateError}`);
+          dateToStore = null;
+        }
+      }
+      
+      console.log("Date à enregistrer:", dateToStore ? dateToStore.toISOString() : 'null');
       
       await onUpdateTask({
         id: taskId,
@@ -511,13 +534,38 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
     const existingComm = updatedDetails[commIndex];
     const originalIndex = existingComm.originalIndex !== undefined ? existingComm.originalIndex : commIndex;
     
+    // Valider la date avant de l'utiliser
+    let validatedDate: Date | null = null;
+    if (newDate) {
+      try {
+        // S'assurer que la date est valide
+        if (newDate instanceof Date && !isNaN(newDate.getTime())) {
+          validatedDate = newDate;
+          console.log(`Date valide pour mise à jour: ${validatedDate.toISOString()}`);
+        } else {
+          // Tenter de créer une date valide
+          const attemptedDate = new Date(newDate);
+          if (!isNaN(attemptedDate.getTime())) {
+            validatedDate = attemptedDate;
+            console.log(`Date convertie valide: ${validatedDate.toISOString()}`);
+          } else {
+            console.error(`Date invalide fournie pour mise à jour: ${newDate}`);
+            validatedDate = null;
+          }
+        }
+      } catch (dateError) {
+        console.error(`Erreur lors de la validation de la date: ${dateError}`);
+        validatedDate = null;
+      }
+    }
+    
     updatedDetails[commIndex] = {
       ...existingComm,
-      deadline: newDate,
+      deadline: validatedDate,
       originalIndex // Préserver l'index original
     };
     
-    console.log(`Communication mise à jour à l'index ${commIndex}, index original: ${originalIndex}`);
+    console.log(`Communication mise à jour à l'index ${commIndex}, index original: ${originalIndex}, date: ${validatedDate?.toISOString() || 'null'}`);
     
     await onUpdateTask({
       id: taskId,
@@ -1196,21 +1244,73 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
   const DatePickerCell = ({ date, taskId, isCommunication = false, commIndex = -1 }: 
     { date: Date | null | undefined, taskId: string, isCommunication?: boolean, commIndex?: number }) => {
     
-    // Validation de la date pour éviter les erreurs de formattage
-    const isValidDate = (dateValue: Date | null | undefined): boolean => {
-      if (!dateValue) return false;
-      const timestamp = new Date(dateValue).getTime();
-      return !isNaN(timestamp);
-    };
+    // État local pour stocker si la date est valide
+    const [isDateValid, setIsDateValid] = useState<boolean>(false);
+    const [dateDisplay, setDateDisplay] = useState<string>("Date non définie");
+    const [safeDate, setSafeDate] = useState<Date | undefined>(undefined);
     
-    // Formattage sécurisé de la date
-    const safeFormatDate = (dateValue: Date | null | undefined): string => {
-      if (!dateValue || !isValidDate(dateValue)) return "Date non définie";
+    // Effet pour valider et formater la date lors de la réception des props
+    useEffect(() => {
       try {
-        return format(new Date(dateValue), "dd MMM yyyy", { locale: fr });
+        if (!date) {
+          setIsDateValid(false);
+          setDateDisplay("Date non définie");
+          setSafeDate(undefined);
+          return;
+        }
+        
+        // Tenter de créer une date valide
+        const dateObj = date instanceof Date 
+          ? new Date(date.getTime()) // Créer une copie pour éviter les mutations
+          : new Date(date);
+        
+        // Vérifier si la date est valide et dans une plage raisonnable
+        if (isNaN(dateObj.getTime())) {
+          console.log(`Date invalide reçue par DatePickerCell:`, date);
+          setIsDateValid(false);
+          setDateDisplay("Date non définie");
+          setSafeDate(undefined);
+          return;
+        }
+        
+        const year = dateObj.getFullYear();
+        if (year < 1900 || year > 2100) {
+          console.log(`Date hors limites (${year}) reçue par DatePickerCell:`, dateObj);
+          setIsDateValid(false);
+          setDateDisplay("Date hors limites");
+          setSafeDate(undefined);
+          return;
+        }
+        
+        // La date est valide
+        setIsDateValid(true);
+        setDateDisplay(format(dateObj, "dd MMM yyyy", { locale: fr }));
+        setSafeDate(dateObj);
       } catch (error) {
-        console.error("Erreur de formatage de date:", error);
-        return "Date invalide";
+        console.error("Erreur lors du traitement de la date dans DatePickerCell:", error);
+        setIsDateValid(false);
+        setDateDisplay("Date invalide");
+        setSafeDate(undefined);
+      }
+    }, [date]);
+    
+    // Fonction pour mettre à jour la date (sécurisée)
+    const handleDateSelect = (selectedDate: Date | undefined) => {
+      try {
+        if (selectedDate && isNaN(selectedDate.getTime())) {
+          console.error("Date sélectionnée invalide:", selectedDate);
+          return;
+        }
+        
+        const dateToUse = selectedDate || null;
+        
+        if (isCommunication && commIndex >= 0) {
+          updateCommunicationDate(taskId, commIndex, dateToUse);
+        } else {
+          updateDate(taskId, dateToUse);
+        }
+      } catch (error) {
+        console.error("Erreur lors de la sélection de date:", error);
       }
     };
     
@@ -1222,22 +1322,14 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
             className="px-1.5 py-0.5 h-auto flex items-center gap-1 justify-start min-w-[140px] hover:bg-gray-100 rounded text-xs"
           >
             <CalendarIcon className="h-3.5 w-3.5 text-gray-500" />
-            {safeFormatDate(date)}
+            {dateDisplay}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="p-0 w-auto" align="start">
           <Calendar
             mode="single"
-            selected={isValidDate(date) ? new Date(date!) : undefined}
-            onSelect={(day: Date | undefined) => {
-              if (isCommunication && commIndex >= 0) {
-                // Mise à jour de la date d'une communication
-                updateCommunicationDate(taskId, commIndex, day || null);
-              } else {
-                // Mise à jour de la date de la tâche principale
-                updateDate(taskId, day || null);
-              }
-            }}
+            selected={safeDate}
+            onSelect={handleDateSelect}
             initialFocus
           />
         </PopoverContent>
@@ -1281,9 +1373,22 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
       console.log("Communications existantes:", communicationDetails);
       
       // Créer une date valide pour éviter les erreurs de formattage
-      const currentDate = new Date();
-      // S'assurer que la date est valide en vérifiant si elle peut être convertie en timestamp
-      const validDeadline = isNaN(currentDate.getTime()) ? null : currentDate;
+      let validDeadline: Date | null;
+      try {
+        const currentDate = new Date();
+        // Vérifier explicitement que la date est valide
+        if (isNaN(currentDate.getTime())) {
+          console.error("Date actuelle invalide lors de la création d'une communication");
+          validDeadline = null;
+        } else {
+          // Utiliser la date actuelle validée
+          validDeadline = currentDate;
+          console.log(`Date valide créée pour nouvelle communication: ${validDeadline.toISOString()}`);
+        }
+      } catch (dateError) {
+        console.error("Erreur lors de la création de la date pour la nouvelle communication:", dateError);
+        validDeadline = null;
+      }
       
       // Créer une nouvelle communication avec tous les champs nécessaires explicitement définis
       const newCommunication: CommunicationDetail = {

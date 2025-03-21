@@ -303,14 +303,63 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
             
             // Normaliser les détails de communication si présents
             if (data.communicationDetails && Array.isArray(data.communicationDetails)) {
-              task.communicationDetails = data.communicationDetails.map((detail: any) => {
-                return {
-                  ...detail,
-                  deadline: detail.deadline ? 
-                    (detail.deadline instanceof Timestamp ? new Date(detail.deadline.toMillis()) : new Date(detail.deadline)) 
-                    : null
-                };
-              });
+              try {
+                task.communicationDetails = data.communicationDetails.map((detail: any, index: number) => {
+                  // Copier les données de base
+                  const normalizedComm = { ...detail };
+                  
+                  // Traitement spécial pour la date
+                  let deadline = null;
+                  
+                  if (detail.deadline) {
+                    try {
+                      // Convertir le Timestamp Firestore en Date JavaScript
+                      let dateObj: Date;
+                      
+                      if (detail.deadline instanceof Timestamp) {
+                        dateObj = new Date(detail.deadline.toMillis());
+                      } else if (typeof detail.deadline === 'object' && detail.deadline.seconds) {
+                        // Format Timestamp mais pas instance de Timestamp
+                        dateObj = new Date(detail.deadline.seconds * 1000);
+                      } else {
+                        // Tout autre format (string, etc.)
+                        dateObj = new Date(detail.deadline);
+                      }
+                      
+                      // Vérification exhaustive de validité
+                      if (!isNaN(dateObj.getTime())) {
+                        const year = dateObj.getFullYear();
+                        
+                        // Vérifier que l'année est raisonnable
+                        if (year >= 1900 && year <= 2100) {
+                          deadline = dateObj;
+                          console.log(`Tâche ${doc.id}, Communication ${index}: Date valide convertie: ${dateObj.toISOString()}`);
+                        } else {
+                          console.warn(`Tâche ${doc.id}, Communication ${index}: Date avec année hors limites (${year}), ignorée`);
+                          deadline = null;
+                        }
+                      } else {
+                        console.error(`Tâche ${doc.id}, Communication ${index}: Date invalide détectée, valeur originale:`, detail.deadline);
+                        deadline = null;
+                      }
+                    } catch (dateError) {
+                      console.error(`Tâche ${doc.id}, Communication ${index}: Erreur de conversion de date:`, dateError);
+                      deadline = null;
+                    }
+                  }
+                  
+                  // Remplacer la date par la version validée
+                  normalizedComm.deadline = deadline;
+                  
+                  return normalizedComm;
+                });
+                
+                // Log pour le débogage
+                console.log(`Tâche ${doc.id}: ${task.communicationDetails.length} communications normalisées`);
+              } catch (error) {
+                console.error(`Erreur lors de la normalisation des communications pour la tâche ${doc.id}:`, error);
+                task.communicationDetails = [];
+              }
             }
             
             return task;
@@ -621,10 +670,35 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
                 }
               });
               
-              // Traiter la date correctement
-              if (comm.deadline) {
-                cleanComm.deadline = Timestamp.fromDate(new Date(comm.deadline));
-              } else {
+              // Traitement sécurisé de la date
+              try {
+                if (comm.deadline) {
+                  // Protection spécifique contre les dates "Invalid Date"
+                  const dateToCheck = comm.deadline instanceof Date 
+                    ? comm.deadline 
+                    : new Date(comm.deadline);
+                  
+                  // Vérifier explicitement que la date est valide
+                  if (!isNaN(dateToCheck.getTime())) {
+                    const year = dateToCheck.getFullYear();
+                    // Vérifier aussi que l'année est dans une plage raisonnable
+                    if (year >= 1900 && year <= 2100) {
+                      // Date valide et raisonnable
+                      cleanComm.deadline = Timestamp.fromDate(dateToCheck);
+                      console.log(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Date valide convertie en Timestamp: ${dateToCheck.toISOString()}`);
+                    } else {
+                      console.error(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Date hors limites (${year}):`, dateToCheck.toISOString());
+                      cleanComm.deadline = null;
+                    }
+                  } else {
+                    console.error(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Date invalide détectée:`, comm.deadline);
+                    cleanComm.deadline = null;
+                  }
+                } else {
+                  cleanComm.deadline = null;
+                }
+              } catch (dateError) {
+                console.error(`GESTIONNAIRE DE MISE À JOUR [${updateId}]: Erreur lors du traitement de la date:`, dateError);
                 cleanComm.deadline = null;
               }
               
@@ -734,12 +808,52 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
             if (value !== undefined && key !== 'id') {
               // Pour les dates, s'assurer qu'elles sont bien de type Date
               if (key === 'dueDate' || key === 'reminder') {
-                // @ts-ignore
-                updatedTask[key] = value ? new Date(value) : null;
-                // Log de débogage pour les dates
-                console.log(`[SYNC DEBUG] Mise à jour de la date ${key} pour la tâche ${task.id}:`, 
-                  value ? new Date(value as string | number | Date).toLocaleString() : 'null');
-              } 
+                try {
+                  if (value) {
+                    let tempDate: Date;
+                    
+                    // Convertir en Date selon le type
+                    if (value instanceof Date) {
+                      tempDate = new Date(value.getTime()); // Copie pour éviter les mutations
+                    } else if (typeof value === 'object' && 'seconds' in value) {
+                      // Firestore Timestamp
+                      tempDate = new Date((value as any).seconds * 1000);
+                    } else {
+                      // String, number ou autre
+                      tempDate = new Date(value as string | number);
+                    }
+                    
+                    // Vérifier que la date est valide
+                    if (!isNaN(tempDate.getTime())) {
+                      const year = tempDate.getFullYear();
+                      
+                      // Vérifier que l'année est dans une plage raisonnable
+                      if (year >= 1900 && year <= 2100) {
+                        // @ts-ignore
+                        updatedTask[key] = tempDate;
+                        
+                        console.log(`[SYNC DEBUG] Mise à jour de la date ${key} pour la tâche ${task.id}: ${tempDate.toISOString()}`);
+                      } else {
+                        console.error(`[SYNC DEBUG] Date ${key} avec année hors limites (${year}) rejetée`);
+                        // @ts-ignore
+                        updatedTask[key] = null;
+                      }
+                    } else {
+                      console.error(`[SYNC DEBUG] Date ${key} invalide rejetée:`, value);
+                      // @ts-ignore
+                      updatedTask[key] = null;
+                    }
+                  } else {
+                    // @ts-ignore
+                    updatedTask[key] = null;
+                    console.log(`[SYNC DEBUG] Mise à jour de la date ${key} pour la tâche ${task.id}: null`);
+                  }
+                } catch (error) {
+                  console.error(`[SYNC DEBUG] Erreur lors du traitement de la date ${key}:`, error);
+                  // @ts-ignore
+                  updatedTask[key] = null;
+                }
+              }
               else if (key === 'communicationDetails' && value) {
                 console.log(`[SYNC DEBUG] Mise à jour des communicationDetails pour la tâche ${task.id}`);
                 // Log détaillé avant la conversion
@@ -774,22 +888,49 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
                   // Convertir la deadline en Date, quelle que soit sa forme actuelle
                   let deadlineDate = null;
                   if (comm.deadline) {
-                    if (comm.deadline instanceof Date) {
-                      deadlineDate = comm.deadline;
-                    } else if (typeof comm.deadline === 'object' && comm.deadline.seconds) {
-                      // Firestore Timestamp
-                      deadlineDate = new Date(comm.deadline.seconds * 1000);
-                    } else {
-                      // String, number ou autre
-                      deadlineDate = new Date(comm.deadline);
+                    try {
+                      let tempDate: Date;
+                      
+                      if (comm.deadline instanceof Date) {
+                        if (!isNaN(comm.deadline.getTime())) {
+                          tempDate = new Date(comm.deadline.getTime()); // Copie propre
+                        } else {
+                          console.error(`[SYNC DEBUG] Instance de Date invalide:`, comm.deadline);
+                          tempDate = new Date(); // Date par défaut
+                        }
+                      } else if (typeof comm.deadline === 'object' && comm.deadline.seconds) {
+                        // Firestore Timestamp
+                        tempDate = new Date(comm.deadline.seconds * 1000);
+                      } else {
+                        // String, number ou autre
+                        tempDate = new Date(comm.deadline);
+                      }
+                      
+                      // Vérifier que la date finale est valide
+                      if (!isNaN(tempDate.getTime())) {
+                        const year = tempDate.getFullYear();
+                        if (year >= 1900 && year <= 2100) {
+                          // Date valide
+                          deadlineDate = tempDate;
+                        } else {
+                          console.error(`[SYNC DEBUG] Date avec année hors limites (${year}):`, tempDate.toISOString());
+                          deadlineDate = null;
+                        }
+                      } else {
+                        console.error(`[SYNC DEBUG] Date invalide après conversion: ${typeof comm.deadline}`);
+                        deadlineDate = null;
+                      }
+                    } catch (error) {
+                      console.error(`[SYNC DEBUG] Erreur lors de la conversion de la date:`, error, comm.deadline);
+                      deadlineDate = null;
                     }
                   }
                   
-                  console.log(`[SYNC DEBUG] Communication ${comm.type}: deadline de type ${deadlineType} convertie en ${deadlineDate ? deadlineDate.toLocaleString() : 'null'}`);
+                  console.log(`[SYNC DEBUG] Communication ${comm.type}: deadline de type ${deadlineType} convertie en ${deadlineDate ? deadlineDate.toISOString() : 'null'}`);
                   
                   return {
                     ...comm,
-                    // S'assurer que les dates sont des objets Date dans l'état local
+                    // S'assurer que les dates sont des objets Date valides dans l'état local
                     deadline: deadlineDate
                   };
                 });

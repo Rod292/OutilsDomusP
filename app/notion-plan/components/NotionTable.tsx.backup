@@ -1316,7 +1316,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
                               className="h-8 text-xs flex items-center"
                             >
                               <PlusIcon className="h-3 w-3 mr-1" />
-                              Ajouter un type de communication
+                              Ajouter un type de communication / une tâche
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
