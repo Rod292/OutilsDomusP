@@ -36,6 +36,40 @@ async function deleteAllNotifications() {
   }
 }
 
+// Fonction pour ajouter un token de test dans la collection 'notificationTokens'
+async function addTestToken() {
+  console.log('Ajout d\'un token de test dans la collection notificationTokens...');
+  
+  try {
+    // Vérifier si la collection existe
+    const snapshot = await db.collection('notificationTokens').limit(1).get();
+    
+    // Créer un token de test
+    const timestamp = new Date();
+    const testToken = {
+      token: `TEST_TOKEN_${timestamp.getTime()}`,
+      userId: 'photos.pers@gmail.com_npers',
+      email: 'photos.pers@gmail.com',
+      userAgent: 'Mozilla/5.0 Mobile Safari/537.36',
+      platform: 'iPhone',
+      timestamp: Date.now(),
+      deviceType: 'iphone',
+      isAppleDevice: true
+    };
+    
+    // Ajouter le token à la collection
+    const docRef = await db.collection('notificationTokens').add(testToken);
+    
+    console.log(`✅ Token de test ajouté avec l'ID: ${docRef.id}`);
+    console.log(`Token créé pour l'utilisateur: ${testToken.userId}`);
+    
+    return 1;
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'ajout du token de test:', error);
+    throw error;
+  }
+}
+
 // Fonction pour supprimer les doublons dans la collection 'teamMembers'
 async function removeDuplicateTeamMembers() {
   console.log('Début de la suppression des doublons dans la collection teamMembers...');
@@ -115,7 +149,8 @@ export async function GET(request: NextRequest) {
     
     let results = {
       notificationsDeleted: 0,
-      duplicatesRemoved: 0
+      duplicatesRemoved: 0,
+      tokensAdded: 0
     };
     
     // Exécuter l'action demandée
@@ -125,6 +160,10 @@ export async function GET(request: NextRequest) {
     
     if (action === 'team' || action === 'all') {
       results.duplicatesRemoved = await removeDuplicateTeamMembers();
+    }
+    
+    if (action === 'addTestToken') {
+      results.tokensAdded = await addTestToken();
     }
     
     // Retourner les résultats

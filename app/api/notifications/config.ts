@@ -30,7 +30,7 @@ export const NOTIFICATION_CONFIG = {
   /**
    * Force le nettoyage des tokens lors de chaque enregistrement
    */
-  FORCE_TOKEN_CLEANUP: true,
+  FORCE_TOKEN_CLEANUP: false, // Temporairement désactivé pour résoudre le problème de réception des notifications
   
   /**
    * Textes utilisés dans l'interface pour les notifications
