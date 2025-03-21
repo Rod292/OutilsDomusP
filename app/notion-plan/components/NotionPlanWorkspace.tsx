@@ -656,8 +656,38 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
       // Copier toutes les propriétés de task sauf id
       Object.entries(task).forEach(([key, value]) => {
         if (key !== 'id' && value !== undefined) {
-          // Traitement spécial pour communicationDetails pour s'assurer que les dates sont en format Timestamp
-          if (key === 'communicationDetails' && Array.isArray(value)) {
+          // Traitement spécial pour les dates principales
+          if ((key === 'dueDate' || key === 'reminder') && value) {
+            try {
+              // Convertir en Date si ce n'est pas déjà le cas
+              const dateToCheck = value instanceof Date ? 
+                value : 
+                (typeof value === 'string' || typeof value === 'number' ? 
+                  new Date(value) : 
+                  null);
+              
+              // Vérifier que la date est valide
+              if (dateToCheck && !isNaN(dateToCheck.getTime())) {
+                const year = dateToCheck.getFullYear();
+                if (year >= 1900 && year <= 2100) {
+                  // Convertir en Timestamp pour Firestore
+                  updateData[key] = Timestamp.fromDate(dateToCheck);
+                  console.log(`Date ${key} valide convertie en Timestamp: ${dateToCheck.toISOString()}`);
+                } else {
+                  console.error(`Date ${key} avec année hors limites (${year}):`, dateToCheck);
+                  updateData[key] = null;
+                }
+              } else {
+                console.error(`Date ${key} invalide:`, value);
+                updateData[key] = null;
+              }
+            } catch (error) {
+              console.error(`Erreur lors du traitement de la date ${key}:`, error);
+              updateData[key] = null;
+            }
+          }
+          // Traitement spécial pour communicationDetails
+          else if (key === 'communicationDetails' && Array.isArray(value)) {
             // Convertir toutes les dates en Timestamp pour Firestore
             updateData[key] = value.map((comm: any) => {
               // Créer un nouvel objet pour éviter de modifier l'original
