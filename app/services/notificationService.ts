@@ -90,9 +90,6 @@ export const sendLocalNotification = async (notification: {
     
     console.log('sendLocalNotification: Création de la notification avec:', { title, body, data });
     
-    // Pour iOS/Safari, on ajoute un timestamp pour éviter les notifications dupliquées
-    const uniqueTag = data?.taskId || `notification-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    
     // AJOUT: Vérifier si le service worker est actif
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
       try {
@@ -105,9 +102,7 @@ export const sendLocalNotification = async (notification: {
             icon,
             data,
             requireInteraction: true,
-            tag: uniqueTag,
-            // @ts-ignore - Ignorer l'erreur de typage pour renotify
-            renotify: false, // Ne pas afficher plusieurs fois pour le même tag
+            tag: data?.taskId || `notification-${Date.now()}`,
             // Les actions sont supportées par le service worker mais pas par l'API standard
             // @ts-ignore - Ignorer l'erreur de typage pour les actions
             actions: [
@@ -131,7 +126,7 @@ export const sendLocalNotification = async (notification: {
       icon,
       data,
       requireInteraction: true, // Garder la notification visible jusqu'à ce que l'utilisateur interagisse avec
-      tag: uniqueTag // Ajouter un tag unique pour identifier la notification
+      tag: data?.taskId || `notification-${Date.now()}` // Ajouter un tag unique pour identifier la notification
     });
     
     notif.onclick = () => {
@@ -200,82 +195,6 @@ export const saveNotificationToken = async (userId: string, token: string): Prom
       return false;
     }
     
-    // Déterminer le type d'appareil actuel
-    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : 'unknown';
-    const platform = typeof navigator !== 'undefined' ? navigator.platform : 'unknown';
-    
-    // Déterminer si c'est un appareil Apple
-    const isApple = userAgent.includes('iphone') || 
-                   userAgent.includes('ipad') || 
-                   userAgent.includes('macintosh') ||
-                   platform.toLowerCase().includes('iphone') ||
-                   platform.toLowerCase().includes('ipad') ||
-                   platform.toLowerCase().includes('mac');
-    
-    // Catégoriser l'appareil
-    let deviceType = 'other';
-    if (userAgent.includes('iphone')) deviceType = 'iphone';
-    else if (userAgent.includes('ipad')) deviceType = 'ipad';
-    else if (userAgent.includes('macintosh')) deviceType = 'mac';
-    else if (userAgent.includes('android')) deviceType = 'android';
-    
-    // Si l'option de nettoyage forcé est activée, nettoyer les tokens obsolètes
-    if (NOTIFICATION_CONFIG.FORCE_TOKEN_CLEANUP) {
-      // Récupérer tous les tokens existants pour cet utilisateur
-      const allTokensQuery = query(
-        collection(db, TOKEN_COLLECTION),
-        where('userId', '==', userId)
-      );
-      
-      const allTokensSnapshot = await getDocs(allTokensQuery);
-      
-      if (!allTokensSnapshot.empty) {
-        // Regrouper les tokens par type d'appareil
-        const tokensByDevice: Record<string, {id: string, token: string, timestamp: number}[]> = {};
-        
-        allTokensSnapshot.forEach(doc => {
-          const data = doc.data();
-          const tokenUserAgent = (data.userAgent || '').toLowerCase();
-          
-          // Déterminer le type d'appareil
-          let tokenDeviceType = 'other';
-          if (tokenUserAgent.includes('iphone')) tokenDeviceType = 'iphone';
-          else if (tokenUserAgent.includes('ipad')) tokenDeviceType = 'ipad';
-          else if (tokenUserAgent.includes('macintosh')) tokenDeviceType = 'mac';
-          else if (tokenUserAgent.includes('android')) tokenDeviceType = 'android';
-          
-          if (!tokensByDevice[tokenDeviceType]) {
-            tokensByDevice[tokenDeviceType] = [];
-          }
-          
-          tokensByDevice[tokenDeviceType].push({
-            id: doc.id,
-            token: data.token,
-            timestamp: data.timestamp || 0
-          });
-        });
-        
-        // Pour le type d'appareil actuel, supprimer tous les tokens sauf celui qu'on veut enregistrer
-        if (tokensByDevice[deviceType]) {
-          // Trouver tous les tokens de ce type d'appareil sauf le token actuel
-          const tokensToDelete = tokensByDevice[deviceType]
-            .filter(t => t.token !== token);
-          
-          console.log(`${tokensToDelete.length} anciens tokens à supprimer pour le type d'appareil ${deviceType}`);
-          
-          // Supprimer chaque token obsolète
-          for (const tokenData of tokensToDelete) {
-            try {
-              await deleteDoc(doc(db, TOKEN_COLLECTION, tokenData.id));
-              console.log(`Token obsolète supprimé: ${tokenData.id.substring(0, 8)}...`);
-            } catch (deleteError) {
-              console.error(`Erreur lors de la suppression du token ${tokenData.id}:`, deleteError);
-            }
-          }
-        }
-      }
-    }
-    
     // Vérifier si ce token existe déjà pour cet utilisateur
     const tokensRef = collection(db, TOKEN_COLLECTION);
     const q = query(tokensRef, 
@@ -291,8 +210,7 @@ export const saveNotificationToken = async (userId: string, token: string): Prom
       await updateDoc(docRef, {
         timestamp: Date.now(),
         lastUpdated: serverTimestamp(),
-        email, // Ajouter/mettre à jour l'email
-        deviceType // Ajouter/mettre à jour le type d'appareil
+        email // Ajouter/mettre à jour l'email
       });
       console.log(`Token existant mis à jour pour l'utilisateur: ${userId}`);
       return true;
@@ -307,13 +225,11 @@ export const saveNotificationToken = async (userId: string, token: string): Prom
       createdAt: serverTimestamp(),
       lastUpdated: serverTimestamp(),
       platform: typeof navigator !== 'undefined' ? navigator.platform : 'unknown',
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-      deviceType, // Ajouter le type d'appareil
-      isApple // Indiquer si c'est un appareil Apple
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
     };
     
     await addDoc(tokensRef, tokenData);
-    console.log(`Nouveau token enregistré pour l'utilisateur: ${userId} (appareil: ${deviceType})`);
+    console.log(`Nouveau token enregistré pour l'utilisateur: ${userId}`);
     
     return true;
   } catch (error) {
@@ -902,102 +818,88 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Envoie une notification pour une tâche assignée
- * @param notificationData Données de la notification
- * @returns Promise<boolean> True si la notification a été envoyée avec succès
+ * Envoie une notification pour une tâche assignée à un consultant
+ * @param params Paramètres de la notification
+ * @returns Promise<boolean> true si la notification est envoyée avec succès
  */
-export const sendTaskAssignedNotification = async (notificationData: {
+export const sendTaskAssignedNotification = async (params: {
   userId: string;
   title: string;
   body: string;
-  type: 'task_assigned' | 'task_reminder' | 'system' | 'communication_assigned';
-  taskId?: string;
+  taskId: string;
+  isCommunication?: boolean;
+  communicationIndex?: number;
+  recipientEmail: string;
 }): Promise<boolean> => {
   try {
-    console.log(`Préparation notification pour ${notificationData.userId.includes('_') ? notificationData.userId.split('_')[1] : notificationData.userId} (${notificationData.userId.includes('_') ? notificationData.userId.split('_')[0] : 'Utilisateur inconnu'})`);
-    
-    // Essayer d'envoyer via l'API
-    console.log('Envoi de notification:', notificationData);
-    
-    // Si FCM est désactivé, essayer d'envoyer localement
-    if (!NOTIFICATION_CONFIG.USE_FCM && typeof window !== 'undefined') {
-      console.log('Mode FCM désactivé - tentative d\'envoi de notification locale');
-      return await sendLocalNotification({
-        title: notificationData.title,
-        body: notificationData.body,
-        data: {
-          type: notificationData.type,
-          taskId: notificationData.taskId,
-          userId: notificationData.userId
-        }
-      });
-    }
-    
-    // Sinon, utiliser l'API de notification
-    const response = await fetch('/api/notifications/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(notificationData),
-    });
-    
-    console.log('Réponse API notifications/send:', response);
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Erreur API notifications/send:', errorData);
-      
-      // En cas d'erreur, essayer d'envoyer une notification locale
-      if (typeof window !== 'undefined') {
-        console.log('Tentative de repli sur notification locale après erreur API');
-        return await sendLocalNotification({
-          title: notificationData.title,
-          body: notificationData.body,
-          data: {
-            type: notificationData.type,
-            taskId: notificationData.taskId,
-            userId: notificationData.userId
-          }
-        });
-      }
-      
+    // Vérifier si nous sommes côté client
+    if (typeof window === 'undefined') {
+      console.log('Impossible d\'envoyer une notification côté serveur');
       return false;
     }
+
+    // Vérifier les paramètres essentiels
+    if (!params.taskId || !params.userId || !params.title || !params.body) {
+      console.error('Paramètres requis manquants pour l\'envoi de notification');
+      return false;
+    }
+
+    const notificationType = params.isCommunication ? "communication_assigned" : "task_assigned";
     
-    const data = await response.json();
-    console.log('Résultat de l\'envoi de notification:', data);
+    // Déduire le nom du consultant si nécessaire
+    const consultantName = params.recipientEmail?.split('@')[0] || params.recipientEmail;
+    console.log(`Préparation notification pour ${consultantName} (${params.recipientEmail})`);
     
-    // Si nous sommes en mode local (FCM désactivé ou pas de token trouvé)
-    if (data.useLocalMode === true) {
-      // Essayer d'envoyer une notification locale si possible
-      if (typeof window !== 'undefined') {
-        console.log('Mode local détecté - tentative d\'envoi de notification locale');
-        return await sendLocalNotification({
-          title: notificationData.title,
-          body: notificationData.body,
-          data: {
-            type: notificationData.type,
-            taskId: notificationData.taskId,
-            userId: notificationData.userId
-          }
-        });
+    // Construire les données complètes de notification
+    const notificationData = {
+      userId: params.userId,
+      title: params.title,
+      body: params.body,
+      type: notificationType as "task_assigned" | "task_reminder" | "system" | "communication_assigned",
+      taskId: params.taskId,
+      communicationIndex: params.communicationIndex,
+      mode: 'FCM' // Force l'utilisation de Firebase Cloud Messaging
+    };
+
+    console.log(`Envoi de notification:`, notificationData);
+    
+    try {
+      // Utiliser une URL relative pour éviter les problèmes de domaine
+      const response = await fetch('/api/notifications/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(notificationData),
+      });
+
+      // Afficher les détails de la réponse pour le débogage
+      console.log(`Réponse API notifications/send:`, {
+        status: response.status,
+        statusText: response.statusText
+      });
+
+      // Si l'API échoue, enregistrer l'erreur mais ne pas tenter d'envoyer en mode local
+      // pour éviter les notifications en double
+      if (!response.ok) {
+        console.error(`Erreur API de notification: ${response.status} - ${response.statusText}`);
+        return false;
       }
-    }
-    
-    // Si la notification a été envoyée avec succès
-    if (data.success === true || (data.sent && data.sent > 0)) {
+      
+      const result = await response.json();
+      console.log('Résultat de l\'envoi de notification:', result);
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      
       return true;
+    } catch (apiError) {
+      console.error('Erreur lors de l\'appel API de notification:', apiError);
+      return false;
     }
-    
-    // Si la notification a échoué
-    if (data.error) {
-      throw new Error(data.error);
-    }
-    
-    return false;
   } catch (error) {
-    console.error('Erreur lors de l\'appel API de notification:', error);
+    console.error('Erreur générale lors de l\'envoi de notification:', error);
     return false;
   }
 }; 

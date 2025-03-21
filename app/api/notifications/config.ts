@@ -9,7 +9,7 @@ export const NOTIFICATION_CONFIG = {
    * Active ou désactive l'utilisation de Firebase Cloud Messaging
    * Si défini à false, les notifications seront gérées en local uniquement
    */
-  USE_FCM: false, // Temporairement désactivé pour résoudre le problème de notifications
+  USE_FCM: true, // Mettre à true pour utiliser FCM, false pour le mode local uniquement
   
   /**
    * Active ou désactive l'authentification API pour les endpoints de notification
@@ -20,17 +20,6 @@ export const NOTIFICATION_CONFIG = {
    * Enregistre les notifications dans Firestore même si FCM est désactivé
    */
   STORE_NOTIFICATIONS: true,
-  
-  /**
-   * Limite de tokens FCM par utilisateur et par type d'appareil
-   * Cette limite aide à éviter les doublons de notifications
-   */
-  MAX_TOKENS_PER_DEVICE_TYPE: 1,
-  
-  /**
-   * Force le nettoyage des tokens lors de chaque enregistrement
-   */
-  FORCE_TOKEN_CLEANUP: false, // Temporairement désactivé pour résoudre le problème de réception des notifications
   
   /**
    * Textes utilisés dans l'interface pour les notifications

@@ -16,6 +16,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import admin from '@/app/firebase-admin';
 import { NOTIFICATION_CONFIG } from '../config';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+
+// Collections
+const TOKEN_COLLECTION = 'notificationTokens';
+const NOTIFICATION_COLLECTION = 'notifications';
+const PREFERENCES_COLLECTION = 'notificationPreferences';
 
 // Vérifier si l'admin est correctement initialisé
 const getAdminFirestore = () => {
@@ -61,6 +67,53 @@ function sanitizeFirestoreData(data: any): any {
   return data;
 }
 
+// Fonction pour vérifier les préférences de notifications d'un utilisateur
+async function checkNotificationPreferences(
+  db: FirebaseFirestore.Firestore,
+  userId: string,
+  type: string
+): Promise<boolean> {
+  try {
+    // Extraire l'email de l'utilisateur et le consultant depuis l'ID
+    const [userEmail, consultantName] = userId.split('_');
+    if (!userEmail || !consultantName) {
+      console.log(`Format d'ID utilisateur incorrect: ${userId}`);
+      return true; // Par défaut, autoriser l'envoi
+    }
+    
+    // Rechercher les préférences avec l'API admin
+    const prefsQuery = db.collection(PREFERENCES_COLLECTION)
+      .where('userId', '==', userEmail)
+      .where('consultantEmail', '==', `${consultantName}@arthurloydbretagne.fr`);
+    
+    const prefsSnapshot = await prefsQuery.get();
+    
+    // Si aucune préférence n'est trouvée, autoriser par défaut
+    if (prefsSnapshot.empty) {
+      console.log(`Aucune préférence trouvée pour ${userId}, autorisation par défaut`);
+      return true;
+    }
+    
+    // Vérifier le type de notification
+    const prefs = prefsSnapshot.docs[0].data();
+    
+    // Vérifier le type correspondant
+    switch (type) {
+      case 'task_assigned':
+        return prefs.taskAssigned !== false;
+      case 'communication_assigned':
+        return prefs.communicationAssigned !== false;
+      case 'task_reminder':
+        return prefs.taskReminders !== false;
+      default:
+        return true; // Types non gérés sont autorisés par défaut
+    }
+  } catch (error) {
+    console.error('Erreur lors de la vérification des préférences:', error);
+    return true; // En cas d'erreur, autoriser par défaut
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Vérifier l'authentification si l'API key est activée
@@ -101,14 +154,21 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Extraire les données de la notification
-    const data = await request.json();
-    const { userId, title, body, type, taskId } = data;
-    
-    // Vérifier les paramètres requis
-    if (!userId || !title || !body || !type) {
+    const { 
+      userId, 
+      title, 
+      body, 
+      type = 'system',
+      taskId = '',
+      communicationIndex,
+      mode = 'auto',
+      data = {}
+    } = await request.json();
+
+    // Valider les paramètres requis
+    if (!userId || !title || !body) {
       return NextResponse.json(
-        { error: 'Paramètres manquants: userId, title, body et type sont requis' },
+        { error: 'Paramètres requis manquants: userId, title, body' },
         { status: 400 }
       );
     }
@@ -123,39 +183,47 @@ export async function POST(request: NextRequest) {
       mode: NOTIFICATION_CONFIG.USE_FCM ? 'FCM' : 'local'
     });
     
-    // Enregistrer la notification dans Firestore
-    if (NOTIFICATION_CONFIG.STORE_NOTIFICATIONS) {
-      try {
-        // On n'utilise plus l'import dynamique ici car il cause des problèmes d'initialisation
-        // Utiliser directement Firestore Admin
-        const db = getAdminFirestore();
-        
-        if (db) {
-          // CORRECTION: Nettoyer les données avant de les ajouter à Firestore
-          const cleanedData = sanitizeFirestoreData({
-            userId,
-            title,
-            body,
-            type,
-            taskId: taskId || null, // Utiliser null au lieu de undefined
-            read: false,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          });
-          
-          // Créer la notification directement dans Firestore
-          await db.collection('notifications').add(cleanedData);
-          
-          console.log(`Notification enregistrée dans Firestore pour ${userId}`);
-        } else {
-          console.warn('Impossible d\'enregistrer la notification dans Firestore: Admin non initialisé');
-        }
-      } catch (firestoreError) {
-        console.error('Erreur lors de l\'enregistrement de la notification dans Firestore:', firestoreError);
-        // Continuer malgré l'erreur, car on peut toujours essayer d'envoyer la notification
-      }
+    // Initialiser Firestore
+    const db = getAdminFirestore();
+    if (!db) {
+      return NextResponse.json({
+        success: false,
+        error: 'Erreur d\'initialisation Firebase Admin'
+      }, { status: 500 });
     }
     
+    // Vérifier si la notification doit être envoyée selon les préférences utilisateur
+    const shouldSendNotification = await checkNotificationPreferences(db, userId, type);
+    
+    if (!shouldSendNotification) {
+      console.log(`Notification non envoyée car l'utilisateur ${userId} a désactivé les notifications de type ${type}`);
+      return NextResponse.json({
+        success: false,
+        message: 'Notification non envoyée (désactivée dans les préférences)',
+        notificationStatus: 'disabled'
+      });
+    }
+
+    // Enregistrement de la notification dans Firestore
+    const notificationData = {
+      userId,
+      title,
+      body,
+      type,
+      taskId: taskId || null,
+      communicationIndex: communicationIndex || null,
+      read: false,
+      timestamp: new Date(),
+      data: sanitizeFirestoreData(data)
+    };
+    
+    await db.collection(NOTIFICATION_COLLECTION).add(notificationData);
+    console.log(`Notification enregistrée dans Firestore pour ${userId}`);
+    
+    // Extraire l'email utilisateur et le consultant à partir de l'ID
+    const [userEmail, consultantName] = userId.split('_');
+    console.log(`Extraction de l'email utilisateur: ${userEmail} et consultant: ${consultantName}`);
+
     // Si FCM est désactivé, on retourne une réponse spéciale pour le mode local
     if (!NOTIFICATION_CONFIG.USE_FCM) {
       return NextResponse.json({
@@ -173,7 +241,6 @@ export async function POST(request: NextRequest) {
     }
     
     // Chercher les tokens FCM pour cet utilisateur dans Firestore
-    const db = getAdminFirestore();
     if (!db) {
       return NextResponse.json({
         success: false,
@@ -188,23 +255,17 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    // MODIFICATION: Extraire l'email de l'utilisateur depuis userId (format: email_consultant)
-    const userEmail = userId.includes('_') ? userId.split('_')[0] : userId;
-    const consultantName = userId.includes('_') ? userId.split('_')[1] : '';
-
-    console.log(`Extraction de l'email utilisateur: ${userEmail} et consultant: ${consultantName}`);
-
     // IMPORTANTE MODIFICATION: Chercher tous les tokens pour cet email utilisateur
     // et pour la combinaison spécifique email_consultant
     let tokensQuery;
     if (consultantName) {
       // Format spécifique email_consultant
-      tokensQuery = db.collection('notificationTokens')
+      tokensQuery = db.collection(TOKEN_COLLECTION)
         .where('userId', '==', userId)
         .get();
     } else {
       // Dans le cas d'une notification sans consultant spécifique, utiliser seulement l'email
-      tokensQuery = db.collection('notificationTokens')
+      tokensQuery = db.collection(TOKEN_COLLECTION)
         .where('email', '==', userEmail)
         .get();
     }
@@ -287,8 +348,7 @@ export async function POST(request: NextRequest) {
       const messaging = admin.messaging();
       
       // Construire le message FCM avec les options spécifiques pour iOS
-      const response = await messaging.sendEachForMulticast({
-        tokens: tokensToNotify,
+      const message = {
         notification: {
           title,
           body
@@ -305,22 +365,16 @@ export async function POST(request: NextRequest) {
             aps: {
               sound: 'default',
               badge: 1,
-              // Utiliser un thread-id qui restera constant pour toutes les notifications destinées au même userId
-              // Cela forcera iOS à remplacer/regrouper les notifications plutôt que les afficher séparément
-              'thread-id': userId,
-              // Ajouter le paramètre content-available pour réveiller l'app
-              'content-available': 1,
-              // Ajouter un identifiant de catégorie pour aider au regroupement
-              'category': type || 'default',
-              // Forcer le mode de présentation alert pour les notifications
-              'mutable-content': 1
+              'thread-id': `${type || 'default'}_${taskId || Date.now()}`
             }
-          },
-          headers: {
-            // Ajouter des en-têtes pour le déduplication
-            "apns-collapse-id": taskId || userId
           }
         }
+      };
+
+      // Envoyer les notifications avec les tokens filtrés
+      const response = await messaging.sendEachForMulticast({
+        tokens: tokensToNotify,
+        ...message
       });
 
       console.log(`Notification envoyée (${tokensToNotify.length} appareils):`, {
@@ -373,7 +427,7 @@ export async function GET(request: Request) {
     }
 
     // Récupérer les notifications de l'utilisateur
-    const notificationsSnapshot = await admin.firestore().collection('notifications')
+    const notificationsSnapshot = await admin.firestore().collection(NOTIFICATION_COLLECTION)
       .where('userId', '==', userId)
       .orderBy('createdAt', 'desc')
       .limit(20)
