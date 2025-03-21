@@ -272,12 +272,8 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
               status: data.status || 'not_started',
               priority: data.priority || 'medium',
               assignedTo: data.assignedTo || '',
-              dueDate: data.dueDate ? 
-                (data.dueDate instanceof Timestamp ? new Date(data.dueDate.toMillis()) : new Date(data.dueDate)) 
-                : null,
-              reminder: data.reminder ? 
-                (data.reminder instanceof Timestamp ? new Date(data.reminder.toMillis()) : new Date(data.reminder)) 
-                : null,
+              dueDate: null, // Initialiser à null, sera défini après validation
+              reminder: null, // Initialiser à null, sera défini après validation
               tags: data.tags || [],
               propertyAddress: data.propertyAddress || '',
               dossierNumber: data.dossierNumber || '',
@@ -294,6 +290,47 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
               mandatSigne: data.mandatSigne === true,
               isFavorite: data.isFavorite === true
             };
+            
+            // Traitement et validation des dates principales
+            ['dueDate', 'reminder'].forEach(dateField => {
+              if (data[dateField]) {
+                try {
+                  // Convertir en Date selon le format
+                  let dateObj: Date;
+                  
+                  if (data[dateField] instanceof Timestamp) {
+                    dateObj = new Date(data[dateField].toMillis());
+                  } else if (typeof data[dateField] === 'object' && data[dateField].seconds) {
+                    // Format Timestamp mais pas instance de Timestamp
+                    dateObj = new Date(data[dateField].seconds * 1000);
+                  } else {
+                    // Tout autre format (string, etc.)
+                    dateObj = new Date(data[dateField]);
+                  }
+                  
+                  // Vérification de validité
+                  if (!isNaN(dateObj.getTime())) {
+                    const year = dateObj.getFullYear();
+                    
+                    // Vérifier que l'année est raisonnable
+                    if (year >= 1900 && year <= 2100) {
+                      // Assigner la date valide
+                      task[dateField as 'dueDate' | 'reminder'] = dateObj;
+                      console.log(`Tâche ${doc.id}: Date ${dateField} valide convertie: ${dateObj.toISOString()}`);
+                    } else {
+                      console.warn(`Tâche ${doc.id}: Date ${dateField} avec année hors limites (${year}), ignorée`);
+                      task[dateField as 'dueDate' | 'reminder'] = null;
+                    }
+                  } else {
+                    console.error(`Tâche ${doc.id}: Date ${dateField} invalide détectée, valeur originale:`, data[dateField]);
+                    task[dateField as 'dueDate' | 'reminder'] = null;
+                  }
+                } catch (dateError) {
+                  console.error(`Tâche ${doc.id}: Erreur de conversion de date ${dateField}:`, dateError);
+                  task[dateField as 'dueDate' | 'reminder'] = null;
+                }
+              }
+            });
             
             console.log(`Tâche ${doc.id} récupérée avec mandatSigne =`, data.mandatSigne, 
               "→ normalisé à", data.mandatSigne === true);
