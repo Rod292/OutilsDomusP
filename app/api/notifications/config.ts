@@ -9,7 +9,7 @@ export const NOTIFICATION_CONFIG = {
    * Active ou désactive l'utilisation de Firebase Cloud Messaging
    * Si défini à false, les notifications seront gérées en local uniquement
    */
-  USE_FCM: true, // Mettre à true pour utiliser FCM, false pour le mode local uniquement
+  USE_FCM: false, // Temporairement désactivé pour résoudre le problème de notifications
   
   /**
    * Active ou désactive l'authentification API pour les endpoints de notification
