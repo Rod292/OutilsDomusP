@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import admin from '@/app/firebase-admin';
 
+// Force la route à être dynamique pour éviter l'erreur de compilation statique
+export const dynamic = 'force-dynamic';
+
 const db = admin.firestore();
 
 // Fonction pour supprimer tous les documents de la collection 'notifications'

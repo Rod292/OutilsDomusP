@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/app/hooks/useAuth";
 import { getFirestore, collection, query, where, getDocs, doc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +41,17 @@ interface NotificationPreference {
   taskReminders: boolean;
   createdAt: Date;
 }
+
+// Composant de chargement pour le Suspense
+const NotificationPreferencesLoading = () => (
+  <>
+    <Header />
+    <div className="flex flex-col items-center justify-center min-h-screen py-12">
+      <LoadingSpinner size="lg" />
+      <p className="mt-4 text-gray-500">Chargement des préférences de notifications...</p>
+    </div>
+  </>
+);
 
 const NotificationPreferencesPage = () => {
   const { user } = useAuth();
@@ -340,4 +351,11 @@ const NotificationPreferencesPage = () => {
   );
 };
 
-export default NotificationPreferencesPage; 
+// Exporter le composant enveloppé dans Suspense
+export default function NotificationPreferencesWithSuspense() {
+  return (
+    <Suspense fallback={<NotificationPreferencesLoading />}>
+      <NotificationPreferencesPage />
+    </Suspense>
+  );
+} 
