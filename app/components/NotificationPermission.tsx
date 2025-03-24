@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Bell, BellOff, Loader2, Check } from 'lucide-react';
+import { Bell, BellOff, Loader2, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
@@ -14,193 +14,178 @@ import {
   checkConsultantPermission,
   NOTIFICATION_CONFIG
 } from '@/app/services/notificationService';
+import {
+  checkNotificationsSupport,
+  requestNotificationPermissionAndToken
+} from '@/app/services/firebase';
 
 export interface NotificationPermissionProps {
   className?: string;
   iconOnly?: boolean;
+  email?: string;
   consultant?: string;
 }
 
-export default function NotificationPermission({ 
-  className, 
-  iconOnly = true,
+export function NotificationPermission({
+  className,
+  iconOnly = false,
+  email,
   consultant
 }: NotificationPermissionProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default');
-  const [isEnabled, setIsEnabled] = useState(false);
-  const [isSupported, setIsSupported] = useState(false);
-  
-  // Vérifier si les notifications sont supportées et l'état actuel
+  const [isSupported, setIsSupported] = useState<boolean | null>(null);
+  const [permissionStatus, setPermissionStatus] = useState<NotificationPermission | 'unsupported' | 'loading'>('loading');
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  // Vérifier la compatibilité des notifications et la permission actuelle
   useEffect(() => {
-    if (!user?.email) return;
-    
-    const checkSupport = async () => {
-      const supported = await areNotificationsSupported();
+    async function checkSupport() {
+      // Vérifier si les notifications sont supportées
+      const supported = await checkNotificationsSupport();
       setIsSupported(supported);
       
-      if (supported) {
-        const currentPermission = checkNotificationPermission();
-        setPermission(currentPermission);
-        
-        // Vérifier si les notifications sont activées pour ce consultant
-        if (currentPermission === 'granted' && user.email) {
-          const isEnabled = await checkConsultantPermission(user.email, consultant);
-          setIsEnabled(isEnabled);
-        }
-      }
-    };
-    
-    checkSupport();
-  }, [user?.email, consultant]);
-  
-  const handleActivate = async () => {
-    if (!isSupported) {
-      toast({
-        title: "Notifications non supportées",
-        description: "Votre navigateur ne prend pas en charge les notifications.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!user?.email) {
-      toast({
-        title: "Erreur d'authentification",
-        description: "Vous devez être connecté pour activer les notifications.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      // Temporairement désactivé pendant la refonte
-      if (!NOTIFICATION_CONFIG.ENABLED) {
-        toast({
-          title: "Système en cours de refonte",
-          description: "Le système de notification est temporairement désactivé pendant la reconstruction.",
-        });
-        setLoading(false);
+      if (!supported) {
+        setPermissionStatus('unsupported');
         return;
       }
       
-      // Demander la permission si nécessaire
-      if (permission !== 'granted') {
-        const result = await requestNotificationPermission();
-        setPermission(result.status);
-        
-        if (result.status !== 'granted') {
-          toast({
-            title: "Permission refusée",
-            description: "Vous devez autoriser les notifications dans les paramètres de votre navigateur.",
-            variant: "destructive"
-          });
-          setLoading(false);
-          return;
-        }
-        
-        // Si un token a été obtenu, l'enregistrer
-        if (result.token) {
-          await saveNotificationToken(result.token, user.email, consultant);
-          setIsEnabled(true);
-          
-          toast({
-            title: "Notifications activées",
-            description: "Vous recevrez désormais des notifications pour ce consultant.",
-          });
-        }
+      // Vérifier la permission actuelle si les notifications sont supportées
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        setPermissionStatus(Notification.permission);
       } else {
-        // Si la permission est déjà accordée, vérifier/enregistrer le token
-        if (NOTIFICATION_CONFIG.USE_FCM) {
-          try {
-            // Cette partie sera implémentée lorsque les notifications seront réactivées
+        setPermissionStatus('unsupported');
+      }
+    }
+    
+    checkSupport();
+  }, []);
+
+  // Demander la permission et enregistrer le token
+  const requestPermission = async () => {
+    setIsRegistering(true);
+    
+    try {
+      const result = await requestNotificationPermissionAndToken();
+      
+      if (result) {
+        setPermissionStatus('granted');
+        
+        // Enregistrer le token avec les informations de l'utilisateur
+        if (result && email) {
+          // Créer le userId au format attendu
+          const userId = consultant ? `${email}_${consultant}` : email;
+          
+          // Envoyer le token au serveur
+          const response = await fetch('/api/notifications/tokens', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              token: result,
+              userId,
+              deviceInfo: {
+                userAgent: navigator.userAgent,
+              },
+            }),
+          });
+          
+          if (response.ok) {
             toast({
-              title: "Notifications configurées",
-              description: "Votre appareil est déjà configuré pour recevoir des notifications.",
+              title: "Notifications activées",
+              description: "Vous recevrez des notifications pour les événements importants.",
+              variant: "default",
             });
-          } catch (error) {
-            console.error('Erreur lors de la configuration des notifications:', error);
+          } else {
+            console.error('Erreur lors de l\'enregistrement du token:', await response.text());
             toast({
-              title: "Erreur de configuration",
-              description: "Une erreur est survenue lors de la configuration des notifications.",
-              variant: "destructive"
+              title: "Erreur",
+              description: "Impossible d'enregistrer le token de notification.",
+              variant: "destructive",
             });
           }
         }
+      } else if (result === null) {
+        setPermissionStatus('denied');
+        toast({
+          title: "Notifications refusées",
+          description: "Vous devez autoriser les notifications dans les paramètres de votre navigateur.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error('Erreur lors de l\'activation des notifications:', error);
+      console.error('Erreur lors de la demande de permission:', error);
       toast({
-        title: "Erreur d'activation",
+        title: "Erreur",
         description: "Une erreur est survenue lors de l'activation des notifications.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setIsRegistering(false);
     }
   };
 
-  // Affichage de l'icône uniquement
-  if (iconOnly) {
+  // Afficher le bouton en fonction de l'état
+  const renderButton = () => {
+    // Si l'état est en cours de chargement
+    if (permissionStatus === 'loading' || isSupported === null) {
+      return (
+        <Button variant="outline" size="sm" className={className} disabled>
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          {!iconOnly && <span>Chargement...</span>}
+        </Button>
+      );
+    }
+    
+    // Si les notifications ne sont pas supportées
+    if (permissionStatus === 'unsupported' || isSupported === false) {
+      return (
+        <Button variant="outline" size="sm" className={className} disabled>
+          <BellOff className="h-4 w-4 mr-2" />
+          {!iconOnly && <span>Non supporté</span>}
+        </Button>
+      );
+    }
+    
+    // Si l'autorisation est déjà accordée
+    if (permissionStatus === 'granted') {
+      return (
+        <Button variant="outline" size="sm" className={cn("bg-green-50", className)} disabled>
+          <Check className="h-4 w-4 mr-2 text-green-500" />
+          {!iconOnly && <span>Notifications activées</span>}
+        </Button>
+      );
+    }
+    
+    // Si l'autorisation est refusée
+    if (permissionStatus === 'denied') {
+      return (
+        <Button variant="outline" size="sm" className={cn("bg-red-50", className)}>
+          <X className="h-4 w-4 mr-2 text-red-500" />
+          {!iconOnly && <span>Notifications refusées</span>}
+        </Button>
+      );
+    }
+    
+    // Par défaut, afficher le bouton pour demander l'autorisation
     return (
       <Button
-        variant="ghost"
-        size="icon"
-        className={cn("h-8 w-8 relative", className)}
-        onClick={handleActivate}
-        disabled={loading || !isSupported || !NOTIFICATION_CONFIG.ENABLED}
+        variant="outline"
+        size="sm"
+        className={className}
+        onClick={requestPermission}
+        disabled={isRegistering}
       >
-        {loading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : isEnabled ? (
-          <Bell className="h-4 w-4" />
+        {isRegistering ? (
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
         ) : (
-          <BellOff className="h-4 w-4" />
+          <Bell className="h-4 w-4 mr-2" />
         )}
-        {isEnabled && (
-          <span className={cn("absolute -top-1 -right-1 flex h-3 w-3 rounded-full bg-green-500")} />
-        )}
-        {!isEnabled && permission === 'granted' && (
-          <span className={cn("absolute -top-1 -right-1 flex h-3 w-3 rounded-full bg-yellow-500")} />
-        )}
+        {!iconOnly && <span>{isRegistering ? "Activation..." : "Activer les notifications"}</span>}
       </Button>
     );
-  }
+  };
 
-  // Affichage complet
-  return (
-    <div className={cn("flex flex-col space-y-2", className)}>
-      <Button
-        variant={isEnabled ? "outline" : "default"}
-        size="sm"
-        onClick={handleActivate}
-        disabled={loading || !isSupported || !NOTIFICATION_CONFIG.ENABLED}
-        className={cn(isEnabled && "border-green-500")}
-      >
-        {loading ? (
-          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Configuration...</>
-        ) : isEnabled ? (
-          <><Check className="mr-2 h-4 w-4 text-green-500" /> Notifications activées</>
-        ) : (
-          <><Bell className="mr-2 h-4 w-4" /> Activer les notifications</>
-        )}
-      </Button>
-      
-      {!NOTIFICATION_CONFIG.ENABLED && (
-        <p className="text-xs text-muted-foreground">Le système de notification est en cours de reconstruction.</p>
-      )}
-      
-      {!isSupported && (
-        <p className="text-xs text-muted-foreground">Votre navigateur ne prend pas en charge les notifications.</p>
-      )}
-      
-      {permission === 'denied' && (
-        <p className="text-xs text-muted-foreground">Vous avez refusé les notifications. Vérifiez les paramètres de votre navigateur.</p>
-      )}
-    </div>
-  );
+  return renderButton();
 } 

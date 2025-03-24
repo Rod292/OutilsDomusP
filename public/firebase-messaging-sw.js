@@ -7,12 +7,12 @@ console.log(`[Firebase Messaging SW] Initialisation (${SW_VERSION})`);
 
 // Configuration Firebase (doit correspondre à celle du client)
 const firebaseConfig = {
-  apiKey: self.FIREBASE_API_KEY || 'AIzaSyA9AEJKD0Cf30LCrNbw9buhVMoiN_Mb1f4',
-  authDomain: "etat-des-lieux-arthur-loyd.firebaseapp.com",
-  projectId: "etat-des-lieux-arthur-loyd",
-  storageBucket: "etat-des-lieux-arthur-loyd.firebasestorage.app",
-  messagingSenderId: "602323147221",
-  appId: "1:602323147221:web:7a1d976ac0478b593b455c"
+  apiKey: 'AIzaSyDujTJIyvicJnP-nMgodJs63rU0fDA69Qc',
+  authDomain: 'etat-des-lieux-arthur-loyd.firebaseapp.com',
+  projectId: 'etat-des-lieux-arthur-loyd',
+  storageBucket: 'etat-des-lieux-arthur-loyd.firebasestorage.app',
+  messagingSenderId: '602323147221',
+  appId: '1:602323147221:web:7a1d976ac0478b593b455c',
 };
 
 // Cache pour stocker les informations utilisateur
@@ -71,8 +71,8 @@ self.addEventListener('message', (event) => {
 });
 
 // Importer les scripts Firebase dynamiquement lorsque Firebase Messaging est nécessaire
-importScripts('https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/9.6.1/firebase-messaging-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.6.0/firebase-messaging-compat.js');
 
 // Initialiser l'application Firebase
 firebase.initializeApp(firebaseConfig);
@@ -82,70 +82,61 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[Firebase Messaging SW] Message reçu en arrière-plan:', payload);
   
-  const notificationTitle = payload.notification.title || 'Nouvelle notification';
+  // Personnaliser la notification pour qu'elle apparaisse même lorsque l'application est en arrière-plan
+  const notificationTitle = payload.notification?.title || 'Arthur Loyd';
   const notificationOptions = {
-    body: payload.notification.body || 'Vous avez une nouvelle notification',
-    icon: '/icons/arthur-loyd-logo-192.png',
-    badge: '/icons/arthur-loyd-badge-96.png',
-    tag: payload.data && payload.data.taskId ? payload.data.taskId : 'notification',
-    data: payload.data || {},
-    requireInteraction: true,
+    body: payload.notification?.body || 'Nouvelle notification',
+    icon: '/logo.png',
+    badge: '/badge.png',
+    data: payload.data,
+    tag: payload.data?.notificationId || 'default-tag', // Utiliser un tag pour regrouper les notifications
     actions: [
-      {
-        action: 'view',
-        title: 'Voir la tâche'
-      }
+      { action: 'view', title: 'Voir' },
+      { action: 'close', title: 'Fermer' }
     ]
   };
   
-  // Ajouter des informations sur l'utilisateur à la notification
-  if (userInfo.email) {
-    console.log(`[Firebase Messaging SW] Ajout de l'email ${userInfo.email} aux données de notification`);
-    notificationOptions.data.userEmail = userInfo.email;
-  }
-  
-  return self.registration.showNotification(notificationTitle, notificationOptions);
+  // Afficher la notification
+  self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
 // Gérer le clic sur une notification
 self.addEventListener('notificationclick', (event) => {
-  console.log('[Firebase Messaging SW] Clic sur notification:', event);
+  console.log('[Firebase Messaging SW] Notification cliquée:', event);
   
   event.notification.close();
   
-  // Extraire les informations de la notification
-  const taskId = event.notification.data && event.notification.data.taskId;
-  const notificationType = event.notification.data && event.notification.data.type;
-  
-  // URL à ouvrir au clic
-  let urlToOpen;
-  
-  if (taskId) {
-    // Ouvrir la page de la tâche spécifique
-    urlToOpen = `/notion-plan?taskId=${taskId}`;
-  } else {
-    // Ouvrir la page principale des tâches
-    urlToOpen = '/notion-plan';
+  // Gérer l'action spécifique
+  if (event.action === 'view') {
+    // Rediriger vers l'application avec les données
+    const notificationData = event.notification.data;
+    let url = '/';
+    
+    // Rediriger vers la page appropriée en fonction du type de notification
+    if (notificationData?.taskId) {
+      url = `/notion-plan?taskId=${notificationData.taskId}`;
+      
+      // Si c'est une communication spécifique
+      if (notificationData?.communicationIndex !== undefined) {
+        url += `&communicationIndex=${notificationData.communicationIndex}`;
+      }
+    }
+    
+    // Ouvrir ou focaliser sur la fenêtre existante
+    event.waitUntil(
+      clients.matchAll({ type: 'window' }).then((clientList) => {
+        // Vérifier si une fenêtre est déjà ouverte
+        for (const client of clientList) {
+          if (client.url.includes(url) && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        
+        // Si aucune fenêtre n'est ouverte, en ouvrir une nouvelle
+        if (clients.openWindow) {
+          return clients.openWindow(url);
+        }
+      })
+    );
   }
-  
-  const urlToOpenWithOrigin = self.location.origin + urlToOpen;
-  
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Vérifier si une fenêtre existe déjà avec l'URL
-      const existingClient = windowClients.find(
-        (client) => client.url === urlToOpenWithOrigin && 'focus' in client
-      );
-      
-      if (existingClient) {
-        // Si un client existe, le mettre au premier plan
-        return existingClient.focus();
-      }
-      
-      // Sinon, ouvrir une nouvelle fenêtre
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
-      }
-    })
-  );
 }); 

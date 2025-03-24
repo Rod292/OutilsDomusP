@@ -6,6 +6,10 @@ import { getFirestore, doc, setDoc, collection, query, where, getDocs, DocumentD
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
 import { getAuth } from 'firebase/auth';
 import { v4 as uuidv4 } from 'uuid';
+import { 
+  requestNotificationPermissionAndToken, 
+  getFirestoreInstance
+} from './firebase';
 
 // Type pour le résultat de UAParser
 type UAParserResult = {
@@ -47,7 +51,7 @@ export const CONSULTANTS = [
 
 // Configuration pour les notifications
 export const NOTIFICATION_CONFIG = {
-  ENABLED: false, // Temporairement désactivé pendant la refonte
+  ENABLED: true, // Réactivation du système de notifications
   VAPID_KEY: 'BGzPLt8Qmv6lFQDwKZLJzcIqH4cwWJN2P_aPCp8HYXJn7LIXHA5RL9rUd2uxSCnD2XHJZFGVtV11i3n2Ux9JYXM',
   USE_FCM: true,
   USE_API_KEY: false,
@@ -158,18 +162,21 @@ export const checkConsultantPermission = async (email: string, consultant?: stri
   
   try {
     // Vérifier si les notifications sont supportées
-    const isSupported = await areNotificationsSupported();
-    if (!isSupported) return false;
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      return false;
+    }
     
     // Vérifier si les notifications sont activées
-    const permission = checkNotificationPermission();
-    if (permission !== 'granted') return false;
+    if (Notification.permission !== 'granted') {
+      return false;
+    }
 
     // Créer le userId dans le format email_consultant ou simplement email
     const userId = consultant ? `${email}_${consultant}` : email;
     
     // Initialiser Firestore
-    const db = getFirestore();
+    const db = getFirestoreInstance();
+    if (!db) return false;
     
     // Vérifier s'il existe des tokens pour cet utilisateur
     const tokensRef = collection(db, 'notification_tokens');
@@ -184,67 +191,50 @@ export const checkConsultantPermission = async (email: string, consultant?: stri
 };
 
 // Enregistrer le token pour un utilisateur spécifique
-export const saveNotificationToken = async (token: string, email?: string, consultant?: string): Promise<boolean> => {
+export const saveNotificationToken = async (token: string, email: string, consultant?: string): Promise<boolean> => {
   try {
-    // Récupérer l'email de l'utilisateur actuel si non fourni
     if (!email) {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user?.email) {
-        console.error('Impossible de récupérer l\'email de l\'utilisateur actuel');
-        return false;
-      }
-      email = user.email;
+      console.error('Email requis pour enregistrer le token');
+      return false;
     }
     
     // Créer le userId dans le format email_consultant ou simplement email
     const userId = consultant ? `${email}_${consultant}` : email;
     
     // Obtenir des informations sur l'appareil
-    const parser = createUAParser();
-    const result = parser.getResult();
     const deviceInfo = {
-      browser: result.browser.name,
-      os: result.os.name,
-      device: result.device.type || 'desktop',
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      browser: navigator.userAgent.includes('Chrome') ? 'Chrome' : 
+               navigator.userAgent.includes('Firefox') ? 'Firefox' : 
+               navigator.userAgent.includes('Safari') ? 'Safari' : 'Other',
+      os: navigator.userAgent.includes('iPhone') || navigator.userAgent.includes('iPad') ? 'iOS' :
+          navigator.userAgent.includes('Android') ? 'Android' :
+          navigator.userAgent.includes('Windows') ? 'Windows' :
+          navigator.userAgent.includes('Mac') ? 'macOS' : 'Other',
+      device: navigator.userAgent.includes('Mobile') || 
+              navigator.userAgent.includes('iPhone') || 
+              navigator.userAgent.includes('Android') ? 'mobile' : 'desktop',
+      userAgent: navigator.userAgent,
     };
     
-    // Initialiser Firestore
-    const db = getFirestore();
-    
-    // Vérifier si le token existe déjà
-    const tokensRef = collection(db, 'notification_tokens');
-    const q = query(tokensRef, where('token', '==', token));
-    const querySnapshot = await getDocs(q);
-    
-    // Si le token existe, mettre à jour le document
-    if (!querySnapshot.empty) {
-      // Récupérer le premier document correspondant
-      const tokenDoc = querySnapshot.docs[0];
-      
-      // Si le userId a changé, mettre à jour le document
-      if (tokenDoc.data().userId !== userId) {
-        await setDoc(doc(db, 'notification_tokens', tokenDoc.id), {
-          token,
-          userId,
-          deviceInfo,
-          createdAt: tokenDoc.data().createdAt,
-          updatedAt: new Date(),
-        });
-      }
-    } else {
-      // Si le token n'existe pas, créer un nouveau document
-      const tokenId = uuidv4();
-      await setDoc(doc(db, 'notification_tokens', tokenId), {
+    // Envoyer le token au serveur
+    const response = await fetch('/api/notifications/tokens', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
         token,
         userId,
         deviceInfo,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      }),
+    });
+    
+    if (!response.ok) {
+      console.error('Erreur lors de l\'enregistrement du token:', await response.text());
+      return false;
     }
     
+    console.log('Token enregistré avec succès pour', userId);
     return true;
   } catch (error) {
     console.error('Erreur lors de l\'enregistrement du token:', error);
@@ -369,4 +359,194 @@ export const markNotificationAsRead = async (notificationId: string): Promise<bo
     console.error('Erreur lors du marquage de la notification comme lue:', error);
     return false;
   }
-}; 
+};
+
+// Type pour les paramètres de notification de tâche assignée
+export interface TaskAssignedNotificationParams {
+  userId: string;
+  title: string;
+  body: string;
+  taskId: string;
+  isCommunication?: boolean;
+  communicationIndex?: number;
+}
+
+// Trouver le consultant par email
+export const findConsultantByEmail = (email: string): string | null => {
+  const consultant = CONSULTANTS.find(c => c.email === email);
+  return consultant ? consultant.name : null;
+};
+
+// Vérifier si un email appartient à un consultant
+export const isConsultantEmail = (email: string): boolean => {
+  return CONSULTANTS.some(c => c.email === email);
+};
+
+// Extraire l'email et le consultant d'un userId
+export const extractUserInfo = (userId: string): { email: string; consultant: string | null } => {
+  if (userId.includes('_')) {
+    const [email, consultant] = userId.split('_');
+    return { email, consultant };
+  } else {
+    return { email: userId, consultant: null };
+  }
+};
+
+// Créer le userId à partir de l'email et du consultant
+export const createUserId = (email: string, consultant?: string): string => {
+  if (consultant) {
+    return `${email}_${consultant}`;
+  } else {
+    // Si pas de consultant spécifié, essayer de déduire du nom de domaine
+    if (email.includes('@arthur-loyd.com')) {
+      // Extraire le nom d'utilisateur de l'email
+      const username = email.split('@')[0];
+      // Vérifier si un consultant correspond à ce pattern
+      const matchingConsultant = CONSULTANTS.find(c => 
+        c.email === email || c.email.startsWith(username + '@')
+      );
+      
+      if (matchingConsultant) {
+        return `${email}_${matchingConsultant.name}`;
+      }
+    }
+    
+    return email;
+  }
+};
+
+// Envoyer une notification pour une tâche assignée
+export const sendTaskAssignedNotification = async (params: TaskAssignedNotificationParams): Promise<any> => {
+  try {
+    // Extraire l'email et le consultant
+    const { email, consultant } = extractUserInfo(params.userId);
+    
+    // Optimiser le userId si possible
+    const optimizedUserId = consultant 
+      ? params.userId 
+      : isConsultantEmail(email) 
+        ? createUserId(email, findConsultantByEmail(email))
+        : params.userId;
+    
+    // Construction des données pour l'API
+    const notificationData = {
+      userId: optimizedUserId,
+      title: params.title,
+      body: params.body,
+      data: {
+        taskId: params.taskId,
+        type: params.isCommunication ? 'task_communication_assigned' : 'task_assigned',
+        ...(params.isCommunication && params.communicationIndex !== undefined && { communicationIndex: params.communicationIndex }),
+      },
+    };
+    
+    console.log('Envoi de notification via l\'API:', notificationData);
+    
+    // Envoyer la notification via l'API
+    const response = await fetch('/api/notifications/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(notificationData),
+    });
+    
+    if (!response.ok) {
+      // Log l'erreur directement sans lancer d'exception pour permettre des tentatives alternatives
+      console.error(`Erreur API: ${response.status}`);
+      return { success: false, error: `Erreur API: ${response.status}` };
+    }
+    
+    const result = await response.json();
+    console.log('Résultat de l\'envoi de notification:', result);
+    
+    // Si la notification a été envoyée avec succès
+    if (result.success) {
+      return result;
+    } else {
+      return { success: false, message: result.error || 'Échec de l\'envoi de notification' };
+    }
+  } catch (error) {
+    console.error('Erreur lors de l\'envoi de la notification:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' };
+  }
+};
+
+// Fonctions de débogage pour les notifications
+export const debugUserTokens = async (email: string, consultant?: string): Promise<void> => {
+  try {
+    const userId = consultant ? `${email}_${consultant}` : email;
+    console.log(`Débogage des tokens pour userId: ${userId}`);
+    
+    // Récupérer les tokens via l'API
+    const response = await fetch(`/api/notifications/tokens?userId=${encodeURIComponent(userId)}`);
+    
+    if (!response.ok) {
+      console.error(`Erreur API: ${response.status}`);
+      return;
+    }
+    
+    const result = await response.json();
+    
+    if (result.success && result.tokens) {
+      console.log(`${result.tokens.length} tokens trouvés pour ${userId}:`);
+      
+      result.tokens.forEach((token: any, index: number) => {
+        console.log(`Token ${index + 1}:`);
+        console.log(`  ID: ${token.id}`);
+        console.log(`  Token: ${token.token.substring(0, 10)}...`);
+        console.log(`  UserId: ${token.userId}`);
+        console.log(`  Device: ${JSON.stringify(token.deviceInfo)}`);
+        console.log(`  Créé le: ${token.createdAt ? new Date(token.createdAt._seconds * 1000).toLocaleString() : 'Date inconnue'}`);
+      });
+    } else {
+      console.log(`Aucun token trouvé pour ${userId}`);
+    }
+  } catch (error) {
+    console.error('Erreur lors du débogage des tokens:', error);
+  }
+};
+
+// Envoyer une notification de test à un token spécifique
+export const sendTestNotificationToToken = async (token: string): Promise<any> => {
+  try {
+    const testData = {
+      token,
+      title: "Test de notification",
+      body: "Ceci est un test de notification envoyé directement à un token spécifique.",
+      data: {
+        type: 'test',
+        timestamp: new Date().toISOString()
+      }
+    };
+    
+    console.log('Envoi de notification de test au token:', token.substring(0, 10) + '...');
+    
+    const response = await fetch('/api/notifications/send-to-token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(testData),
+    });
+    
+    if (!response.ok) {
+      console.error(`Erreur API: ${response.status}`);
+      return { success: false, error: `Erreur API: ${response.status}` };
+    }
+    
+    const result = await response.json();
+    console.log('Résultat de l\'envoi de la notification de test:', result);
+    
+    return result;
+  } catch (error) {
+    console.error('Erreur lors de l\'envoi de la notification de test:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' };
+  }
+};
+
+// Exposer les fonctions de débogage globalement
+if (typeof window !== 'undefined') {
+  (window as any).debugNotifications = debugUserTokens;
+  (window as any).sendTestNotification = sendTestNotificationToToken;
+} 
