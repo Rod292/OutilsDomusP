@@ -88,4 +88,70 @@ export async function POST(request: NextRequest) {
     console.error('Erreur lors de l\'enregistrement du token:', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
+}
+
+// Route PUT pour corriger tous les tokens d'un utilisateur avec le bon format userId
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { email, consultantName } = body;
+    
+    if (!email) {
+      return NextResponse.json({ error: 'Email requis' }, { status: 400 });
+    }
+
+    if (!consultantName) {
+      return NextResponse.json({ error: 'Nom du consultant requis' }, { status: 400 });
+    }
+    
+    // Construire le userId correct au format email_consultant
+    const correctUserId = `${email}_${consultantName}`;
+    console.log(`Mise à jour des tokens pour ${email} avec userId: ${correctUserId}`);
+    
+    // Rechercher tous les tokens pour cet email
+    const tokensRef = firestore.collection('notificationTokens');
+    const querySnapshot = await tokensRef.where('email', '==', email).get();
+    
+    if (querySnapshot.empty) {
+      return NextResponse.json({
+        success: false,
+        message: 'Aucun token trouvé pour cet email'
+      });
+    }
+    
+    // Compter les tokens mis à jour
+    let updatedCount = 0;
+    let totalCount = querySnapshot.size;
+    
+    // Mettre à jour chaque token
+    const updatePromises = querySnapshot.docs.map(async (doc) => {
+      try {
+        // Ne mettre à jour que si userId n'est pas déjà correctement formaté
+        if (doc.data().userId !== correctUserId) {
+          const docRef = tokensRef.doc(doc.id);
+          await docRef.update({
+            userId: correctUserId,
+            lastUpdated: Date.now()
+          });
+          updatedCount++;
+        }
+        return true;
+      } catch (updateError) {
+        console.error(`Erreur lors de la mise à jour du token ${doc.id}:`, updateError);
+        return false;
+      }
+    });
+    
+    await Promise.all(updatePromises);
+    
+    return NextResponse.json({
+      success: true,
+      message: `${updatedCount} token(s) mis à jour sur ${totalCount}`,
+      updatedCount,
+      totalCount
+    });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour des tokens:', error);
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+  }
 } 

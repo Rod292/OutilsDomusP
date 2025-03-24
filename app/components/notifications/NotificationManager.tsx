@@ -1,18 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, RefreshCw, Smartphone, Laptop, Server, AlertCircle, Eraser } from 'lucide-react';
-import { collection, getDocs, doc, deleteDoc, query, where } from 'firebase/firestore';
+import { Trash2, RefreshCw, Smartphone, Laptop, Server, AlertCircle } from 'lucide-react';
+import { collection, getDocs, doc, deleteDoc, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/app/lib/firebase';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useToast } from '@/components/ui/use-toast';
-import { cleanupDuplicateTokens } from "@/app/services/notificationService";
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 import CleanupNotificationsButton from './CleanupNotificationsButton';
+import FixNotificationTokensButton from './FixNotificationTokensButton';
+import { useSearchParams } from 'next/navigation';
+import { getFirestore, onSnapshot } from 'firebase/firestore';
 
 interface NotificationToken {
   id: string;
@@ -20,10 +22,22 @@ interface NotificationToken {
   email: string;
   token: string;
   timestamp: number;
-  platform: string;
-  userAgent: string;
   createdAt: any;
-  lastUpdated: any;
+  platform?: string;
+  userAgent?: string;
+  deviceName?: string;
+}
+
+interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  body: string;
+  type: string;
+  taskId?: string;
+  read: boolean;
+  timestamp: Date;
+  [key: string]: any;
 }
 
 export default function NotificationManager() {
@@ -32,304 +46,347 @@ export default function NotificationManager() {
   const [tokens, setTokens] = useState<NotificationToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<string>("all");
+  const [deleting, setDeleting] = useState<Record<string, boolean>>({});
+  const searchParams = useSearchParams();
+  const consultant = searchParams.get('consultant');
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [indexError, setIndexError] = useState(false);
 
   // Fonction pour récupérer les tokens de notification
   const fetchTokens = async () => {
     if (!user?.email) return;
     
     try {
-      setRefreshing(true);
+      setLoading(true);
+      const db = getFirestore();
       
-      // Récupérer tous les tokens associés à cet email
+      // Requête pour récupérer les tokens
       const tokensRef = collection(db, 'notificationTokens');
-      const q = query(tokensRef, where('email', '==', user.email));
-      const querySnapshot = await getDocs(q);
+      let tokensQuery;
       
-      const tokensData: NotificationToken[] = [];
-      querySnapshot.forEach((doc) => {
-        tokensData.push({
-          id: doc.id,
-          ...doc.data()
-        } as NotificationToken);
-      });
+      if (consultant && consultant !== 'null') {
+        // Si un consultant est sélectionné, chercher des tokens spécifiques
+        const userId = `${user.email}_${consultant}`;
+        tokensQuery = query(
+          tokensRef,
+          where('userId', '==', userId)
+        );
+      } else {
+        // Sinon, chercher des tokens pour cet email
+        tokensQuery = query(
+          tokensRef,
+          where('email', '==', user.email)
+        );
+      }
       
-      // Trier par date de dernière mise à jour (plus récent en premier)
-      tokensData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      const tokensSnapshot = await getDocs(tokensQuery);
+      console.log(`Récupération de ${tokensSnapshot.size} tokens de notification`);
       
-      setTokens(tokensData);
-      console.log(`Récupération de ${tokensData.length} tokens de notification`);
+      // Mettre à jour l'état
+      setTokens(tokensSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as NotificationToken[]);
+      
     } catch (error) {
       console.error('Erreur lors de la récupération des tokens:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de récupérer les notifications",
-        variant: "destructive",
-      });
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
-  
-  // Récupérer les tokens au chargement du composant
+
   useEffect(() => {
     if (user?.email) {
       fetchTokens();
     }
-  }, [user?.email]);
-  
-  // Fonction pour nettoyer les tokens dupliqués
-  const cleanupTokens = async () => {
-    if (!user?.email) return;
+  }, [user?.email, consultant]);
 
-    try {
-      // Appeler la fonction de nettoyage
-      const deletedCount = await cleanupDuplicateTokens(user.email);
-      
-      if (deletedCount > 0) {
-        toast({
-          title: "Nettoyage effectué",
-          description: `${deletedCount} notification${deletedCount > 1 ? 's' : ''} dupliquée${deletedCount > 1 ? 's' : ''} supprimée${deletedCount > 1 ? 's' : ''}.`,
-          variant: "default",
-        });
-        
-        // Rafraîchir la liste
-        fetchTokens();
-      } else {
-        toast({
-          title: "Aucun doublon trouvé",
-          description: "Tous vos appareils sont correctement enregistrés.",
-          variant: "default",
-        });
-      }
-    } catch (error) {
-      console.error('Erreur lors du nettoyage des tokens:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de nettoyer les notifications.",
-        variant: "destructive",
-      });
+  const handleDeleteToken = async (tokenId: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce token?')) {
+      return;
     }
-  };
-  
-  // Fonction pour supprimer un token de notification
-  const deleteToken = async (tokenId: string) => {
+    
     try {
+      setDeleting(prev => ({ ...prev, [tokenId]: true }));
+      
+      // Supprimer le token de la base de données
       await deleteDoc(doc(db, 'notificationTokens', tokenId));
       
-      // Mettre à jour la liste des tokens
-      setTokens(tokens.filter(token => token.id !== tokenId));
+      // Mettre à jour l'état local
+      setTokens(prev => prev.filter(token => token.id !== tokenId));
       
       toast({
-        title: "Notification supprimée",
-        description: "L'appareil ne recevra plus de notifications",
-        variant: "default",
+        title: "Token supprimé",
+        description: "Le token de notification a été supprimé avec succès",
       });
     } catch (error) {
       console.error('Erreur lors de la suppression du token:', error);
       toast({
         title: "Erreur",
-        description: "Impossible de supprimer la notification",
+        description: "Impossible de supprimer le token",
         variant: "destructive",
       });
+    } finally {
+      setDeleting(prev => ({ ...prev, [tokenId]: false }));
     }
   };
-  
-  // Fonction pour déterminer l'icône en fonction du type d'appareil
-  const getDeviceIcon = (userAgent: string) => {
-    const ua = userAgent?.toLowerCase() || '';
+
+  const getDeviceIcon = (token: NotificationToken) => {
+    const userAgent = token.userAgent?.toLowerCase() || '';
+    const platform = token.platform?.toLowerCase() || '';
     
-    if (ua.includes('iphone') || ua.includes('android') || ua.includes('mobile')) {
+    if (userAgent.includes('iphone') || platform.includes('ios')) {
       return <Smartphone className="h-4 w-4" />;
-    } else if (ua.includes('macintosh') || ua.includes('windows') || ua.includes('linux')) {
+    } else if (userAgent.includes('android')) {
+      return <Smartphone className="h-4 w-4" />;
+    } else if (userAgent.includes('mac') || userAgent.includes('safari')) {
+      return <Laptop className="h-4 w-4" />;
+    } else if (userAgent.includes('windows') || userAgent.includes('chrome')) {
       return <Laptop className="h-4 w-4" />;
     } else {
       return <Server className="h-4 w-4" />;
     }
   };
-  
-  // Fonction pour obtenir le nom de l'appareil à partir de l'user agent
-  const getDeviceName = (userAgent: string) => {
-    const ua = userAgent?.toLowerCase() || '';
+
+  const getDeviceName = (token: NotificationToken) => {
+    if (token.deviceName) return token.deviceName;
     
-    if (ua.includes('iphone')) return 'iPhone';
-    if (ua.includes('ipad')) return 'iPad';
-    if (ua.includes('macintosh')) return 'Mac';
-    if (ua.includes('android')) return 'Android';
-    if (ua.includes('windows')) return 'Windows';
-    if (ua.includes('linux')) return 'Linux';
+    const userAgent = token.userAgent?.toLowerCase() || '';
+    const platform = token.platform?.toLowerCase() || '';
     
-    return 'Appareil inconnu';
+    if (userAgent.includes('iphone') || platform.includes('ios')) {
+      return 'iPhone';
+    } else if (userAgent.includes('ipad')) {
+      return 'iPad';
+    } else if (userAgent.includes('android')) {
+      return 'Android';
+    } else if (userAgent.includes('mac')) {
+      return 'Mac';
+    } else if (userAgent.includes('windows')) {
+      return 'Windows';
+    } else if (userAgent.includes('chrome')) {
+      return 'Chrome';
+    } else if (userAgent.includes('firefox')) {
+      return 'Firefox';
+    } else if (userAgent.includes('safari')) {
+      return 'Safari';
+    } else {
+      return 'Appareil inconnu';
+    }
   };
   
-  // Fonction pour formater la date
-  const formatDate = (timestamp: number) => {
+  const formatTimestamp = (timestamp: number) => {
     if (!timestamp) return 'Date inconnue';
-    return new Date(timestamp).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    
+    try {
+      const date = new Date(timestamp);
+      return format(date, 'dd MMMM yyyy à HH:mm', { locale: fr });
+    } catch (error) {
+      return 'Date invalide';
+    }
   };
-  
-  // Extraire la liste des consultants pour lesquels l'utilisateur reçoit des notifications
-  const consultants = [...new Set(tokens.map(token => {
-    // Format: email_consultant
-    const parts = token.userId?.split('_');
-    return parts && parts.length > 1 ? parts[1] : 'personnel';
-  }))];
-  
-  // Filtrer les tokens en fonction de l'onglet sélectionné
-  const filteredTokens = selectedTab === "all" 
-    ? tokens 
-    : tokens.filter(token => {
-        const parts = token.userId?.split('_');
-        return parts && parts.length > 1 && parts[1] === selectedTab;
-      });
+
+  // Pour la partie qui récupère les notifications, modifiez-la pour gérer l'erreur d'index
+  useEffect(() => {
+    if (!user?.email) return;
+    
+    let unsubscribe = () => {};
+    
+    const fetchNotifications = async () => {
+      try {
+        setNotificationsLoading(true);
+        const db = getFirestore();
+        
+        // Construire la requête
+        const notificationsRef = collection(db, 'notifications');
+        
+        // Identifiant utilisateur
+        let userIds = [user.email];
+        if (consultant && consultant !== 'null') {
+          userIds.push(`${user.email}_${consultant}`);
+        }
+        
+        try {
+          // Essayer d'utiliser une requête avec tri
+          const notificationsQuery = query(
+            notificationsRef,
+            where('userId', 'in', userIds),
+            orderBy('timestamp', 'desc'),
+            limit(20)
+          );
+          
+          unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
+            const notificationsData = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data(),
+              timestamp: doc.data().timestamp?.toDate() || new Date()
+            })) as Notification[];
+            
+            setNotifications(notificationsData);
+            setNotificationsLoading(false);
+            setIndexError(false);
+          }, (error) => {
+            console.error('Erreur avec la requête de notifications:', error);
+            
+            // Vérifier si c'est une erreur d'index manquant
+            if (error.code === 'failed-precondition' || error.message.includes('index')) {
+              setIndexError(true);
+              
+              // Utiliser une requête sans tri comme solution de secours
+              const simpleQuery = query(
+                notificationsRef,
+                where('userId', 'in', userIds),
+                limit(20)
+              );
+              
+              getDocs(simpleQuery).then(snapshot => {
+                const notificationsData = snapshot.docs.map(doc => ({
+                  id: doc.id,
+                  ...doc.data(),
+                  timestamp: doc.data().timestamp?.toDate() || new Date()
+                })) as Notification[];
+                
+                // Trier manuellement côté client
+                notificationsData.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+                
+                setNotifications(notificationsData);
+                setNotificationsLoading(false);
+              }).catch(err => {
+                console.error('Erreur avec la requête simple:', err);
+                setNotificationsLoading(false);
+              });
+            } else {
+              setNotificationsLoading(false);
+            }
+          });
+          
+        } catch (error) {
+          console.error('Erreur lors de la configuration de la requête:', error);
+          setNotificationsLoading(false);
+        }
+        
+      } catch (error) {
+        console.error('Erreur globale:', error);
+        setNotificationsLoading(false);
+      }
+    };
+    
+    fetchNotifications();
+    
+    return () => unsubscribe();
+  }, [user?.email, consultant]);
   
   if (!user) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>Gestion des notifications</CardTitle>
-          <CardDescription>Vous devez être connecté pour gérer vos notifications</CardDescription>
-        </CardHeader>
+        <CardContent className="pt-6 text-center">
+          <p>Veuillez vous connecter pour gérer vos notifications</p>
+        </CardContent>
       </Card>
     );
   }
-  
+
   return (
-    <Card className="w-full">
+    <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
-          <div>
-            <CardTitle>Gestion des notifications</CardTitle>
-            <CardDescription>
-              Gérez les appareils recevant des notifications pour chaque consultant
-            </CardDescription>
-          </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={fetchTokens} 
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            Actualiser
-          </Button>
-        </div>
+        <CardTitle>Gestion des notifications</CardTitle>
+        <CardDescription>
+          {consultant ? (
+            `Gérez les appareils recevant des notifications pour ${consultant}`
+          ) : (
+            'Gérez les appareils recevant des notifications'
+          )}
+        </CardDescription>
       </CardHeader>
-      
+
       <CardContent>
+        {indexError && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md flex items-center">
+            <AlertCircle className="text-yellow-500 h-5 w-5 mr-2" />
+            <div className="text-sm text-yellow-700">
+              <p className="font-medium">Index en cours de création</p>
+              <p>Un index Firestore est en cours de création. Certaines fonctionnalités peuvent être limitées.</p>
+            </div>
+          </div>
+        )}
+
         {loading ? (
-          <div className="flex justify-center py-8">
-            <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
+          <div className="flex justify-center items-center h-32">
+            <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : tokens.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <AlertCircle className="h-10 w-10 text-yellow-500 mb-4" />
-            <h3 className="text-lg font-medium">Aucune notification activée</h3>
-            <p className="text-sm text-muted-foreground mt-2">
-              Vous n'avez activé les notifications pour aucun appareil.
-              <br />
-              Utilisez le bouton de notification dans le plan de communication pour les activer.
-            </p>
+          <div className="text-center py-8 space-y-3">
+            <p className="text-muted-foreground">Aucun appareil n'est enregistré pour les notifications</p>
+            <Button variant="outline" size="sm">
+              Activer les notifications
+            </Button>
           </div>
         ) : (
-          <>
-            <Tabs 
-              defaultValue="all" 
-              value={selectedTab} 
-              onValueChange={setSelectedTab}
-              className="w-full"
-            >
-              <TabsList className="mb-4 flex flex-wrap">
-                <TabsTrigger value="all">Tous</TabsTrigger>
-                {consultants.map(consultant => (
-                  <TabsTrigger key={consultant} value={consultant}>
-                    {consultant === 'personnel' ? 'Personnel' : consultant}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              
-              <TabsContent value={selectedTab} className="mt-0">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium">Appareils enregistrés</h3>
-                    <CleanupNotificationsButton onSuccess={fetchTokens} />
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-medium">Appareils enregistrés</h3>
+              <div className="flex space-x-2">
+                <FixNotificationTokensButton email={user.email} consultant={consultant || undefined} />
+                <CleanupNotificationsButton 
+                  userId={consultant ? `${user.email}_${consultant}` : user.email}
+                  onCleaned={fetchTokens}
+                />
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={fetchTokens}
+                  disabled={refreshing}
+                >
+                  <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+            </div>
+
+            <div className="border rounded-md divide-y">
+              {tokens.map(token => (
+                <div 
+                  key={token.id} 
+                  className="p-3 flex justify-between items-start hover:bg-muted/50"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-2">
+                      {getDeviceIcon(token)}
+                      <span className="font-medium text-sm">{getDeviceName(token)}</span>
+                      {token.timestamp && new Date().getTime() - token.timestamp < 24 * 60 * 60 * 1000 && (
+                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-100">Récent</Badge>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate max-w-md">
+                      {token.token?.substring(0, 20)}...
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Enregistré le {formatTimestamp(token.timestamp)}
+                    </div>
                   </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => handleDeleteToken(token.id)}
+                    disabled={deleting[token.id]}
+                  >
+                    {deleting[token.id] ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    )}
+                  </Button>
                 </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Appareil</TableHead>
-                      <TableHead className="hidden md:table-cell">Type</TableHead>
-                      <TableHead className="hidden md:table-cell">Consultant</TableHead>
-                      <TableHead className="hidden md:table-cell">Activé le</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredTokens.map((token) => {
-                      // Extraire le nom du consultant à partir de userId (format: email_consultant)
-                      const userId = token.userId || '';
-                      const parts = userId.split('_');
-                      const consultant = parts.length > 1 ? parts[1] : 'personnel';
-                      
-                      return (
-                        <TableRow key={token.id}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center">
-                              {getDeviceIcon(token.userAgent)}
-                              <span className="ml-2">{getDeviceName(token.userAgent)}</span>
-                            </div>
-                            <div className="text-xs text-gray-500 md:hidden mt-1">
-                              <Badge variant="outline" className="mr-1">
-                                {consultant}
-                              </Badge>
-                              {formatDate(token.timestamp)}
-                            </div>
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">
-                            {token.platform || 'Web'}
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">
-                            <Badge variant="outline">
-                              {consultant}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">
-                            {formatDate(token.timestamp)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => deleteToken(token.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                              <span className="sr-only">Supprimer</span>
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TabsContent>
-            </Tabs>
-          </>
+              ))}
+            </div>
+          </div>
         )}
       </CardContent>
-      
-      <CardFooter className="border-t pt-4 text-xs text-gray-500">
-        <p>
-          Lorsque vous supprimez un appareil, il ne recevra plus de notifications pour le consultant sélectionné. 
-          Si vous souhaitez recevoir des notifications sur un appareil que vous avez supprimé, vous devrez les réactiver.
-        </p>
+
+      <CardFooter className="flex justify-between">
+        <div className="text-xs text-muted-foreground">
+          {tokens.length} appareil(s) enregistré(s)
+        </div>
       </CardFooter>
     </Card>
   );

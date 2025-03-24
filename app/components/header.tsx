@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { RefreshCw, ChevronLeft, LogOut, Menu, X, FileSpreadsheet, Home, ClipboardCheck, Star, UserIcon, BookOpen, Mail, Bell, Eraser, Settings } from "lucide-react"
+import { RefreshCw, ChevronLeft, LogOut, Menu, X, FileSpreadsheet, Home, ClipboardCheck, Star, UserIcon, BookOpen, Mail, Bell, Eraser, Settings, Wrench } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCallback, useEffect, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { ThemeToggle } from "../../components/ui/theme-toggle"
 import NotificationPermission from "./NotificationPermission"
 import CleanupNotificationsButton from "./notifications/CleanupNotificationsButton"
+import FixNotificationTokensButton from "./notifications/FixNotificationTokensButton"
 import { toast } from "sonner"
 
 // Variantes d'animation pour le menu
@@ -310,6 +311,26 @@ export function Header() {
                                 showText={true}
                                 className="w-full p-0 text-sm justify-start font-normal h-auto dark:text-gray-200"
                               />
+                            </div>
+                          </DropdownMenuItem>
+                        </motion.div>
+                        <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                          <DropdownMenuItem asChild>
+                            <div className="flex items-center p-2 cursor-pointer">
+                              <Wrench className="mr-2 h-4 w-4 text-[#DC0032]" />
+                              {consultant && (
+                                <FixNotificationTokensButton 
+                                  variant="ghost"
+                                  size="sm"
+                                  showText={true}
+                                  email={user?.email}
+                                  consultant={consultant}
+                                  className="w-full p-0 text-sm justify-start font-normal h-auto dark:text-gray-200"
+                                />
+                              )}
+                              {!consultant && (
+                                <span className="text-gray-400 text-sm">Sélectionnez un consultant</span>
+                              )}
                             </div>
                           </DropdownMenuItem>
                         </motion.div>

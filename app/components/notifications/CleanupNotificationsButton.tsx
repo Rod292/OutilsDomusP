@@ -16,7 +16,8 @@ interface CleanupNotificationsButtonProps {
   showText?: boolean;
   variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
   size?: 'default' | 'sm' | 'lg' | 'icon';
-  onSuccess?: () => void;
+  userId?: string;
+  onCleaned?: () => void;
 }
 
 export default function CleanupNotificationsButton({ 
@@ -24,7 +25,8 @@ export default function CleanupNotificationsButton({
   showText = true,
   variant = 'outline',
   size = 'sm',
-  onSuccess 
+  userId,
+  onCleaned
 }: CleanupNotificationsButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -32,7 +34,9 @@ export default function CleanupNotificationsButton({
   const { toast } = useToast();
 
   const handleCleanup = async () => {
-    if (!user?.email) {
+    const userIdentifier = userId || user?.email;
+    
+    if (!userIdentifier) {
       toast({
         title: "Erreur",
         description: "Vous devez être connecté pour effectuer cette action.",
@@ -45,7 +49,7 @@ export default function CleanupNotificationsButton({
     setStatus('idle');
 
     try {
-      const deletedCount = await cleanupDuplicateTokens(user.email);
+      const deletedCount = await cleanupDuplicateTokens(userIdentifier);
       
       if (deletedCount > 0) {
         toast({
@@ -55,8 +59,8 @@ export default function CleanupNotificationsButton({
         });
         setStatus('success');
         
-        if (onSuccess) {
-          onSuccess();
+        if (onCleaned) {
+          onCleaned();
         }
       } else {
         toast({

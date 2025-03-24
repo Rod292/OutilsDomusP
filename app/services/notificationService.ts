@@ -198,9 +198,9 @@ export const saveNotificationToken = async (userId: string, token: string): Prom
 
     console.log(`Enregistrement du token pour l'utilisateur: ${userId}`);
     
-    // Extraire l'email de l'utilisateur depuis userId (format: email_consultant)
-    const email = userId.includes('_') ? userId.split('_')[0] : userId;
-    console.log(`Email extrait: ${email}`);
+    // Extraire l'email et le consultant depuis userId (format: email_consultant)
+    const [email, consultant] = userId.includes('_') ? userId.split('_') : [userId, null];
+    console.log(`Email extrait: ${email}, Consultant: ${consultant || 'non spécifié'}`);
     
     // Initialiser Firestore et vérifier qu'il est disponible
     const db = getFirestore();
@@ -209,37 +209,48 @@ export const saveNotificationToken = async (userId: string, token: string): Prom
       return false;
     }
     
-    // Vérifier si ce token existe déjà pour cet utilisateur
+    // Vérifier si ce token existe déjà pour n'importe quel utilisateur
     const tokensRef = collection(db, TOKEN_COLLECTION);
-    const q = query(tokensRef, 
-      where('userId', '==', userId),
-      where('token', '==', token)
-    );
+    const tokenQuery = query(tokensRef, where('token', '==', token));
+    const tokenSnapshot = await getDocs(tokenQuery);
     
-    const querySnapshot = await getDocs(q);
+    const timestamp = Date.now();
+    const deviceInfo = {
+      platform: typeof navigator !== 'undefined' ? navigator.platform : 'unknown',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      timestamp,
+      lastUpdated: serverTimestamp()
+    };
     
-    // Si le token existe déjà, mettre à jour le timestamp
-    if (!querySnapshot.empty) {
-      const docRef = querySnapshot.docs[0].ref;
-      await updateDoc(docRef, {
-        timestamp: Date.now(),
-        lastUpdated: serverTimestamp(),
-        email // Ajouter/mettre à jour l'email
-      });
-      console.log(`Token existant mis à jour pour l'utilisateur: ${userId}`);
-      return true;
+    // Si le token existe déjà
+    if (!tokenSnapshot.empty) {
+      const existingDoc = tokenSnapshot.docs[0];
+      const existingData = existingDoc.data();
+      
+      // Si le token existe pour un autre email, le supprimer
+      if (existingData.email !== email) {
+        console.log(`Token existant pour un autre email (${existingData.email}), suppression...`);
+        await deleteDoc(existingDoc.ref);
+      } else {
+        // Mettre à jour le document existant
+        await updateDoc(existingDoc.ref, {
+          userId, // Mettre à jour avec le nouveau userId (qui peut inclure le consultant)
+          email,
+          ...deviceInfo
+        });
+        console.log(`Token existant mis à jour pour l'utilisateur: ${userId}`);
+        return true;
+      }
     }
     
-    // Sinon, créer un nouveau document pour ce token
+    // Créer un nouveau document pour ce token
     const tokenData = {
       userId,
-      email, // Stocker l'email séparément pour faciliter les requêtes
+      email,
       token,
-      timestamp: Date.now(),
+      consultant: consultant || null,
       createdAt: serverTimestamp(),
-      lastUpdated: serverTimestamp(),
-      platform: typeof navigator !== 'undefined' ? navigator.platform : 'unknown',
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
+      ...deviceInfo
     };
     
     await addDoc(tokensRef, tokenData);
@@ -264,8 +275,14 @@ export const checkConsultantPermission = async (userEmail: string, consultantNam
       return false;
     }
 
-    if (!userEmail || !consultantName) {
-      console.error('Email utilisateur ou nom consultant manquant');
+    if (!userEmail) {
+      console.error('Email utilisateur manquant');
+      return false;
+    }
+    
+    // Si consultantName est null, undefined ou "null", retourner false
+    if (!consultantName || consultantName === 'null') {
+      console.log('Nom de consultant invalide pour la vérification des permissions');
       return false;
     }
 
@@ -320,6 +337,10 @@ export const initializeMessaging = async (userId: string): Promise<string | null
       console.error('Impossible d\'initialiser Firebase Messaging côté serveur.');
       return null;
     }
+
+    // Extraire l'email et le consultant depuis userId
+    const [email, consultant] = userId.includes('_') ? userId.split('_') : [userId, null];
+    console.log(`Email extrait: ${email}, Consultant: ${consultant || 'non spécifié'}`);
     
     // Tentative d'enregistrement du Service Worker
     console.log('Tentative d\'enregistrement du Service Worker...');
@@ -332,7 +353,17 @@ export const initializeMessaging = async (userId: string): Promise<string | null
     // Enregistrer le service worker
     let swRegistration;
     try {
-      swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      // Forcer le rechargement du service worker
+      const existingReg = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
+      if (existingReg) {
+        console.log('Service Worker trouvé, tentative de mise à jour...');
+        await existingReg.update();
+      }
+      
+      swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+        scope: '/',
+        updateViaCache: 'none' // Ne pas utiliser le cache
+      });
       console.log('Service Worker enregistré avec succès:', swRegistration);
     } catch (swError) {
       console.error('Erreur lors de l\'enregistrement du Service Worker:', swError);
@@ -368,16 +399,43 @@ export const initializeMessaging = async (userId: string): Promise<string | null
         await saveNotificationToken(userId, 'local-notifications-mode');
         return 'local-notifications-mode';
       }
+
+      // Demander la permission de notification explicitement avant de demander le token
+      if (Notification.permission !== 'granted') {
+        console.log('Demande de permission de notification...');
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          console.error('Permission de notification refusée par l\'utilisateur');
+          return null;
+        }
+        console.log('Permission de notification accordée');
+      }
       
       // Demander le token FCM pour l'utilisateur
       console.log('Demande de token FCM avec VAPID key...');
-      const token = await getToken(messaging, {
-        vapidKey,
-        serviceWorkerRegistration: swRegistration
-      });
+      
+      // Essayer avec plusieurs tentatives
+      let token = null;
+      let attempts = 0;
+      const maxAttempts = 3;
+      
+      while (!token && attempts < maxAttempts) {
+        attempts++;
+        try {
+          token = await getToken(messaging, {
+            vapidKey,
+            serviceWorkerRegistration: swRegistration
+          });
+          console.log(`Tentative ${attempts}: Token ${token ? 'obtenu' : 'non obtenu'}`);
+        } catch (tokenError) {
+          console.error(`Erreur lors de la tentative ${attempts}:`, tokenError);
+          // Attendre un peu avant la prochaine tentative
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
       
       if (!token) {
-        console.error('Échec de l\'obtention du token FCM');
+        console.error('Échec de l\'obtention du token FCM après plusieurs tentatives');
         
         // Fallback au mode local si le token est vide
         console.log('Utilisation des notifications locales - Token FCM vide.');
@@ -392,6 +450,18 @@ export const initializeMessaging = async (userId: string): Promise<string | null
       if (!success) {
         console.error('Échec de l\'enregistrement du token FCM dans Firestore');
         return null;
+      }
+      
+      // Envoi d'une notification de test pour confirmer l'enregistrement
+      try {
+        await sendLocalNotification({
+          title: '✅ Notifications activées',
+          body: 'Vous recevrez désormais des notifications sur cet appareil.',
+          data: { type: 'system', userId }
+        });
+      } catch (testError) {
+        console.warn('Erreur lors de l\'envoi de la notification de test:', testError);
+        // Ne pas échouer pour cette erreur
       }
       
       return token;
@@ -465,9 +535,15 @@ export const requestNotificationPermission = async (userId: string): Promise<boo
       return false;
     }
 
+    // Vérifier que le userId n'est pas formaté avec "_null"
+    if (userId.endsWith('_null')) {
+      userId = userId.split('_')[0];
+      console.log(`Correction de l'ID utilisateur (suppression du _null): ${userId}`);
+    }
+
     // Extraire l'email utilisateur et le consultant depuis userId (format: email_consultant)
     const [userEmail, consultantName] = userId.split('_');
-    if (!userEmail || !consultantName) {
+    if (!userEmail) {
       console.error('Format d\'ID utilisateur invalide pour la demande de permission');
       return false;
     }
@@ -941,12 +1017,68 @@ export const checkTokensForUser = async (email: string, consultantName?: string)
   }
 };
 
+/**
+ * Met à jour tous les tokens d'un utilisateur pour le consultantName spécifié
+ * Assure que tous les tokens utilisent le format userId correct: email_consultant
+ * @param email Email de l'utilisateur
+ * @param consultantName Nom du consultant
+ * @returns Promise<number> Nombre de tokens mis à jour
+ */
+export const updateNotificationTokensForConsultant = async (email: string, consultantName: string): Promise<number> => {
+  try {
+    if (typeof window === 'undefined') {
+      console.log('Impossible de mettre à jour les tokens côté serveur');
+      return 0;
+    }
+    
+    if (!email || !consultantName) {
+      console.error('Email ou nom de consultant manquant');
+      return 0;
+    }
+    
+    console.log(`Mise à jour des tokens pour ${email} avec consultant ${consultantName}`);
+    
+    // Construire le userId correct au format email_consultant
+    const correctUserId = `${email}_${consultantName}`;
+    
+    // Appeler l'API pour corriger les tokens
+    try {
+      const response = await fetch('/api/notifications/tokens', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          consultantName
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Résultat de la mise à jour des tokens:', result);
+      
+      return result.updatedCount || 0;
+    } catch (apiError) {
+      console.error('Erreur lors de l\'appel API pour mettre à jour les tokens:', apiError);
+      return 0;
+    }
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour des tokens:', error);
+    return 0;
+  }
+};
+
 // Ajouter debugNotifications à window pour pouvoir l'appeler depuis la console
 if (typeof window !== 'undefined') {
   (window as any).debugNotifications = debugNotifications;
   (window as any).sendLocalNotification = sendLocalNotification;
   (window as any).cleanupDuplicateTokens = cleanupDuplicateTokens;
   (window as any).checkTokensForUser = checkTokensForUser;
+  (window as any).updateNotificationTokensForConsultant = updateNotificationTokensForConsultant;
 }
 
 /**
@@ -978,13 +1110,37 @@ export const sendTaskAssignedNotification = async (params: {
 
     const notificationType = params.isCommunication ? "communication_assigned" : "task_assigned";
     
-    // Déduire le nom du consultant si nécessaire
-    const consultantName = params.recipientEmail?.split('@')[0] || params.recipientEmail;
+    // Déduire le nom du consultant depuis l'email du destinataire
+    let consultantName = "";
+    if (params.recipientEmail) {
+      // Extraire le nom du consultant à partir de l'email (partie avant @)
+      consultantName = params.recipientEmail.split('@')[0];
+      // Rechercher le nom officiel dans la liste des consultants
+      const consultant = CONSULTANTS.find(c => c.email.toLowerCase() === params.recipientEmail.toLowerCase());
+      if (consultant) {
+        consultantName = consultant.name;
+      }
+    }
+    
     console.log(`Préparation notification pour ${consultantName} (${params.recipientEmail})`);
+    
+    // Extraire l'email de l'utilisateur depuis le userId
+    let userEmail = params.userId;
+    if (params.userId.includes('_')) {
+      userEmail = params.userId.split('_')[0];
+    }
+    
+    // Construire un userId optimal: email + consultant (si disponible)
+    let optimalUserId = userEmail;
+    if (consultantName && consultantName !== "null") {
+      optimalUserId = `${userEmail}_${consultantName}`;
+    }
+    
+    console.log(`ID utilisateur optimisé pour notification: ${optimalUserId}`);
     
     // Construire les données complètes de notification
     const notificationData = {
-      userId: params.userId,
+      userId: optimalUserId,
       title: params.title,
       body: params.body,
       type: notificationType as "task_assigned" | "task_reminder" | "system" | "communication_assigned",
@@ -1025,7 +1181,33 @@ export const sendTaskAssignedNotification = async (params: {
         throw new Error(result.error);
       }
       
-      return true;
+      // Si aucun token n'a été trouvé, essayer d'enregistrer un nouveau token
+      if (result.useLocalMode || result.total === 0) {
+        console.log("Aucun token trouvé, tentative d'enregistrement d'un nouveau token...");
+        // Demander l'autorisation et enregistrer un token pour ce consultant
+        try {
+          await requestNotificationPermission(optimalUserId);
+          
+          // Réessayer d'envoyer la notification après l'enregistrement du token
+          const secondResponse = await fetch('/api/notifications/send', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(notificationData),
+          });
+          
+          if (secondResponse.ok) {
+            const secondResult = await secondResponse.json();
+            console.log('Résultat de la seconde tentative:', secondResult);
+            return secondResult.success || false;
+          }
+        } catch (tokenError) {
+          console.error("Échec de l'enregistrement d'un nouveau token:", tokenError);
+        }
+      }
+      
+      return result.success || false;
     } catch (apiError) {
       console.error('Erreur lors de l\'appel API de notification:', apiError);
       return false;
@@ -1033,5 +1215,201 @@ export const sendTaskAssignedNotification = async (params: {
   } catch (error) {
     console.error('Erreur générale lors de l\'envoi de notification:', error);
     return false;
+  }
+};
+
+// Fonction pour déboguer les tokens pour un utilisateur spécifique
+export async function debugUserTokens(email: string, consultant?: string) {
+  try {
+    console.log(`DEBUG: Vérification des tokens pour ${email}${consultant ? ` (consultant: ${consultant})` : ''}`);
+    
+    // Initialiser Firestore
+    const db = getFirestore();
+    if (!db) {
+      console.error('Firebase non initialisé');
+      return null;
+    }
+    
+    let userId = email;
+    if (consultant && consultant !== 'null') {
+      userId = `${email}_${consultant}`;
+    }
+    
+    console.log(`DEBUG: Recherche par userId ${userId}`);
+    // Recherche par userId spécifique
+    const specificTokensQuery = query(
+      collection(db, 'notificationTokens'),
+      where('userId', '==', userId)
+    );
+    
+    const specificTokensSnapshot = await getDocs(specificTokensQuery);
+    console.log(`DEBUG: ${specificTokensSnapshot.size} token(s) trouvé(s) pour ${userId}`);
+    
+    // Afficher les détails de chaque token
+    specificTokensSnapshot.forEach(doc => {
+      const tokenData = doc.data();
+      console.log(`Token: ${tokenData.token?.substring(0, 10)}... (${tokenData.token?.length} caractères)`);
+      console.log(`  Platform: ${tokenData.platform || 'Non spécifiée'}`);
+      console.log(`  UserAgent: ${tokenData.userAgent || 'Non spécifié'}`);
+      console.log(`  Timestamp: ${tokenData.timestamp ? new Date(tokenData.timestamp).toISOString() : 'Non spécifié'}`);
+      console.log(`  CreatedAt: ${tokenData.createdAt ? (tokenData.createdAt.toDate ? tokenData.createdAt.toDate().toISOString() : tokenData.createdAt) : 'Non spécifié'}`);
+    });
+    
+    // Recherche par email uniquement
+    console.log(`DEBUG: Recherche par email ${email}`);
+    const emailTokensQuery = query(
+      collection(db, 'notificationTokens'),
+      where('email', '==', email)
+    );
+    
+    const emailTokensSnapshot = await getDocs(emailTokensQuery);
+    console.log(`DEBUG: ${emailTokensSnapshot.size} token(s) trouvé(s) pour l'email ${email}`);
+    
+    // Afficher les détails de chaque token trouvé par email
+    emailTokensSnapshot.forEach(doc => {
+      const tokenData = doc.data();
+      console.log(`Token: ${tokenData.token?.substring(0, 10)}... (${tokenData.token?.length} caractères)`);
+      console.log(`  UserId: ${tokenData.userId || 'Non spécifié'}`);
+      console.log(`  Platform: ${tokenData.platform || 'Non spécifiée'}`);
+      console.log(`  UserAgent: ${tokenData.userAgent || 'Non spécifié'}`);
+      console.log(`  Timestamp: ${tokenData.timestamp ? new Date(tokenData.timestamp).toISOString() : 'Non spécifié'}`);
+      console.log(`  CreatedAt: ${tokenData.createdAt ? (tokenData.createdAt.toDate ? tokenData.createdAt.toDate().toISOString() : tokenData.createdAt) : 'Non spécifié'}`);
+    });
+    
+    return {
+      specificTokensCount: specificTokensSnapshot.size,
+      emailTokensCount: emailTokensSnapshot.size
+    };
+  } catch (error) {
+    console.error('Erreur lors du débogage des tokens:', error);
+    return null;
+  }
+}
+
+// Fonction pour tester l'envoi d'une notification directement à un token spécifique
+export async function sendTestNotificationToToken(token: string) {
+  try {
+    const response = await fetch('/api/notifications/send-to-token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        token,
+        title: '🧪 Test de notification',
+        body: `Test de notification envoyé à ${new Date().toLocaleTimeString()}`,
+      }),
+    });
+    
+    const result = await response.json();
+    console.log('Résultat du test de notification:', result);
+    return result;
+  } catch (error) {
+    console.error('Erreur lors de l\'envoi du test de notification:', error);
+    return { success: false, error };
+  }
+}
+
+// Exposer les fonctions de débogage globalement
+if (typeof window !== 'undefined') {
+  // @ts-ignore
+  window.debugUserTokens = debugUserTokens;
+  // @ts-ignore
+  window.sendTestNotificationToToken = sendTestNotificationToToken;
+  // @ts-ignore
+  window.checkTokensForUser = checkTokensForUser;
+}
+
+/**
+ * Marque un token comme obsolète dans Firestore
+ * @param token Token à marquer comme obsolète
+ * @returns Promise<boolean> true si le token a été marqué avec succès
+ */
+export const markTokenObsolete = async (token: string): Promise<boolean> => {
+  try {
+    if (!token) {
+      console.error('Token manquant');
+      return false;
+    }
+    
+    const db = getFirestore();
+    if (!db) {
+      console.error('Firestore non initialisé');
+      return false;
+    }
+    
+    // Rechercher le token
+    const tokensRef = collection(db, TOKEN_COLLECTION);
+    const q = query(tokensRef, where('token', '==', token));
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      console.log(`Token ${token.substring(0, 10)}... non trouvé`);
+      return false;
+    }
+    
+    // Marquer le token comme obsolète
+    const docRef = snapshot.docs[0].ref;
+    await updateDoc(docRef, {
+      obsolete: true,
+      lastUpdated: serverTimestamp()
+    });
+    
+    console.log(`Token ${token.substring(0, 10)}... marqué comme obsolète`);
+    return true;
+  } catch (error) {
+    console.error('Erreur lors du marquage du token comme obsolète:', error);
+    return false;
+  }
+};
+
+/**
+ * Nettoie automatiquement les tokens obsolètes et trop anciens
+ * @returns Promise<number> Nombre de tokens supprimés
+ */
+export const cleanupObsoleteTokens = async (): Promise<number> => {
+  try {
+    const db = getFirestore();
+    if (!db) {
+      console.error('Firestore non initialisé');
+      return 0;
+    }
+    
+    const tokensRef = collection(db, TOKEN_COLLECTION);
+    const now = Date.now();
+    const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000); // 30 jours en millisecondes
+    
+    // Trouver les tokens marqués comme obsolètes
+    const obsoleteQuery = query(tokensRef, where('obsolete', '==', true));
+    const obsoleteSnapshot = await getDocs(obsoleteQuery);
+    
+    // Trouver les tokens trop anciens (plus de 30 jours)
+    const oldQuery = query(tokensRef, where('timestamp', '<', thirtyDaysAgo));
+    const oldSnapshot = await getDocs(oldQuery);
+    
+    // Combiner les deux ensembles de tokens à supprimer (éviter les doublons)
+    const tokensToDelete = new Set<string>();
+    
+    obsoleteSnapshot.forEach(doc => tokensToDelete.add(doc.id));
+    oldSnapshot.forEach(doc => tokensToDelete.add(doc.id));
+    
+    console.log(`${tokensToDelete.size} token(s) obsolètes ou anciens trouvé(s)`);
+    
+    // Supprimer les tokens
+    let deletedCount = 0;
+    for (const tokenId of tokensToDelete) {
+      try {
+        await deleteDoc(doc(db, TOKEN_COLLECTION, tokenId));
+        deletedCount++;
+      } catch (error) {
+        console.error(`Erreur lors de la suppression du token ${tokenId}:`, error);
+      }
+    }
+    
+    console.log(`${deletedCount} token(s) supprimé(s)`);
+    return deletedCount;
+  } catch (error) {
+    console.error('Erreur lors du nettoyage des tokens obsolètes:', error);
+    return 0;
   }
 }; 

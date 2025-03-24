@@ -13,10 +13,16 @@ function NotificationManagerLoading() {
   );
 }
 
-export default function NotificationManagerWrapper() {
+interface NotificationManagerWrapperProps {
+  className?: string;
+}
+
+export default function NotificationManagerWrapper({ className = '' }: NotificationManagerWrapperProps) {
   return (
-    <Suspense fallback={<NotificationManagerLoading />}>
-      <NotificationManager />
-    </Suspense>
+    <div className={className}>
+      <Suspense fallback={<NotificationManagerLoading />}>
+        <NotificationManager />
+      </Suspense>
+    </div>
   );
 } 

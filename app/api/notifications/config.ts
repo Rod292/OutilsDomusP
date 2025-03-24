@@ -14,7 +14,7 @@ export const NOTIFICATION_CONFIG = {
   /**
    * Active ou désactive l'authentification API pour les endpoints de notification
    */
-  USE_API_KEY: true,
+  USE_API_KEY: false, // Désactivé pour simplifier le développement, activer en production
   
   /**
    * Enregistre les notifications dans Firestore même si FCM est désactivé
