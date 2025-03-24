@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { RefreshCw, ChevronLeft, LogOut, Menu, X, FileSpreadsheet, Home, ClipboardCheck, Star, UserIcon, BookOpen, Mail, Bell, Eraser, Settings, Wrench } from "lucide-react"
+import { RefreshCw, ChevronLeft, LogOut, Menu, X, FileSpreadsheet, Home, ClipboardCheck, Star, UserIcon, BookOpen, Mail, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCallback, useEffect, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -16,10 +16,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { motion, AnimatePresence } from "framer-motion"
 import { ThemeToggle } from "../../components/ui/theme-toggle"
-import NotificationPermission from "./NotificationPermission"
-import CleanupNotificationsButton from "./notifications/CleanupNotificationsButton"
-import FixNotificationTokensButton from "./notifications/FixNotificationTokensButton"
-import { toast } from "sonner"
 
 // Variantes d'animation pour le menu
 const menuVariants = {
@@ -67,7 +63,6 @@ export function Header() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const consultant = searchParams.get('consultant')
-  const [showNotificationBadge, setShowNotificationBadge] = useState(false)
 
   useEffect(() => {
     setIsStandalone(window.matchMedia("(display-mode: standalone)").matches)
@@ -78,33 +73,6 @@ export function Header() {
       return () => unsubscribe()
     }
   }, [])
-
-  // Afficher une notification pour informer les utilisateurs de la nouvelle fonctionnalité
-  useEffect(() => {
-    // Vérifier si l'utilisateur est connecté et si la notification n'a pas déjà été affichée
-    if (user && !localStorage.getItem('notification_prefs_announced')) {
-      // Attendre un peu avant d'afficher pour ne pas surcharger l'utilisateur
-      const timer = setTimeout(() => {
-        toast.info(
-          <div>
-            <p className="font-semibold">Nouvelle fonctionnalité !</p>
-            <p>Vous pouvez maintenant gérer vos préférences de notifications.</p>
-          </div>,
-          {
-            duration: 6000,
-            action: {
-              label: "Voir",
-              onClick: () => router.push('/notifications/preferences')
-            }
-          }
-        );
-        // Marquer comme déjà affiché
-        localStorage.setItem('notification_prefs_announced', 'true');
-      }, 3000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [user, router]);
 
   const handleRefresh = useCallback(() => {
     window.location.reload()
@@ -143,9 +111,6 @@ export function Header() {
   }
 
   const showBackButton = pathname !== "/"
-
-  // Vérifier si l'utilisateur est connecté pour afficher le bouton de notification
-  const shouldShowNotification = !!user && !!consultant
 
   return (
     <header className={`bg-[#DC0032] dark:bg-[#9A0023] shadow-md ${isStandalone ? 'standalone-header' : ''}`}>
@@ -275,63 +240,11 @@ export function Header() {
                             <span className="dark:text-gray-200">Newsletter</span>
                           </DropdownMenuItem>
                         </motion.div>
-                        <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
-                          <DropdownMenuItem asChild>
-                            <div className="flex items-center p-2 cursor-pointer">
-                              <Bell className="mr-2 h-4 w-4 text-[#DC0032]" />
-                              <Link
-                                href="/notifications"
-                                className="flex-1"
-                              >
-                                Notifications
-                              </Link>
-                            </div>
-                          </DropdownMenuItem>
-                        </motion.div>
-                        <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
-                          <DropdownMenuItem asChild>
-                            <div className="flex items-center p-2 cursor-pointer">
-                              <Settings className="mr-2 h-4 w-4 text-[#DC0032]" />
-                              <Link
-                                href="/notifications/preferences"
-                                className="flex-1"
-                              >
-                                Préférences notifications
-                              </Link>
-                            </div>
-                          </DropdownMenuItem>
-                        </motion.div>
-                        <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
-                          <DropdownMenuItem asChild>
-                            <div className="flex items-center p-2 cursor-pointer">
-                              <Eraser className="mr-2 h-4 w-4 text-[#DC0032]" />
-                              <CleanupNotificationsButton 
-                                variant="ghost"
-                                size="sm"
-                                showText={true}
-                                className="w-full p-0 text-sm justify-start font-normal h-auto dark:text-gray-200"
-                              />
-                            </div>
-                          </DropdownMenuItem>
-                        </motion.div>
-                        <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
-                          <DropdownMenuItem asChild>
-                            <div className="flex items-center p-2 cursor-pointer">
-                              <Wrench className="mr-2 h-4 w-4 text-[#DC0032]" />
-                              {consultant && (
-                                <FixNotificationTokensButton 
-                                  variant="ghost"
-                                  size="sm"
-                                  showText={true}
-                                  email={user?.email}
-                                  consultant={consultant}
-                                  className="w-full p-0 text-sm justify-start font-normal h-auto dark:text-gray-200"
-                                />
-                              )}
-                              {!consultant && (
-                                <span className="text-gray-400 text-sm">Sélectionnez un consultant</span>
-                              )}
-                            </div>
+                        
+                        <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                          <DropdownMenuItem onClick={handleSignOut} className="flex items-center p-2 cursor-pointer">
+                            <LogOut className="mr-2 h-4 w-4 text-[#DC0032]" />
+                            <span className="dark:text-gray-200">Déconnexion</span>
                           </DropdownMenuItem>
                         </motion.div>
                       </motion.div>
@@ -340,33 +253,16 @@ export function Header() {
                 </AnimatePresence>
               </DropdownMenu>
             )}
-
-            {user && (
-              <span className="text-white text-sm mr-2 hidden md:inline-block">{user.displayName || user.email}</span>
-            )}
-            {isStandalone && (
-              <motion.button
-                onClick={handleRefresh}
-                className="text-white hover:bg-white/20 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 p-1.5 sm:p-2 rounded-full"
-                aria-label="Rafraîchir la page"
-                whileHover={{ scale: 1.1, rotate: 180 }}
-                whileTap={{ scale: 0.9 }}
-                transition={{ duration: 0.3 }}
-              >
-                <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5" />
-              </motion.button>
-            )}
-            {user && (
-              <motion.button
-                onClick={handleSignOut}
-                className="text-white hover:bg-white/20 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 p-1.5 sm:p-2 rounded-full"
-                aria-label="Se déconnecter"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
-              </motion.button>
-            )}
+            
+            {/* Bouton de rafraîchissement */}
+            <motion.button
+              onClick={handleRefresh}
+              className="text-white hover:bg-white/20 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 p-1.5 sm:p-2 rounded-full"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <RefreshCw className="h-5 w-5 sm:h-5 sm:w-5" />
+            </motion.button>
           </div>
         </div>
       </div>
