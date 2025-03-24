@@ -41,7 +41,7 @@ import { useTheme } from "next-themes";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "../../hooks/useAuth";
-import { sendTaskAssignedNotification } from "@/app/services/notificationService";
+import { sendTaskAssignedNotification } from "@/app/services/clientNotificationService";
 
 // Animation de slide-in pour la fenêtre modale
 const slideInAnimation = `

@@ -77,8 +77,12 @@ import { useToast } from "@/components/ui/use-toast";
 import { useTasks } from '../hooks/useTasks';
 import { ComboboxDemo } from './ComboboxDemo';
 import { NotionContext } from '../context/NotionContext';
-import { sendTaskAssignedNotification } from '@/app/services/notificationService';
+import { sendTaskAssignedNotification } from '@/app/services/clientNotificationService';
 import { getBadgeColor } from '../utils/badgeHelper';
+import DatePickerCell from './DatePickerCell';
+import { useAuth } from "@/app/hooks/useAuth";
+import { formatFullDate } from '@/app/utils/dateUtils';
+import { toast } from 'sonner';
 
 // Liste des consultants disponibles pour l'assignation des tâches
 const CONSULTANTS = [
@@ -889,13 +893,10 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
           // Tentative d'envoi via le service de notification
           try {
             const result = await sendTaskAssignedNotification({
-              userId: `${user.email}_${consultantName}`,
-              title: notificationData.title,
-              body: notificationData.body,
+              recipientEmail: emailToAdd,
+              consultant: consultantName,
               taskId,
-              isCommunication: true,
-              communicationIndex,
-              recipientEmail: emailToAdd
+              communicationIndex: communicationIndex.toString()
             });
             
             console.log('Résultat de sendTaskAssignedNotification:', result);

@@ -25,6 +25,16 @@ const nextConfig = {
   webpack: (config, { isServer }) => {
     // Si c'est un build côté client, on ajoute des remplacements pour les modules Node.js
     if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        // Rediriger les imports node: vers des shims vides
+        'node:events': 'events',
+        'node:stream': 'stream-browserify',
+        'node:util': 'util/',
+        'node:buffer': 'buffer/',
+        'node:process': 'process/browser',
+      };
+      
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
@@ -33,11 +43,26 @@ const nextConfig = {
         child_process: false,
         http2: false,
         dns: false,
-        crypto: false,
-        path: false,
-        os: false,
-        stream: false,
+        crypto: require.resolve('crypto-browserify'),
+        path: require.resolve('path-browserify'),
+        os: require.resolve('os-browserify/browser'),
+        stream: require.resolve('stream-browserify'),
+        buffer: require.resolve('buffer/'),
+        events: require.resolve('events/'),
+        util: require.resolve('util/'),
+        process: require.resolve('process/browser'),
+        zlib: require.resolve('browserify-zlib'),
+        http: require.resolve('stream-http'),
+        https: require.resolve('https-browserify'),
       };
+      
+      // Ajouter les polyfills pour les modules Node.js côté client
+      config.plugins.push(
+        new config.webpack.ProvidePlugin({
+          process: 'process/browser',
+          Buffer: ['buffer', 'Buffer'],
+        }),
+      );
     }
     return config;
   },

@@ -43,8 +43,8 @@ import NotionHeader from './NotionHeader';
 import NotionTabs from './NotionTabs';
 import { Header } from '../../components/header';
 import { Task, TeamMember, CommunicationDetail } from '../types';
-import NotificationPermission from '@/app/components/NotificationPermission';
-import { sendTaskAssignedNotification } from '@/app/services/notificationService';
+import GlobalNotificationButton from '@/app/components/notifications/GlobalNotificationButton';
+import { sendTaskAssignedNotification } from '@/app/services/clientNotificationService';
 import ActiveUserBadge from './ActiveUserBadge';
 
 // Types
@@ -1178,10 +1178,10 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
                   }
                 </h1>
                 <div className="flex gap-2">
-                  <NotificationPermission 
-                    consultant={consultant || undefined} 
-                    className="mr-2"
-                    iconOnly={false} 
+                  <GlobalNotificationButton 
+                    consultantName={consultant || ''} 
+                    size="default"
+                    className="mr-1"
                   />
                   <Button
                     variant="ghost"

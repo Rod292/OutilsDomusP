@@ -4,6 +4,9 @@ import { IOSIcons } from "./components/ios-icons"
 import type { Metadata, Viewport } from "next"
 import type React from "react"
 import { ThemeProvider } from "@/app/providers/theme-provider"
+import { Toaster } from "@/components/ui/toaster"
+import { UserAuthProvider } from './contexts/UserAuthContext'
+import { cn } from "@/lib/utils"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -60,7 +63,10 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-          {children}
+          <UserAuthProvider>
+            {children}
+            <Toaster />
+          </UserAuthProvider>
         </ThemeProvider>
       </body>
     </html>

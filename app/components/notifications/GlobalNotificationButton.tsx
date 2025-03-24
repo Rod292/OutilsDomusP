@@ -1,144 +1,94 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Bell, BellOff, BellRing } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
+import { Bell, BellOff, BellRing, RefreshCw } from 'lucide-react';
+import { requestNotificationPermission, checkConsultantPermission } from '@/app/services/clientNotificationService';
 import { useAuth } from '@/app/hooks/useAuth';
-import {
-  requestNotificationPermission,
-  checkNotificationPermission,
-  areNotificationsSupported,
-  checkConsultantPermission,
-  saveNotificationToken,
-  NOTIFICATION_CONFIG
-} from '@/app/services/notificationService';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface GlobalNotificationButtonProps {
-  consultantName?: string;
-  size?: 'default' | 'sm' | 'lg' | 'icon';
+  consultantName: string;
   className?: string;
+  size?: 'icon' | 'default';
 }
 
 export default function GlobalNotificationButton({ 
   consultantName, 
-  size = 'default',
-  className = ''
+  className = '', 
+  size = 'icon' 
 }: GlobalNotificationButtonProps) {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default');
-  const [isEnabled, setIsEnabled] = useState(false);
-  const [isSupported, setIsSupported] = useState(false);
+  const [permissionStatus, setPermissionStatus] = useState<string>('default');
+  const [loading, setLoading] = useState<boolean>(false);
 
-  // Vérifier si les notifications sont supportées et l'état actuel
+  // Vérifier le statut des notifications au chargement du composant
   useEffect(() => {
-    if (!user?.email) return;
-    
-    const checkSupport = async () => {
-      const supported = await areNotificationsSupported();
-      setIsSupported(supported);
-      
-      if (supported) {
-        const currentPermission = checkNotificationPermission();
-        setPermission(currentPermission);
-        
-        // Vérifier si les notifications sont activées pour ce consultant
-        if (currentPermission === 'granted' && user.email) {
-          const isEnabled = await checkConsultantPermission(user.email, consultantName);
-          setIsEnabled(isEnabled);
-        }
-      }
-    };
-    
-    checkSupport();
+    if (user?.email && consultantName) {
+      checkConsultantPermission(user.email, consultantName)
+        .then(hasPermission => {
+          setPermissionStatus(hasPermission ? 'granted' : 'default');
+        })
+        .catch(() => {
+          setPermissionStatus('default');
+        });
+    }
   }, [user?.email, consultantName]);
 
-  const handleActivateNotifications = async () => {
-    if (!user?.email) {
-      toast({
-        title: "Utilisateur non connecté",
-        description: "Vous devez être connecté pour activer les notifications.",
-        variant: "destructive"
-      });
+  // Identifiant pour les notifications - combinaison de l'email de l'utilisateur et du consultant
+  const notificationId = user?.email && consultantName ? `${user.email}_${consultantName}` : null;
+
+  // Demander la permission pour les notifications
+  const handleRequestPermission = async () => {
+    if (!notificationId) {
+      console.error('Utilisateur non connecté ou consultant non spécifié');
       return;
     }
-
-    if (!isSupported) {
-      toast({
-        title: "Notifications non supportées",
-        description: "Votre navigateur ne prend pas en charge les notifications.",
-        variant: "destructive"
-      });
-      return;
-    }
-
+    
     setLoading(true);
-
     try {
-      // Vérifier si les notifications sont activées
-      if (!NOTIFICATION_CONFIG.ENABLED) {
-        toast({
-          title: "Notifications désactivées",
-          description: "Le système de notifications est temporairement désactivé.",
-          variant: "destructive"
-        });
-        setLoading(false);
-        return;
-      }
-
-      const result = await requestNotificationPermission();
-      setPermission(result.status);
-
-      if (result.status === 'granted') {
-        if (result.token) {
-          // Enregistrer le token pour ce consultant spécifique si fourni
-          await saveNotificationToken(result.token, user.email, consultantName);
-          setIsEnabled(true);
-          
-          toast({
-            title: "Notifications activées",
-            description: "Vous recevrez désormais des notifications.",
-          });
-        } else {
-          toast({
-            title: "Erreur d'activation",
-            description: "Impossible d'obtenir un token de notification.",
-            variant: "destructive"
-          });
-        }
-      } else if (result.status === 'denied') {
-        toast({
-          title: "Permission refusée",
-          description: "Vous avez refusé les notifications. Vérifiez les paramètres de votre navigateur.",
-          variant: "destructive"
-        });
+      // Même si les notifications sont déjà activées, on permet de les réactiver
+      const result = await requestNotificationPermission(notificationId);
+      
+      if (result === true) {
+        setPermissionStatus('granted');
+        console.log(`Notifications activées pour: ${notificationId}`);
+      } else {
+        setPermissionStatus('denied');
       }
     } catch (error) {
-      console.error('Erreur lors de l\'activation des notifications:', error);
-      toast({
-        title: "Erreur",
-        description: "Une erreur est survenue lors de l'activation des notifications.",
-        variant: "destructive"
-      });
+      console.error('Erreur lors de la demande de permission:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Personnaliser l'apparence en fonction de la taille
-  const getButtonSize = () => {
-    switch (size) {
-      case 'sm':
-        return 'h-8 px-3';
-      case 'lg':
-        return 'h-12 px-5';
-      case 'icon':
-        return 'h-10 w-10 p-2';
-      default:
-        return 'h-10 px-4';
+  if (!user || !consultantName) {
+    return null;
+  }
+
+  // Déterminer l'icône et le message en fonction du statut
+  let icon = <Bell className={`h-5 w-5 ${loading ? 'animate-ping' : ''}`} />;
+  let tooltipText = `Activer les notifications pour ${consultantName}`;
+  let disabled = loading;
+  let buttonClass = className;
+
+  if (permissionStatus === 'granted') {
+    icon = <BellRing className="h-5 w-5 text-green-500" />;
+    tooltipText = `Notifications activées pour ${consultantName} (cliquez pour réactiver)`;
+    buttonClass += ' text-green-500';
+  } else if (permissionStatus === 'denied') {
+    icon = <BellOff className="h-5 w-5 text-red-500" />;
+    tooltipText = 'Notifications bloquées - Cliquez pour ouvrir les paramètres';
+    buttonClass += ' text-red-500';
+  }
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (permissionStatus === 'denied') {
+      window.open('chrome://settings/content/notifications', '_blank');
+    } else {
+      handleRequestPermission();
     }
   };
 
@@ -147,41 +97,18 @@ export default function GlobalNotificationButton({
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            variant="outline"
-            size={size === 'icon' ? 'icon' : 'default'}
-            className={`relative ${getButtonSize()} ${className}`}
-            onClick={handleActivateNotifications}
-            disabled={loading}
+            variant="ghost"
+            size={size}
+            className={buttonClass}
+            onClick={handleClick}
+            disabled={disabled}
           >
-            {loading ? (
-              <span className="animate-spin">⏳</span>
-            ) : isEnabled ? (
-              <>
-                <BellRing className="h-4 w-4 mr-2" />
-                {size !== 'icon' && "Notifications activées"}
-                <span className="absolute -top-1 -right-1 flex h-3 w-3 rounded-full bg-green-500" />
-              </>
-            ) : permission === 'granted' ? (
-              <>
-                <Bell className="h-4 w-4 mr-2" />
-                {size !== 'icon' && "Activer les notifications"}
-                <span className="absolute -top-1 -right-1 flex h-3 w-3 rounded-full bg-yellow-500" />
-              </>
-            ) : (
-              <>
-                <BellOff className="h-4 w-4 mr-2" />
-                {size !== 'icon' && "Activer les notifications"}
-              </>
-            )}
+            {icon}
+            <span className="sr-only">Notifications</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          {isEnabled 
-            ? "Notifications activées" 
-            : permission === 'granted' 
-              ? "Notifications autorisées mais non activées pour ce consultant" 
-              : "Activer les notifications"
-          }
+          <p>{tooltipText}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
