@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { NotificationSettings } from '../components/notifications/NotificationSettings';
+import NotificationSettings from '../components/notifications/NotificationSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { 
   initializeNotificationPreferences, 

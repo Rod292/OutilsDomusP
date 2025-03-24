@@ -3,37 +3,8 @@ import { getFirestore, collection, query, where, getDocs, doc, deleteDoc, addDoc
 import { NOTIFICATION_OPTIONS } from '../config';
 import { getAuth } from 'firebase/auth';
 import { v4 as uuidv4 } from 'uuid';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
-
-// Configuration Firebase Admin pour le serveur
-const adminConfig = {
-  type: process.env.FIREBASE_TYPE,
-  project_id: process.env.FIREBASE_PROJECT_ID || 'etat-des-lieux-arthur-loyd',
-  private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-  private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n') || '',
-  client_email: process.env.FIREBASE_CLIENT_EMAIL,
-  client_id: process.env.FIREBASE_CLIENT_ID,
-  auth_uri: process.env.FIREBASE_AUTH_URI,
-  token_uri: process.env.FIREBASE_TOKEN_URI,
-  auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_CERT_URL,
-  client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL
-};
-
-// Initialiser Firebase Admin
-let admin: any;
-try {
-  admin = require('firebase-admin');
-  
-  // Initialiser l'app Admin si elle n'est pas déjà initialisée
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.cert(adminConfig)
-    });
-  }
-} catch (error) {
-  console.error('Erreur lors de l\'initialisation de Firebase Admin:', error);
-}
+import { setDoc } from 'firebase/firestore';
+import { adminDb, firebaseAdmin } from '../../../lib/firebase-admin';
 
 // GET: Récupérer les tokens d'un utilisateur
 export async function GET(req: NextRequest) {
@@ -50,8 +21,8 @@ export async function GET(req: NextRequest) {
       );
     }
     
-    // Initialiser Firestore Admin
-    const db = admin.firestore();
+    // Utiliser Firestore Admin
+    const db = adminDb;
     
     // Rechercher les tokens pour cet utilisateur
     const tokensRef = db.collection('notification_tokens');
@@ -91,64 +62,41 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
-    const { token, userId, deviceInfo } = data;
     
-    // Vérifier si les champs obligatoires sont présents
-    if (!token || !userId) {
-      return NextResponse.json(
-        { success: false, error: 'token et userId sont requis' },
-        { status: 400 }
-      );
+    // Vérifier que les données nécessaires sont présentes
+    if (!data.token || !data.userId) {
+      return NextResponse.json({ error: 'Token et userId requis' }, { status: 400 });
     }
     
-    // Initialiser Firestore Admin
-    const db = admin.firestore();
+    const { token, userId, deviceInfo, receiveAsEmail } = data;
     
-    // Vérifier si le token existe déjà
-    const tokensRef = db.collection('notification_tokens');
-    const querySnapshot = await tokensRef.where('token', '==', token).get();
+    // Utiliser Firestore Admin
+    const db = adminDb;
     
-    // Si le token existe, mettre à jour le document
-    if (!querySnapshot.empty) {
-      const tokenDoc = querySnapshot.docs[0];
-      
-      // Mettre à jour le document avec le nouveau userId et deviceInfo
-      await tokenDoc.ref.update({
-        userId,
-        deviceInfo: deviceInfo || tokenDoc.data().deviceInfo,
-        updatedAt: new Date()
-      });
-      
-      return NextResponse.json({
-        success: true,
-        message: 'Token mis à jour avec succès',
-        tokenId: tokenDoc.id
-      });
-    }
-    
-    // Si le token n'existe pas, créer un nouveau document
+    // Créer un ID unique pour le token
     const tokenId = uuidv4();
-    await tokensRef.doc(tokenId).set({
-      token,
-      userId,
-      deviceInfo: deviceInfo || {
-        userAgent: req.headers.get('user-agent') || 'unknown'
-      },
-      createdAt: new Date(),
-      updatedAt: new Date()
-    });
     
-    return NextResponse.json({
-      success: true,
-      message: 'Token enregistré avec succès',
-      tokenId
-    });
+    // Préparer les données du token
+    const tokenData = {
+      id: tokenId,
+      token,
+      userId, // L'ID de l'utilisateur pour lequel ce token est enregistré (consultant ou utilisateur)
+      deviceInfo: deviceInfo || {},
+      receiveAsEmail: receiveAsEmail || null, // L'email de l'utilisateur qui recevra réellement les notifications
+      createdAt: new Date(),
+      lastUsed: new Date()
+    };
+    
+    // Enregistrer le token dans Firestore
+    await db.collection('notification_tokens').doc(tokenId).set(tokenData);
+    
+    // Loguer l'information pour le débogage
+    console.log(`Token enregistré avec succès pour ${userId}${receiveAsEmail ? ` (notifications envoyées à ${receiveAsEmail})` : ''}`);
+    
+    return NextResponse.json({ success: true, tokenId });
   } catch (error) {
     console.error('Erreur lors de l\'enregistrement du token:', error);
-    return NextResponse.json(
-      { success: false, error: 'Erreur lors de l\'enregistrement du token' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }
 
@@ -168,8 +116,8 @@ export async function DELETE(req: NextRequest) {
       );
     }
     
-    // Initialiser Firestore Admin
-    const db = admin.firestore();
+    // Utiliser Firestore Admin
+    const db = adminDb;
     const tokensRef = db.collection('notification_tokens');
     
     let querySnapshot;
