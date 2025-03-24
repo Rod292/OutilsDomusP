@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '../config';
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 // Cette API route vérifie si un utilisateur a activé les notifications pour un consultant
 export async function GET(request: NextRequest) {
