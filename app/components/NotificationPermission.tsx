@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Bell, BellOff, BellRing } from 'lucide-react';
 import { requestNotificationPermission, logNotificationPermissionStatus, checkConsultantPermission } from '../services/notificationService';
+import { regenerateAndSaveToken } from '../services/clientNotificationService';
 import { useAuth } from '../hooks/useAuth';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSearchParams } from 'next/navigation';
@@ -50,16 +51,17 @@ export default function NotificationPermission({ className, iconOnly = true }: N
 
   // Demander la permission pour les notifications
   const handleRequestPermission = async () => {
-    if (!notificationId) {
-      console.error('Utilisateur non connecté ou consultant non spécifié');
+    if (!user?.email) {
+      console.error('Utilisateur non connecté');
       return;
     }
     
     setLoading(true);
     try {
-      // Même si les notifications sont déjà activées, on permet de les réactiver
-      // Cela permet de renouveler le token FCM si nécessaire
-      const result = await requestNotificationPermission(notificationId);
+      // Utiliser la nouvelle fonction pour régénérer et enregistrer un token FCM
+      const result = consultant 
+        ? await regenerateAndSaveToken(user.email, consultant)
+        : await requestNotificationPermission(notificationId || user.email);
       
       if (result === true) {
         setPermissionStatus('granted');

@@ -5,6 +5,7 @@ import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { Timestamp } from 'firebase/firestore';
 import { getFirestore, collection, addDoc, getDocs, query, where, updateDoc, serverTimestamp, Firestore, deleteDoc, doc } from 'firebase/firestore';
 import { clientApp } from '../api/client-config';
+import { initializeFirebase } from '../services/firebase';
 
 // Configuration des notifications
 export const NOTIFICATION_CONFIG = {
@@ -23,70 +24,84 @@ const NOTIFICATION_COLLECTION = 'notifications';
 const TOKEN_COLLECTION = 'notificationTokens';
 
 /**
- * Enregistre le token de notification pour un utilisateur
- * @param userId Identifiant de l'utilisateur (email_consultant)
- * @param token Token de notification
- * @returns Promise<boolean> True si le token a été enregistré avec succès
+ * Enregistre un token de notification dans Firestore
+ * @param userId Identifiant de l'utilisateur
+ * @param token Token FCM
+ * @returns Promise<boolean> True si l'enregistrement est réussi
  */
 export const saveNotificationToken = async (userId: string, token: string): Promise<boolean> => {
   try {
-    if (!userId || !token) {
-      console.error('ID utilisateur ou token manquant:', { userId, token });
+    if (typeof window === 'undefined') {
+      console.error('Impossible d\'enregistrer un token côté serveur');
       return false;
     }
-
-    console.log(`Enregistrement du token pour l'utilisateur: ${userId}`);
     
-    // Extraire l'email de l'utilisateur depuis userId (format: email_consultant)
-    const email = userId.includes('_') ? userId.split('_')[0] : userId;
-    console.log(`Email extrait: ${email}`);
+    console.log(`Enregistrement du token FCM pour ${userId}...`);
     
-    // Initialiser Firestore et vérifier qu'il est disponible
+    // Vérifier que userId est valide
+    if (!userId) {
+      console.error('ID utilisateur manquant pour l\'enregistrement du token');
+      return false;
+    }
+    
+    // Récupérer l'email à partir de l'identifiant
+    const [email, consultant] = userId.split('_');
+    
+    // Obtenir le consultant depuis l'URL (pour permettre la réception des notifications de différents consultants)
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlConsultant = urlParams.get('consultant');
+    
+    // Obtenir une instance Firestore
     const db = getFirestore();
     if (!db) {
-      console.error('Firestore non initialisé');
+      console.error('Firestore non disponible');
       return false;
     }
     
-    // Vérifier si ce token existe déjà pour cet utilisateur
+    // Vérifier si le token existe déjà pour cet utilisateur
     const tokensRef = collection(db, TOKEN_COLLECTION);
-    const q = query(tokensRef, 
+    const q = query(
+      tokensRef,
       where('userId', '==', userId),
       where('token', '==', token)
     );
     
-    const querySnapshot = await getDocs(q);
+    const snapshot = await getDocs(q);
     
-    // Si le token existe déjà, mettre à jour le timestamp
-    if (!querySnapshot.empty) {
-      const docRef = querySnapshot.docs[0].ref;
-      await updateDoc(docRef, {
+    // Si le token existe déjà, mise à jour du timestamp
+    if (!snapshot.empty) {
+      console.log('Token existant, mise à jour du timestamp...');
+      
+      const docId = snapshot.docs[0].id;
+      await updateDoc(doc(db, TOKEN_COLLECTION, docId), {
         timestamp: Date.now(),
-        lastUpdated: serverTimestamp(),
-        email // Ajouter/mettre à jour l'email
+        lastActive: serverTimestamp()
       });
-      console.log(`Token existant mis à jour pour l'utilisateur: ${userId}`);
+      
       return true;
     }
     
-    // Sinon, créer un nouveau document pour ce token
+    // Enregistrer le nouveau token avec des métadonnées
     const tokenData = {
       userId,
-      email, // Stocker l'email séparément pour faciliter les requêtes
+      email,
+      consultant,
+      urlConsultant,  // Ajouter le consultant de l'URL comme métadonnée
       token,
+      platform: navigator.platform,
+      userAgent: navigator.userAgent,
       timestamp: Date.now(),
       createdAt: serverTimestamp(),
-      lastUpdated: serverTimestamp(),
-      platform: typeof navigator !== 'undefined' ? navigator.platform : 'unknown',
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
+      lastActive: serverTimestamp()
     };
     
-    await addDoc(tokensRef, tokenData);
-    console.log(`Nouveau token enregistré pour l'utilisateur: ${userId}`);
+    // Ajouter le document à la collection
+    await addDoc(collection(db, TOKEN_COLLECTION), tokenData);
     
+    console.log(`Token FCM enregistré avec succès pour ${userId}`);
     return true;
   } catch (error) {
-    console.error('Erreur lors de l\'enregistrement du token:', error);
+    console.error('Erreur lors de l\'enregistrement du token FCM:', error);
     return false;
   }
 };
@@ -651,4 +666,95 @@ export const debugNotifications = async (email: string, consultantName: string):
     console.error('Erreur lors du débogage des notifications:', error);
     return false;
   }
-}; 
+};
+
+/**
+ * Régénère et enregistre un token FCM pour un utilisateur connecté et un consultant spécifique
+ * @param userEmail Email de l'utilisateur connecté
+ * @param consultantName Nom du consultant (optionnel)
+ * @returns Promise<boolean> Succès de l'opération
+ */
+export const regenerateAndSaveToken = async (userEmail: string, consultantName?: string): Promise<boolean> => {
+  try {
+    if (typeof window === 'undefined') {
+      console.error('Impossible de régénérer un token côté serveur');
+      return false;
+    }
+
+    // Vérifier si l'utilisateur a autorisé les notifications
+    if (Notification.permission !== 'granted') {
+      console.log('Demande de permission pour les notifications...');
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        console.error('Permission refusée pour les notifications');
+        return false;
+      }
+    }
+
+    // Construire l'ID utilisateur
+    const userId = consultantName ? `${userEmail}_${consultantName}` : userEmail;
+    console.log(`Régénération du token FCM pour ${userId}...`);
+
+    // S'assurer que Firebase est initialisé
+    const app = initializeFirebase();
+    if (!app) {
+      console.error('Échec de l\'initialisation de Firebase');
+      return false;
+    }
+
+    // Enregistrer le service worker
+    const swRegistration = await registerFCMServiceWorker();
+    if (!swRegistration) {
+      console.error('Échec de l\'enregistrement du Service Worker');
+      return false;
+    }
+
+    try {
+      // Générer un nouveau token
+      const messaging = getMessaging(app);
+      const token = await getToken(messaging, {
+        vapidKey: NOTIFICATION_CONFIG.vapidKey,
+        serviceWorkerRegistration: swRegistration
+      });
+
+      if (!token) {
+        console.error('Échec de l\'obtention du token FCM');
+        return false;
+      }
+
+      console.log(`Nouveau token FCM obtenu: ${token.substring(0, 10)}...`);
+
+      // Sauvegarder le token dans Firestore
+      const success = await saveNotificationToken(userId, token);
+      if (!success) {
+        console.error('Échec de l\'enregistrement du token FCM');
+        return false;
+      }
+
+      console.log(`Token FCM régénéré et enregistré avec succès pour ${userId}`);
+      
+      // Afficher une notification locale pour confirmer que tout fonctionne
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification('Notifications activées', {
+          body: consultantName 
+            ? `Vous recevrez désormais les notifications pour ${consultantName}`
+            : 'Vous recevrez désormais les notifications',
+          icon: '/icons/arthur-loyd-logo-192.png'
+        });
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de la génération du token:', error);
+      return false;
+    }
+  } catch (error) {
+    console.error('Erreur générale lors de la régénération du token:', error);
+    return false;
+  }
+};
+
+// Ajouter la fonction à window pour pouvoir l'appeler depuis la console
+if (typeof window !== 'undefined') {
+  (window as any).regenerateAndSaveToken = regenerateAndSaveToken;
+} 

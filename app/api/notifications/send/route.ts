@@ -256,21 +256,34 @@ export async function POST(request: NextRequest) {
     }
     
     // IMPORTANTE MODIFICATION: Chercher tous les tokens pour cet email utilisateur
-    // et pour la combinaison spécifique email_consultant
-    let tokensQuery;
+    // et pour la combinaison spécifique email_consultant, 
+    // AINSI QUE les tokens qui ont urlConsultant = consultantName
+    let tokensSnapshot;
+    
     if (consultantName) {
-      // Format spécifique email_consultant
-      tokensQuery = db.collection(TOKEN_COLLECTION)
+      // Format spécifique email_consultant ou tokens avec urlConsultant correspondant
+      const directTokens = await db.collection(TOKEN_COLLECTION)
         .where('userId', '==', userId)
         .get();
+      
+      // Récupérer aussi les tokens des utilisateurs ayant inscrit ce consultant dans leurs préférences
+      const urlConsultantTokens = await db.collection(TOKEN_COLLECTION)
+        .where('urlConsultant', '==', consultantName)
+        .get();
+      
+      // Créer un objet avec la même structure qu'un QuerySnapshot
+      const combinedDocs = [...directTokens.docs, ...urlConsultantTokens.docs];
+      tokensSnapshot = {
+        empty: combinedDocs.length === 0,
+        docs: combinedDocs,
+        forEach: (callback: (doc: FirebaseFirestore.QueryDocumentSnapshot) => void) => combinedDocs.forEach(callback)
+      };
     } else {
       // Dans le cas d'une notification sans consultant spécifique, utiliser seulement l'email
-      tokensQuery = db.collection(TOKEN_COLLECTION)
+      tokensSnapshot = await db.collection(TOKEN_COLLECTION)
         .where('email', '==', userEmail)
         .get();
     }
-
-    const tokensSnapshot = await tokensQuery;
 
     if (tokensSnapshot.empty) {
       console.log(`Aucun token trouvé pour l'utilisateur ${userId}`);
