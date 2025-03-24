@@ -1,12 +1,11 @@
-// Cette page est un composant serveur statique
-// Nous n'utilisons pas "use client" ici
+"use client";
 
 import { Suspense } from "react";
 import { Header } from "@/app/components/header";
 import { LoadingSpinner } from "@/app/components/ui/loading";
 import NotificationPreferencesClient from "./client";
 
-// Page principale exportée comme composant serveur
+// Page principale exportée comme composant client
 export default function NotificationsPage() {
   return (
     <>

@@ -10,7 +10,6 @@ import { Label } from "@/app/components/ui/label";
 import { toast } from "sonner";
 import { Separator } from "@/app/components/ui/separator";
 import { LoadingSpinner } from "@/app/components/ui/loading";
-import { useSearchParams } from "next/navigation";
 
 interface TeamMember {
   id: string;
@@ -30,15 +29,26 @@ interface NotificationPreference {
   createdAt: Date;
 }
 
-// Composant client qui utilise useSearchParams à l'intérieur d'un composant client
+// Composant client principal
 export default function NotificationPreferencesClient() {
+  // Nous n'utilisons plus useSearchParams(), nous pouvons le récupérer via une autre méthode
+  // par exemple avec un état local ou directement depuis window.location si nécessaire
+  const [highlightConsultant, setHighlightConsultant] = useState<string | null>(null);
+  
+  // Récupération du paramètre highlight depuis l'URL au montage du composant
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const highlight = urlParams.get('highlight');
+      setHighlightConsultant(highlight);
+    }
+  }, []);
+  
   const { user } = useAuth();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [preferences, setPreferences] = useState<Record<string, NotificationPreference>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const searchParams = useSearchParams();
-  const highlightConsultant = searchParams.get('highlight');
 
   // Charger les membres de l'équipe et les préférences actuelles
   useEffect(() => {

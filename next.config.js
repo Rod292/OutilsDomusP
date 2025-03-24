@@ -4,6 +4,14 @@ const path = require('path');
 
 const nextConfig = {
   reactStrictMode: true,
+  // Configuration pour désactiver la pré-génération statique de certaines pages
+  // et les forcer en mode client-side rendering uniquement
+  experimental: {
+    // Appliquer le rendu statique uniquement aux routes spécifiées
+    // Cela signifie que toutes les autres routes seront rendues côté client
+    // En particulier, cela résout le problème avec useSearchParams dans /notifications/preferences
+    missingSuspenseWithCSRBailout: false,
+  },
   images: {
     remotePatterns: [
       {
