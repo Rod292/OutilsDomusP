@@ -38,21 +38,9 @@ const nextConfig = {
         )
       );
       
-      // Ajouter le fichier de polyfills comme point d'entrée avant les entrées existantes
-      const originalEntry = config.entry;
-      config.entry = async () => {
-        const entries = await originalEntry();
-        
-        // Ajouter notre polyfill à chaque point d'entrée, sauf pour les points d'entrée polyfill existants
-        Object.keys(entries).forEach(entry => {
-          if (!entry.includes('polyfills') && !entries[entry].includes('./node-polyfills.js')) {
-            entries[entry] = ['./node-polyfills.js', ...entries[entry]];
-          }
-        });
-        
-        return entries;
-      };
-
+      // CORRECTION: Ne pas modifier les entrées de façon dynamique, ce qui peut créer des doublons
+      // Ajoutons plutôt le polyfill directement via un plugin ProvidePlugin
+      
       // Nouvelle approche pour résoudre les imports node:
       config.plugins.push(
         new webpack.NormalModuleReplacementPlugin(
@@ -131,10 +119,36 @@ const nextConfig = {
         new webpack.ProvidePlugin({
           process: 'process/browser',
           Buffer: ['buffer', 'Buffer'],
+          // Ajouter d'autres polyfills globaux ici si nécessaire
+          events: 'events',
+          stream: 'stream-browserify',
+          util: 'util',
+          path: 'path-browserify',
+          os: 'os-browserify/browser',
+          crypto: 'crypto-browserify',
+          http: 'stream-http',
+          https: 'https-browserify',
+          zlib: 'browserify-zlib'
         }),
         // Ignorer les modules qui causent des problèmes
         new webpack.IgnorePlugin({
           resourceRegExp: /^electron$/,
+        }),
+        // Ajouter un plugin pour fournir des variables globales pour stdout, stderr, isTTY
+        new webpack.DefinePlugin({
+          'process.stdout': JSON.stringify({
+            isTTY: false,
+            write: function() {},
+            end: function() {},
+          }),
+          'process.stderr': JSON.stringify({
+            isTTY: false,
+            write: function() {},
+            end: function() {},
+          }),
+          'process.stdin': JSON.stringify({
+            isTTY: false
+          })
         })
       );
     }
