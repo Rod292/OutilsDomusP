@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
+import { getMessaging } from 'firebase-admin/messaging';
+import { initAdmin } from '../../../../lib/firebase-admin';
+import { db } from '../../../../lib/firebase-admin';
+import { DocumentData, QuerySnapshot } from 'firebase-admin/firestore';
+import { adminDb, adminMessaging } from '../../../lib/firebase-admin';
 
 // Configuration Firebase Admin pour le serveur
 interface ServiceAccount {
@@ -45,185 +50,152 @@ try {
   console.error('Erreur lors de l\'initialisation de Firebase Admin:', error);
 }
 
-// Liste des consultants pour extraction du nom
-const CONSULTANTS = [
-  { name: 'npers', email: 'photos.pers@gmail.com' },
-  { name: 'rleborgne', email: 'r.leborgne@arthur-loyd.com' },
-  { name: 'mchampeil', email: 'm.champeil@arthur-loyd.com' },
-  { name: 'vleprovost', email: 'v.leprovost@arthur-loyd.com' },
-  { name: 'ahervouet', email: 'a.hervouet@arthur-loyd.com' },
-  { name: 'cgaignard', email: 'c.gaignard@arthur-loyd.com' },
-  { name: 'mdemeure', email: 'm.demeure@arthur-loyd.com' },
-  { name: 'alamarche', email: 'a.lamarche@arthur-loyd.com' },
-  { name: 'vsainz', email: 'v.sainz@arthur-loyd.com' },
-  { name: 'fjaunet', email: 'f.jaunet@arthur-loyd.com' },
-  { name: 'lsiraud', email: 'l.siraud@arthur-loyd.com' },
-  { name: 'mleroch', email: 'm.leroch@arthur-loyd.com' },
-];
-
 // Fonction pour extraire l'email et le consultant d'un userId
 const extractUserInfo = (userId: string): { email: string; consultant: string | null } => {
-  if (userId.includes('_')) {
+  if (userId && typeof userId === 'string' && userId.includes('_')) {
     const [email, consultant] = userId.split('_');
     return { email, consultant };
   } else {
-    return { email: userId, consultant: null };
+    return { email: userId || '', consultant: null };
   }
 };
 
-// Fonction pour trouver les tokens d'un utilisateur
-const findTokensForUser = async (userId: string): Promise<Set<string>> => {
+// Fonction pour extraire les tokens uniques d'un snapshot Firestore
+const extractTokens = (snapshot: any): Set<string> => {
   const tokens = new Set<string>();
-  const db = admin.firestore();
-  const tokensRef = db.collection('notification_tokens');
-  let querySnapshot;
-  
-  // Rechercher par userId exact d'abord
-  querySnapshot = await tokensRef.where('userId', '==', userId).get();
-  
-  // Ajouter les tokens trouvés au Set pour éliminer les doublons
-  querySnapshot.forEach((doc: any) => {
-    const tokenData = doc.data();
-    if (tokenData.token) {
-      tokens.add(tokenData.token);
+  snapshot.forEach((doc: any) => {
+    const data = doc.data();
+    if (data.token) {
+      tokens.add(data.token);
+      
+      // Loguer les informations de débogage
+      console.log(`Token trouvé: ${data.token.substring(0, 10)}...`);
+      console.log(`  Pour: ${data.userId}`);
+      console.log(`  Reçu par: ${data.receiveAsEmail || 'même utilisateur'}`);
+      console.log(`  Appareil: ${data.deviceInfo?.device || 'inconnu'} (${data.deviceInfo?.os || 'OS inconnu'})`);
     }
   });
-  
-  // Si aucun token n'est trouvé, essayer de rechercher par email uniquement
-  if (tokens.size === 0 && userId.includes('_')) {
-    const { email } = extractUserInfo(userId);
-    querySnapshot = await tokensRef.where('userId', '==', email).get();
-    
-    querySnapshot.forEach((doc: any) => {
-      const tokenData = doc.data();
-      if (tokenData.token) {
-        tokens.add(tokenData.token);
-      }
-    });
-  }
-  
   return tokens;
 };
 
-// POST: Envoyer une notification à un utilisateur
-export async function POST(req: NextRequest) {
+interface NotificationData {
+  userId: string;
+  title: string;
+  body: string;
+  type?: string;
+  taskId?: string;
+  communicationIndex?: number;
+}
+
+// Fonction pour valider les données de la notification
+const validateNotificationData = (data: any): data is NotificationData => {
+  console.log('Données reçues:', JSON.stringify(data, null, 2));
+  
+  const isValid = typeof data === 'object' &&
+    data !== null &&
+    typeof data.userId === 'string' &&
+    typeof data.title === 'string' &&
+    typeof data.body === 'string';
+
+  if (!isValid) {
+    console.log('Validation échouée:', {
+      isObject: typeof data === 'object',
+      isNotNull: data !== null,
+      userIdIsString: typeof data?.userId === 'string',
+      titleIsString: typeof data?.title === 'string',
+      bodyIsString: typeof data?.body === 'string'
+    });
+  }
+
+  return isValid;
+};
+
+export async function POST(request: NextRequest) {
   try {
-    const data = await req.json();
-    const { userId, title, body, data: notificationData = {} } = data;
+    const { userId, title, body, data } = await request.json();
     
-    // Vérification des paramètres requis
     if (!userId || !title || !body) {
-      return NextResponse.json(
-        { success: false, error: 'userId, title et body sont requis' },
-        { status: 400 }
-      );
+      return NextResponse.json({ 
+        error: 'userId, title, et body sont requis pour envoyer une notification' 
+      }, { status: 400 });
     }
     
-    // Si nous n'avons pas accès à l'API Firebase Admin, retourner une erreur
-    if (!admin) {
-      return NextResponse.json(
-        { success: false, error: 'Firebase Admin n\'est pas disponible' },
-        { status: 500 }
-      );
+    // Recherche des tokens de l'utilisateur
+    console.log(`[API] Recherche des tokens pour l'utilisateur: ${userId}`);
+    const tokensRef = adminDb.collection('notificationTokens');
+    
+    // Requête pour trouver des tokens avec le userId exact OU qui commencent par l'email (si userId est un email)
+    let querySnapshot;
+    try {
+      querySnapshot = await tokensRef
+        .where('userId', '>=', userId)
+        .where('userId', '<=', userId + '\uf8ff')
+        .get();
+    } catch (error) {
+      console.error('[API] Erreur lors de la recherche de tokens:', error);
+      throw error;
     }
     
-    // Extraire l'email et le consultant du userId
-    const { email, consultant } = extractUserInfo(userId);
-    
-    // Rechercher les tokens
-    const tokens = await findTokensForUser(userId);
-    
-    // Si aucun token n'est trouvé, essayer de chercher uniquement avec l'email
-    if (tokens.size === 0 && email !== userId) {
-      const emailTokens = await findTokensForUser(email);
-      emailTokens.forEach(token => tokens.add(token));
+    if (querySnapshot.empty) {
+      console.log(`[API] Aucun token trouvé pour l'utilisateur: ${userId}`);
+      return NextResponse.json({ 
+        error: 'Aucun appareil enregistré pour cet utilisateur' 
+      }, { status: 404 });
     }
     
-    // Si toujours aucun token n'est trouvé, retourner une erreur
-    if (tokens.size === 0) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Aucun token trouvé pour cet utilisateur',
-          userId,
-          email
-        },
-        { status: 404 }
-      );
-    }
-    
-    // Compter les appareils Apple et non-Apple
-    let appleDevices = 0;
-    let nonAppleDevices = 0;
-    
-    // Convertir le Set en tableau pour FCM
-    const tokenArray = Array.from(tokens);
-    
-    // Vérifier les types d'appareils (cette partie est simplifiée car nous n'avons pas accès direct aux détails des appareils ici)
-    // On utilisera simplement la détection via les tokens spécifiques à Apple qui commencent généralement par des caractères spécifiques
-    tokenArray.forEach(token => {
-      // Détection heuristique simplifiée des tokens Apple
-      if (token.startsWith('d') || token.includes(':APA91') === false) {
-        appleDevices++;
+    // Collecter tous les tokens valides
+    const tokens: string[] = [];
+    querySnapshot.forEach((doc) => {
+      const tokenData = doc.data();
+      
+      if (!tokenData.token) {
+        console.warn('[API] Token manquant dans le document:', doc.id);
+        return; // Continuer la boucle
+      }
+      
+      // Si c'est un token de test, on l'enregistre à part
+      if (tokenData.isTestToken) {
+        console.log(`[API] Token de test trouvé pour ${userId}: ${tokenData.token}`);
       } else {
-        nonAppleDevices++;
+        tokens.push(tokenData.token);
       }
     });
     
-    // Créer le message pour Firebase Cloud Messaging
+    console.log(`[API] ${tokens.length} tokens FCM trouvés pour l'envoi de notification`);
+    
+    if (tokens.length === 0) {
+      console.log('[API] Uniquement des tokens de test, simulation d\'envoi...');
+      return NextResponse.json({ 
+        success: true, 
+        info: 'Notification simulée avec tokens de test',
+        sentCount: 0
+      });
+    }
+    
+    // Préparation du message
     const message = {
       notification: {
         title,
         body,
       },
-      data: {
-        ...notificationData,
-        title,
-        body,
-        clickAction: 'FLUTTER_NOTIFICATION_CLICK',
-      },
-      tokens: tokenArray,
-      // Options spécifiques pour iOS
-      apns: {
-        payload: {
-          aps: {
-            sound: 'default',
-            badge: 1,
-            contentAvailable: true,
-          },
-        },
-        headers: {
-          'apns-priority': '10',
-        },
-      },
-      // Options pour Android
-      android: {
-        priority: 'high',
-        notification: {
-          sound: 'default',
-          clickAction: 'FLUTTER_NOTIFICATION_CLICK',
-        },
-      },
+      data: data || {},
+      tokens,
     };
     
-    // Envoyer la notification via Firebase Cloud Messaging
-    const response = await admin.messaging().sendMulticast(message);
+    // Envoi des notifications
+    const response = await adminMessaging.sendMulticast(message);
     
-    // Retourner les résultats
-    return NextResponse.json({
-      success: true,
-      result: response,
-      message: `Notification envoyée (${tokens.size} appareils): { success: ${response.successCount}, failure: ${response.failureCount}, appleDevices: ${appleDevices}, nonAppleDevices: ${nonAppleDevices} }`
+    console.log(`[API] Notification envoyée avec succès à ${response.successCount} appareils`);
+    return NextResponse.json({ 
+      success: true, 
+      sent: response.successCount,
+      failed: response.failureCount,
+      responses: response.responses
     });
-  } catch (error: any) {
-    console.error('Erreur lors de l\'envoi de la notification:', error);
-    
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error.message || 'Une erreur est survenue lors de l\'envoi de la notification'
-      },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error('[API] Erreur lors de l\'envoi de notification:', error);
+    return NextResponse.json({ 
+      error: 'Erreur serveur lors de l\'envoi de notification' 
+    }, { status: 500 });
   }
 } 
