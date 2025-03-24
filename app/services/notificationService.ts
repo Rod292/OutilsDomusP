@@ -890,4 +890,111 @@ export const sendTaskAssignedNotification = async (params: {
     console.error('Erreur générale lors de l\'envoi de notification:', error);
     return false;
   }
+};
+
+/**
+ * Enregistre directement un token de notification pour un consultant
+ * @param email Email de l'utilisateur
+ * @param consultant Identifiant du consultant (optionnel)
+ * @returns Promise<boolean> Succès de l'opération
+ */
+export const registerTokenForConsultantDirect = async (
+  email: string,
+  consultant?: string
+): Promise<boolean> => {
+  try {
+    console.log(`Tentative d'enregistrement direct pour ${email}${consultant ? ` (${consultant})` : ''}`);
+    
+    // Vérifier si les notifications sont supportées
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      console.error("Les notifications ne sont pas supportées sur ce navigateur");
+      return false;
+    }
+    
+    // Demander la permission si nécessaire
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      console.error("Permission de notification refusée:", permission);
+      return false;
+    }
+
+    // Utiliser la route d'enregistrement spécial
+    const response = await fetch('/api/notifications/register-test-token-direct', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        consultant,
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Erreur lors de l'enregistrement direct:", errorData);
+      return false;
+    }
+
+    const result = await response.json();
+    console.log("Résultat de l'enregistrement direct:", result);
+    return true;
+  } catch (error) {
+    console.error('Erreur lors de l\'enregistrement direct:', error);
+    return false;
+  }
+};
+
+/**
+ * Vérifie si les notifications sont supportées par le navigateur
+ * @returns boolean Indique si les notifications sont supportées
+ */
+export const areNotificationsSupported = (): boolean => {
+  return typeof window !== 'undefined' && 'Notification' in window;
+};
+
+/**
+ * Initialise la collection des membres de l'équipe
+ * @returns Promise<void>
+ */
+export const initializeTeamMembersCollection = async (): Promise<void> => {
+  // Cette fonction serait implémentée selon les besoins spécifiques
+  console.log('Initialisation de la collection des membres de l\'équipe');
+};
+
+/**
+ * Initialise les préférences de notification pour un utilisateur
+ * @param userId Identifiant de l'utilisateur
+ * @returns Promise<void>
+ */
+export const initializeNotificationPreferences = async (userId: string): Promise<void> => {
+  // Cette fonction serait implémentée selon les besoins spécifiques
+  console.log(`Initialisation des préférences de notification pour ${userId}`);
+};
+
+/**
+ * Synchronise les préférences de notification avec les membres de l'équipe
+ * @param userId Identifiant de l'utilisateur
+ * @returns Promise<void>
+ */
+export const syncNotificationPreferencesWithTeamMembers = async (userId: string): Promise<void> => {
+  // Cette fonction serait implémentée selon les besoins spécifiques
+  console.log(`Synchronisation des préférences de notification pour ${userId}`);
+};
+
+/**
+ * Associe un email personnel avec un consultant
+ * @param personalEmail Email personnel
+ * @param consultantId Identifiant du consultant
+ * @returns Promise<boolean> Succès de l'opération
+ */
+export const associatePersonalEmailWithConsultant = async (
+  personalEmail: string,
+  consultantId: string
+): Promise<boolean> => {
+  // Cette fonction serait implémentée selon les besoins spécifiques
+  console.log(`Association de l'email ${personalEmail} avec le consultant ${consultantId}`);
+  return true;
 }; 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import admin from '@/app/firebase-admin';
 
+export const runtime = "edge";
+
 const db = admin.firestore();
 
 // Fonction pour supprimer tous les documents de la collection 'notifications'

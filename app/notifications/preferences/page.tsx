@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useAuth } from "@/app/hooks/useAuth";
 import { getFirestore, collection, query, where, getDocs, doc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Separator } from "@/app/components/ui/separator";
 import { LoadingSpinner } from "@/app/components/ui/loading";
 import { Header } from "@/app/components/header";
+import { useSearchParams } from "next/navigation";
 
 interface TeamMember {
   id: string;
@@ -30,12 +31,32 @@ interface NotificationPreference {
   createdAt: Date;
 }
 
+// Composant principal enveloppé dans un Suspense
+const NotificationsPreferencesWrapper = () => {
+  return (
+    <Suspense fallback={
+      <>
+        <Header />
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] py-12">
+          <LoadingSpinner size="lg" />
+          <p className="mt-4 text-gray-500">Chargement...</p>
+        </div>
+      </>
+    }>
+      <NotificationPreferencesPage />
+    </Suspense>
+  );
+};
+
+// Page principale de préférences de notifications
 const NotificationPreferencesPage = () => {
   const { user } = useAuth();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [preferences, setPreferences] = useState<Record<string, NotificationPreference>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const searchParams = useSearchParams();
+  const highlightConsultant = searchParams.get('highlight');
 
   // Charger les membres de l'équipe et les préférences actuelles
   useEffect(() => {
@@ -263,14 +284,19 @@ const NotificationPreferencesPage = () => {
               };
               
               const isAnyEnabled = pref.taskAssigned || pref.communicationAssigned || pref.taskReminders;
+              const isHighlighted = highlightConsultant === member.email;
               
               return (
-                <Card key={member.id} className={`overflow-hidden transition-all duration-200 ${isAnyEnabled ? 'border-blue-300 shadow-md' : 'border-gray-200'}`}>
-                  <CardHeader className="pb-3">
+                <Card 
+                  key={member.id} 
+                  className={`overflow-hidden transition-all duration-200 ${isAnyEnabled ? 'border-blue-300 shadow-md' : 'border-gray-200'} ${isHighlighted ? 'ring-2 ring-blue-500 shadow-lg' : ''}`}
+                >
+                  <CardHeader className={`pb-3 ${isHighlighted ? 'bg-blue-50' : ''}`}>
                     <div className="flex justify-between items-center">
                       <div>
                         <CardTitle className="text-xl">{member.name}</CardTitle>
                         <CardDescription className="text-sm">{member.email}</CardDescription>
+                        {isHighlighted && <p className="text-xs text-blue-600 mt-1">Consultant mis en évidence</p>}
                       </div>
                       <Switch 
                         checked={isAnyEnabled}
@@ -328,4 +354,5 @@ const NotificationPreferencesPage = () => {
   );
 };
 
-export default NotificationPreferencesPage; 
+// Exporter le wrapper avec Suspense comme composant principal
+export default NotificationsPreferencesWrapper; 

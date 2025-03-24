@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import admin from '@/app/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 
+export const runtime = "edge";
+
 const db = admin.firestore();
 
 /**
