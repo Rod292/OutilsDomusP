@@ -31,25 +31,8 @@ interface NotificationPreference {
   createdAt: Date;
 }
 
-// Composant principal enveloppé dans un Suspense
-const NotificationsPreferencesWrapper = () => {
-  return (
-    <Suspense fallback={
-      <>
-        <Header />
-        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] py-12">
-          <LoadingSpinner size="lg" />
-          <p className="mt-4 text-gray-500">Chargement...</p>
-        </div>
-      </>
-    }>
-      <NotificationPreferencesPage />
-    </Suspense>
-  );
-};
-
-// Page principale de préférences de notifications
-const NotificationPreferencesPage = () => {
+// Composant client qui utilise useSearchParams à l'intérieur d'un composant client
+function ClientNotificationPreferences() {
   const { user } = useAuth();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [preferences, setPreferences] = useState<Record<string, NotificationPreference>>({});
@@ -352,10 +335,21 @@ const NotificationPreferencesPage = () => {
       </div>
     </>
   );
-};
+}
 
-// Exporter le composant wrapper comme export par défaut
-export default NotificationsPreferencesWrapper;
-
-// Ne pas exporter le composant page directement
-// export default NotificationPreferencesPage; 
+// Page principale qui utilise Suspense pour le rendu client
+export default function NotificationsPreferencesPage() {
+  return (
+    <Suspense fallback={
+      <>
+        <Header />
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] py-12">
+          <LoadingSpinner size="lg" />
+          <p className="mt-4 text-gray-500">Chargement...</p>
+        </div>
+      </>
+    }>
+      <ClientNotificationPreferences />
+    </Suspense>
+  );
+} 
