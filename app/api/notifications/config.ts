@@ -1,18 +1,56 @@
-// Configuration du service Firebase pour les notifications
+// Configuration pour firebase et firebase-admin
+// Imports conditionnels pour éviter les erreurs côté client
 
-export const FIREBASE_CONFIG = {
-  type: process.env.FIREBASE_TYPE || 'service_account',
-  project_id: process.env.FIREBASE_PROJECT_ID || 'etat-des-lieux-arthur-loyd',
-  private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-  private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n') || '',
-  client_email: process.env.FIREBASE_CLIENT_EMAIL,
-  client_id: process.env.FIREBASE_CLIENT_ID,
-  auth_uri: process.env.FIREBASE_AUTH_URI || 'https://accounts.google.com/o/oauth2/auth',
-  token_uri: process.env.FIREBASE_TOKEN_URI || 'https://oauth2.googleapis.com/token',
-  auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_CERT_URL || 'https://www.googleapis.com/oauth2/v1/certs',
-  client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL,
-  universe_domain: process.env.FIREBASE_UNIVERSE_DOMAIN || 'googleapis.com'
+// Import pour firebase (client)
+import { initializeApp, getApps } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { getStorage } from "firebase/storage";
+
+// Constantes de configuration Firebase
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
+
+// Initialisation de l'application Firebase (client)
+const clientApps = getApps();
+const clientApp = clientApps.length === 0 ? initializeApp(firebaseConfig) : clientApps[0];
+const clientDb = getFirestore(clientApp);
+const clientAuth = getAuth(clientApp);
+const clientStorage = getStorage(clientApp);
+
+// Exports pour le client
+export { clientApp, clientDb, clientAuth, clientStorage };
+
+// Configuration de firebase-admin pour les API routes
+// Ce fichier ne doit être importé que côté serveur !
+
+// Import admin SDK uniquement côté serveur
+import * as admin from 'firebase-admin';
+
+// Initialisation de l'application Firebase Admin
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    }),
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  });
+}
+
+// Exports pour les API routes
+export const adminApp = admin.app();
+export const adminDb = admin.firestore();
+export const adminAuth = admin.auth();
+export const adminStorage = admin.storage();
+export const adminMessaging = admin.messaging();
 
 // Configuration des options de notification
 export const NOTIFICATION_OPTIONS = {

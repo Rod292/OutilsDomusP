@@ -29,6 +29,7 @@ if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
   console.error('NEXT_PUBLIC_FIREBASE_PROJECT_ID n\'est pas défini');
 }
 
+// Configuration Firebase
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -36,7 +37,6 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 console.log('Firebase Config:', {
@@ -46,28 +46,18 @@ console.log('Firebase Config:', {
 
 console.log('Initializing Firebase...');
 
-// Initialize Firebase
-let app: FirebaseApp;
-let db: Firestore;
-let auth: Auth;
-let storage: any;
+// Initialiser l'application Firebase uniquement côté client et éviter la double initialisation
+const apps = getApps();
+const app = apps.length === 0 ? initializeApp(firebaseConfig) : apps[0];
 
-if (typeof window !== 'undefined') {
-  try {
-    if (!getApps().length) {
-      app = initializeApp(firebaseConfig);
-    } else {
-      app = getApp();
-    }
-    
-    db = getFirestore(app);
-    auth = getAuth(app);
-    storage = getStorage(app);
-  } catch (error) {
-    console.error('Erreur lors de l\'initialisation de Firebase:', error);
-    throw error;
-  }
-}
+// Initialiser Firestore
+const db = getFirestore(app);
+
+// Initialiser Auth
+const auth = getAuth(app);
+
+// Initialiser Storage
+const storage = getStorage(app);
 
 // Liste des domaines d'email autorisés
 const ALLOWED_EMAIL_DOMAINS = [

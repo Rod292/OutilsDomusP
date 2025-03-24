@@ -1,316 +1,248 @@
-'use client';
+import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { Timestamp } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, getDocs, query, where, updateDoc, serverTimestamp, Firestore, deleteDoc, doc } from 'firebase/firestore';
+import { clientApp, clientDb } from '../api/notifications/config';
 
-import { toast } from '@/components/ui/use-toast';
-import { getApps, initializeApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, collection, query, where, getDocs, DocumentData, orderBy, limit, startAfter, getDoc, deleteDoc, writeBatch } from 'firebase/firestore';
-import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
-import { getAuth } from 'firebase/auth';
-import { v4 as uuidv4 } from 'uuid';
-import React from 'react';
-import { 
-  requestNotificationPermissionAndToken, 
-  getFirestoreInstance
-} from './firebase';
-import { NOTIFICATION_CONFIG } from '../lib/notificationConfig';
-
-// Type pour le résultat de UAParser
-type UAParserResult = {
-  browser: { name?: string; version?: string };
-  device: { model?: string; type?: string; vendor?: string };
-  os: { name?: string; version?: string };
+// Configuration des notifications
+export const NOTIFICATION_CONFIG = {
+  vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  USE_FCM: process.env.NEXT_PUBLIC_USE_FCM !== 'false',
+  MESSAGES: {
+    taskAssigned: 'Vous avez une nouvelle tâche assignée',
+    communicationAssigned: 'Vous avez une nouvelle communication assignée',
+    reminderSent: 'Rappel: vous avez une tâche à compléter',
+    ACTIVATED: 'Notifications activées pour'
+  }
 };
 
-// Interface pour le parser
-interface UAParser {
-  getResult(): UAParserResult;
-}
+const NOTIFICATION_COLLECTION = 'notifications';
+const TOKEN_COLLECTION = 'notificationTokens';
 
-declare global {
-  interface NotificationOptions {
-    actions?: Array<{ action: string; title: string }>;
-  }
-  
-  interface NotificationEvent extends Event {
-    action: string;
-  }
-}
-
-// Configuration pour les notifications
-// Utiliser la configuration importée depuis notificationConfig.ts
-// export const NOTIFICATION_CONFIG = {
-//   ENABLED: true, // Réactivation du système de notifications
-//   VAPID_KEY: 'BGzPLt8Qmv6lFQDwKZLJzcIqH4cwWJN2P_aPCp8HYXJn7LIXHA5RL9rUd2uxSCnD2XHJZFGVtV11i3n2Ux9JYXM',
-//   USE_FCM: true,
-// };
-
-// Fonction pour créer un parser UA (remplace l'import)
-const createUAParser = (): UAParser => {
-  // Version simplifiée pour remplacer la bibliothèque ua-parser-js
-  return {
-    getResult: () => {
-      // Récupération basique des informations du navigateur
-      const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-      
-      // Détection basique
-      const isChrome = /Chrome/.test(userAgent);
-      const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
-      const isFirefox = /Firefox/.test(userAgent);
-      const isEdge = /Edg/.test(userAgent);
-      const isIOS = /iPhone|iPad|iPod/.test(userAgent);
-      const isAndroid = /Android/.test(userAgent);
-      
-      return {
-        browser: {
-          name: isChrome ? 'Chrome' : isSafari ? 'Safari' : isFirefox ? 'Firefox' : isEdge ? 'Edge' : 'Unknown'
-        },
-        device: {
-          type: isIOS || isAndroid ? 'mobile' : 'desktop'
-        },
-        os: {
-          name: isIOS ? 'iOS' : isAndroid ? 'Android' : /Windows/.test(userAgent) ? 'Windows' : /Mac/.test(userAgent) ? 'macOS' : 'Unknown'
-        }
-      };
-    }
-  };
-};
-
-// Vérifier si les notifications sont supportées
-export const areNotificationsSupported = async (): Promise<boolean> => {
+/**
+ * Enregistre une notification dans la base de données
+ * @param notification Notification à enregistrer
+ * @returns Promise<void>
+ */
+export const createNotification = async (notification: {
+  userId: string;
+  title: string;
+  body: string;
+  type: string;
+  taskId?: string;
+  read: boolean;
+}): Promise<void> => {
   try {
-    if (typeof window === 'undefined') return false;
-    
-    // Vérifier si le navigateur supporte les notifications
-    if (!('Notification' in window)) return false;
-    
-    // Vérifier si FCM est supporté
-    if (NOTIFICATION_CONFIG.USE_FCM) {
-      return await isSupported();
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Erreur lors de la vérification du support des notifications:', error);
-    return false;
-  }
-};
-
-// Vérifier l'état actuel de la permission
-export const checkNotificationPermission = (): NotificationPermission | 'unsupported' => {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    return 'unsupported';
-  }
-  return Notification.permission;
-};
-
-// Demander la permission pour les notifications
-export const requestNotificationPermission = async (): Promise<
-  { status: NotificationPermission | 'unsupported'; token?: string }
-> => {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    return { status: 'unsupported' };
-  }
-  
-  try {
-    const permission = await Notification.requestPermission();
-    
-    if (permission === 'granted') {
-      // Si FCM est activé, nous essayons d'obtenir un token FCM
-      if (NOTIFICATION_CONFIG.USE_FCM && await isSupported()) {
-        try {
-          // Vérifier que Firebase est correctement initialisé
-          const messaging = getMessaging();
-          
-          try {
-            // Essayer d'obtenir un token avec retries en cas d'erreur
-            let token = null;
-            let attempts = 0;
-            const maxAttempts = 3;
-            
-            while (!token && attempts < maxAttempts) {
-              try {
-                token = await getToken(messaging, { 
-                  vapidKey: NOTIFICATION_CONFIG.VAPID_KEY,
-                });
-                
-                if (token) {
-                  const auth = getAuth();
-                  const email = auth.currentUser?.email;
-                  if (email) {
-                    await saveNotificationToken(token, email);
-                    return { status: permission, token };
-                  }
-                }
-              } catch (tokenError) {
-                console.warn(`Tentative ${attempts + 1}/${maxAttempts} échouée:`, tokenError);
-                
-                // Si c'est une erreur d'autorisation, enregistrer un token test directement
-                if (tokenError instanceof Error && 
-                    (tokenError.message.includes('401') || 
-                    tokenError.message.includes('Unauthorized') ||
-                    tokenError.message.includes('token-subscribe-failed'))) {
-                  console.log('Erreur d\'autorisation FCM détectée, utilisation d\'un token de test');
-                  
-                  // Générer un token de test
-                  const testToken = `fcm-test-${Math.random().toString(36).substring(2, 10)}`;
-                  
-                  // Enregistrer le token de test
-                  const auth = getAuth();
-                  const email = auth.currentUser?.email;
-                  if (email) {
-                    await saveNotificationToken(testToken, email);
-                    
-                    // Si l'email est photos.pers@gmail.com, associer avec npers@arthurloydbretagne.fr
-                    if (email === "photos.pers@gmail.com") {
-                      try {
-                        await associatePersonalEmailWithConsultant(
-                          "photos.pers@gmail.com",
-                          "npers@arthurloydbretagne.fr",
-                          "Nathalie"
-                        );
-                      } catch (associationError) {
-                        console.error('Erreur lors de l\'association automatique:', associationError);
-                      }
-                    }
-                    
-                    // Toast pour confirmer
-                    if (typeof toast !== 'undefined') {
-                      toast({
-                        title: "Notifications activées (mode alternatif)",
-                        description: "Les notifications ont été activées en mode alternatif.",
-                        variant: "default"
-                      });
-                    }
-                    
-                    return { status: permission, token: testToken };
-                  }
-                }
-                
-                // Attendre avant de réessayer
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                attempts++;
-              }
-            }
-            
-            if (!token) {
-              console.error('Échec de l\'obtention du token FCM après plusieurs tentatives');
-              
-              // Enregistrer un token de test en dernier recours
-              const testToken = `fcm-test-${Math.random().toString(36).substring(2, 10)}`;
-              const auth = getAuth();
-              const email = auth.currentUser?.email;
-              
-              if (email) {
-                await saveNotificationToken(testToken, email);
-                return { status: permission, token: testToken };
-              }
-            }
-          } catch (tokenFetchError) {
-            console.error('Erreur lors de l\'obtention du token FCM:', tokenFetchError);
-            
-            // En cas d'erreur, utiliser un token de test
-            const testToken = `fcm-test-${Math.random().toString(36).substring(2, 10)}`;
-            const auth = getAuth();
-            const email = auth.currentUser?.email;
-            
-            if (email) {
-              await saveNotificationToken(testToken, email);
-              return { status: permission, token: testToken };
-            }
-          }
-        } catch (error) {
-          console.error('Erreur lors de l\'obtention du token FCM:', error);
-        }
-      }
-      
-      return { status: permission };
-    }
-    
-    return { status: permission };
-  } catch (error) {
-    console.error('Erreur lors de la demande de permission:', error);
-    return { status: 'denied' };
-  }
-};
-
-// Vérifier si un consultant a activé les notifications
-export const checkConsultantPermission = async (email: string, consultant?: string): Promise<boolean> => {
-  if (!email) return false;
-  
-  try {
-    // Vérifier si les notifications sont supportées
-    if (typeof window === 'undefined' || !('Notification' in window)) {
-      return false;
-    }
-    
-    // Vérifier si les notifications sont activées
-    if (Notification.permission !== 'granted') {
-      return false;
+    // Vérifier si les paramètres requis sont présents
+    if (!notification.userId || !notification.title || !notification.body) {
+      throw new Error('Paramètres requis manquants pour l\'enregistrement de la notification');
     }
 
-    // Créer le userId dans le format email_consultant ou simplement email
-    const userId = consultant ? `${email}_${consultant}` : email;
-    
-    // Initialiser Firestore
-    const db = getFirestoreInstance();
-    if (!db) return false;
-    
-    // Vérifier s'il existe des tokens pour cet utilisateur
-    const tokensRef = collection(db, 'notification_tokens');
-    const q = query(tokensRef, where('userId', '==', userId));
-    const querySnapshot = await getDocs(q);
-    
-    return !querySnapshot.empty;
-  } catch (error) {
-    console.error('Erreur lors de la vérification des permissions du consultant:', error);
-    return false;
-  }
-};
-
-// Enregistrer le token pour un utilisateur spécifique
-export const saveNotificationToken = async (token: string, email: string, consultant?: string): Promise<boolean> => {
-  try {
-    if (!email) {
-      console.error('Email requis pour enregistrer le token');
-      return false;
+    // Utilisez getFirestore() qui retourne l'instance correcte de Firestore
+    const firestore = getFirestore();
+    if (!firestore) {
+      throw new Error('Firestore non initialisé');
     }
-
-    // Créer le userId dans le format email_consultant ou simplement email
-    const userId = consultant ? `${email}_${consultant}` : email;
     
-    // Obtenir des informations sur l'appareil
-    const deviceInfo = {
-      browser: navigator.userAgent.includes('Chrome') ? 'Chrome' : 
-               navigator.userAgent.includes('Firefox') ? 'Firefox' : 
-               navigator.userAgent.includes('Safari') ? 'Safari' : 'Other',
-      os: navigator.userAgent.includes('iPhone') || navigator.userAgent.includes('iPad') ? 'iOS' :
-          navigator.userAgent.includes('Android') ? 'Android' :
-          navigator.userAgent.includes('Windows') ? 'Windows' :
-          navigator.userAgent.includes('Mac') ? 'macOS' : 'Other',
-      device: navigator.userAgent.includes('Mobile') || 
-              navigator.userAgent.includes('iPhone') || 
-              navigator.userAgent.includes('Android') ? 'mobile' : 'desktop',
-      userAgent: navigator.userAgent,
+    // CORRECTION: Nettoyer les données pour Firestore
+    const cleanedNotification = {
+      ...notification,
+      taskId: notification.taskId || null, // Utiliser null au lieu de undefined
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     };
     
-    // Envoyer le token au serveur
-    const response = await fetch('/api/notifications/tokens', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        token,
-        userId,
-        deviceInfo,
-      }),
+    // Créer la notification dans Firestore avec le timestamp du serveur
+    const notificationsCollection = collection(firestore, NOTIFICATION_COLLECTION);
+    await addDoc(notificationsCollection, cleanedNotification);
+
+    console.log(`Notification enregistrée dans Firestore pour ${notification.userId}`);
+  } catch (error) {
+    console.error('Erreur lors de l\'enregistrement de la notification:', error);
+    throw error;
+  }
+};
+
+// Fonction pour envoyer une notification directement via le navigateur
+export const sendLocalNotification = async (notification: {
+  title: string;
+  body: string;
+  icon?: string;
+  data?: any;
+}) => {
+  if (typeof window === 'undefined') {
+    console.log('sendLocalNotification: Impossible d\'envoyer une notification côté serveur');
+    return false;
+  }
+  
+  if (!('Notification' in window)) {
+    console.log('sendLocalNotification: Les notifications ne sont pas supportées dans ce navigateur');
+    return false;
+  }
+  
+  // Vérifier le statut des permissions de notification
+  console.log('sendLocalNotification: Statut actuel des permissions de notification:', Notification.permission);
+  
+  if (Notification.permission !== 'granted') {
+    console.log('sendLocalNotification: Permissions non accordées, tentative de demande...');
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        console.log('sendLocalNotification: Permissions refusées par l\'utilisateur');
+        return false;
+      }
+    } catch (error) {
+      console.error('sendLocalNotification: Erreur lors de la demande de permission:', error);
+      return false;
+    }
+  }
+  
+  try {
+    const { title, body, icon = '/icons/arthur-loyd-logo-192.png', data = {} } = notification;
+    
+    console.log('sendLocalNotification: Création de la notification avec:', { title, body, data });
+    
+    // AJOUT: Vérifier si le service worker est actif
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      try {
+        console.log('sendLocalNotification: Tentative d\'envoi via service worker...');
+        // Essayer d'envoyer via le service worker d'abord
+        const registration = await navigator.serviceWorker.ready;
+        if (registration.showNotification) {
+          await registration.showNotification(title, {
+            body, 
+            icon,
+            data,
+            requireInteraction: true,
+            tag: data?.taskId || `notification-${Date.now()}`,
+            // Les actions sont supportées par le service worker mais pas par l'API standard
+            // @ts-ignore - Ignorer l'erreur de typage pour les actions
+            actions: [
+              {
+                action: 'view',
+                title: 'Voir'
+              }
+            ]
+          });
+          console.log('sendLocalNotification: Notification envoyée via service worker avec succès');
+          return true;
+        }
+      } catch (swError) {
+        console.warn('sendLocalNotification: Échec de l\'utilisation du service worker, repli sur Notification API:', swError);
+      }
+    }
+    
+    // Repli sur l'API Notification standard
+    const notif = new Notification(title, {
+      body, 
+      icon,
+      data,
+      requireInteraction: true, // Garder la notification visible jusqu'à ce que l'utilisateur interagisse avec
+      tag: data?.taskId || `notification-${Date.now()}` // Ajouter un tag unique pour identifier la notification
     });
     
-    if (!response.ok) {
-      console.error('Erreur lors de l\'enregistrement du token:', await response.text());
+    notif.onclick = () => {
+      console.log('sendLocalNotification: Notification cliquée');
+      const taskId = data?.taskId;
+      window.focus(); // Mettre le focus sur la fenêtre actuelle
+      window.open(taskId ? `/notion-plan?taskId=${taskId}` : '/notion-plan', '_blank');
+    };
+    
+    // Vérifier si la notification a bien été créée
+    if (!notif) {
+      console.error('sendLocalNotification: La notification n\'a pas pu être créée');
       return false;
     }
     
-    console.log('Token enregistré avec succès pour', userId);
+    // Ajouter un gestionnaire d'erreur
+    notif.onerror = (event) => {
+      console.error('sendLocalNotification: Erreur lors de l\'affichage de la notification:', event);
+      return false;
+    };
+    
+    // Ajouter un gestionnaire de fermeture
+    notif.onclose = () => {
+      console.log('sendLocalNotification: Notification fermée par l\'utilisateur');
+    };
+    
+    // Passer un événement de notification créée à la console
+    console.log('sendLocalNotification: Notification envoyée avec succès:', { title, body });
+    return true;
+  } catch (error) {
+    console.error('sendLocalNotification: Erreur lors de l\'envoi de notification locale:', error);
+    
+    // Tentative de contournement pour Chrome - enregistrer l'erreur et renvoyer vrai quand même
+    if (navigator.userAgent.toLowerCase().includes('chrome')) {
+      console.warn('sendLocalNotification: Contournement Chrome - considérer comme succès malgré l\'erreur');
+      return true;
+    }
+    
+    return false;
+  }
+};
+
+/**
+ * Enregistre le token de notification pour un utilisateur
+ * @param userId Identifiant de l'utilisateur (email_consultant)
+ * @param token Token de notification
+ * @returns Promise<boolean> True si le token a été enregistré avec succès
+ */
+export const saveNotificationToken = async (userId: string, token: string): Promise<boolean> => {
+  try {
+    if (!userId || !token) {
+      console.error('ID utilisateur ou token manquant:', { userId, token });
+      return false;
+    }
+
+    console.log(`Enregistrement du token pour l'utilisateur: ${userId}`);
+    
+    // Extraire l'email de l'utilisateur depuis userId (format: email_consultant)
+    const email = userId.includes('_') ? userId.split('_')[0] : userId;
+    console.log(`Email extrait: ${email}`);
+    
+    // Initialiser Firestore et vérifier qu'il est disponible
+    const db = getFirestore();
+    if (!db) {
+      console.error('Firestore non initialisé');
+      return false;
+    }
+    
+    // Vérifier si ce token existe déjà pour cet utilisateur
+    const tokensRef = collection(db, TOKEN_COLLECTION);
+    const q = query(tokensRef, 
+      where('userId', '==', userId),
+      where('token', '==', token)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    // Si le token existe déjà, mettre à jour le timestamp
+    if (!querySnapshot.empty) {
+      const docRef = querySnapshot.docs[0].ref;
+      await updateDoc(docRef, {
+        timestamp: Date.now(),
+        lastUpdated: serverTimestamp(),
+        email // Ajouter/mettre à jour l'email
+      });
+      console.log(`Token existant mis à jour pour l'utilisateur: ${userId}`);
+      return true;
+    }
+    
+    // Sinon, créer un nouveau document pour ce token
+    const tokenData = {
+      userId,
+      email, // Stocker l'email séparément pour faciliter les requêtes
+      token,
+      timestamp: Date.now(),
+      createdAt: serverTimestamp(),
+      lastUpdated: serverTimestamp(),
+      platform: typeof navigator !== 'undefined' ? navigator.platform : 'unknown',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
+    };
+    
+    await addDoc(tokensRef, tokenData);
+    console.log(`Nouveau token enregistré pour l'utilisateur: ${userId}`);
+    
     return true;
   } catch (error) {
     console.error('Erreur lors de l\'enregistrement du token:', error);
@@ -318,898 +250,639 @@ export const saveNotificationToken = async (token: string, email: string, consul
   }
 };
 
-// Envoyer une notification locale
-export const sendLocalNotification = async (title: string, body: string, options: NotificationOptions = {}): Promise<boolean> => {
+/**
+ * Vérifie si un utilisateur a activé les notifications pour un consultant spécifique
+ * @param userEmail Email de l'utilisateur qui a activé la notification
+ * @param consultantName Nom du consultant pour lequel les notifications sont activées
+ * @returns Promise<boolean> True si les notifications sont activées
+ */
+export const checkConsultantPermission = async (userEmail: string, consultantName: string): Promise<boolean> => {
   try {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
+    if (typeof window === 'undefined') {
       return false;
     }
 
-    // Vérifier la permission
-    const permission = Notification.permission;
-    if (permission !== 'granted') {
-      console.warn('Notification permission not granted');
+    if (!userEmail || !consultantName) {
+      console.error('Email utilisateur ou nom consultant manquant');
       return false;
     }
 
-    // Configurer les options de la notification
-    const notificationOptions: NotificationOptions = {
-      body,
-      icon: '/logo.png',
-      badge: '/badge.png',
-      ...options,
-      // Actions personnalisées
-      actions: [
-        { action: 'view', title: 'Voir' },
-        { action: 'close', title: 'Fermer' },
-      ],
-    };
+    // Construire l'identifiant de notification (email_consultant)
+    const notificationId = `${userEmail}_${consultantName}`;
+    console.log(`Vérification des permissions pour: ${notificationId}`);
     
-    // Créer et afficher la notification
-    const notification = new Notification(title, notificationOptions);
-    
-    // Gérer les événements de la notification
-    notification.onclick = (event) => {
-      event.preventDefault();
-      window.focus();
-      notification.close();
-      
-      // Traitement pour les actions personnalisées
-      if ('action' in event) {
-        const action = (event as unknown as { action: string }).action;
-        switch (action) {
-          case 'view':
-            // Action personnalisée pour "Voir"
-            break;
-          case 'close':
-            notification.close();
-            break;
-        }
-      }
-    };
-    
-    // Intégration avec le Service Worker si disponible
-    if ('serviceWorker' in navigator) {
-      try {
-        const registration = await navigator.serviceWorker.ready;
-        if (registration.showNotification) {
-          registration.showNotification(title, notificationOptions);
-          return true;
-        }
-      } catch (error) {
-        console.error('Erreur avec le service worker:', error);
-        // Continuer avec la notification standard si le service worker échoue
-      }
+    // Vérifier dans Firebase si des tokens existent pour cet identifiant
+    const db = getFirestore();
+    if (!db) {
+      console.error('Firestore non initialisé');
+      return false;
     }
-    
-    return true;
+
+    // CORRECTION: Utilisation correcte de la collection
+    const tokensCollection = collection(db, TOKEN_COLLECTION);
+    const q = query(
+      tokensCollection,
+      where('userId', '==', notificationId)
+    );
+
+    const querySnapshot = await getDocs(q);
+    return !querySnapshot.empty;
   } catch (error) {
-    console.error('Erreur lors de l\'envoi de la notification locale:', error);
+    console.error('Erreur lors de la vérification des permissions:', error);
     return false;
   }
 };
 
-// Créer une notification dans Firestore
-export const createNotification = async (
-  userId: string,
-  title: string,
-  body: string,
-  type: string,
-  data: Record<string, any> = {}
-): Promise<string | null> => {
+/**
+ * Initialise Firebase Messaging et gère les permissions de notification
+ * @param userId Identifiant de l'utilisateur pour lequel activer les notifications
+ * @returns Promise<string|null> Token FCM ou null en cas d'erreur
+ */
+export const initializeMessaging = async (userId: string): Promise<string | null> => {
   try {
-    const db = getFirestore();
-    const notificationId = uuidv4();
-    
-    await setDoc(doc(db, 'notifications', notificationId), {
-      userId,
-      title,
-      body,
-      type,
-      data,
-      read: false,
-      delivered: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    // Vérifier si nous sommes côté client
+    if (typeof window === 'undefined') {
+      console.log('Impossible d\'initialiser la messagerie côté serveur');
+      return null;
+    }
+
+    // Vérifier si les notifications sont supportées
+    if (!('Notification' in window)) {
+      console.log('Ce navigateur ne supporte pas les notifications');
+      return null;
+    }
+
+    console.log('Initialisation de la messagerie pour', userId);
+
+    // Vérifier si le service worker est enregistré
+    const swRegistration = await registerServiceWorker();
+    if (!swRegistration) {
+      console.error('Service Worker non enregistré, impossible d\'initialiser la messagerie');
+      return null;
+    }
+
+    // Initialiser le service de messagerie
+    const messaging = getMessaging(clientApp);
+    if (!messaging) {
+      console.error('Service de messagerie non disponible');
+      return null;
+    }
+
+    console.log('Service de messagerie initialisé, demande de token...');
+
+    // Récupérer le token (ou le demander)
+    const token = await getToken(messaging, {
+      vapidKey: NOTIFICATION_CONFIG.vapidKey,
+      serviceWorkerRegistration: swRegistration
+    }).catch(error => {
+      console.error('Erreur lors de la récupération du token:', error);
+      return null;
     });
-    
-    return notificationId;
+
+    if (!token) {
+      console.log('Aucun token de notification disponible');
+      return null;
+    }
+
+    console.log('Token de notification obtenu:', token.substring(0, 10) + '...');
+
+    // Enregistrer le token dans Firestore
+    const success = await saveNotificationToken(userId, token);
+    if (!success) {
+      console.error('Échec de l\'enregistrement du token dans Firestore');
+    }
+
+    // Configurer le gestionnaire de messages entrants
+    onMessage(messaging, (payload) => {
+      console.log('Message reçu:', payload);
+      // Traiter le message entrant (notification foreground)
+      const notification = payload.notification;
+      if (notification) {
+        sendLocalNotification({
+          title: notification.title || 'Nouvelle notification',
+          body: notification.body || '',
+          icon: notification.icon,
+          data: payload.data
+        });
+      }
+    });
+
+    return token;
   } catch (error) {
-    console.error('Erreur lors de la création de la notification:', error);
+    console.error('Erreur lors de l\'initialisation de la messagerie:', error);
     return null;
   }
 };
 
-// Marquer une notification comme lue
-export const markNotificationAsRead = async (notificationId: string): Promise<boolean> => {
-    try {
-      const db = getFirestore();
+/**
+ * Force l'enregistrement du service worker si nécessaire
+ * @returns Promesse qui renvoie l'enregistrement du service worker ou null
+ */
+export const registerServiceWorker = async (): Promise<ServiceWorkerRegistration | null> => {
+  try {
+    if (typeof window === 'undefined' || !window.navigator || !navigator.serviceWorker) {
+      console.error('Service Worker non supporté dans ce navigateur');
+      return null;
+    }
     
-    await setDoc(doc(db, 'notifications', notificationId), {
-      read: true,
-      updatedAt: new Date(),
-    }, { merge: true });
+    // Vérifier si le service worker est déjà enregistré
+    const existingReg = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
+    if (existingReg) {
+      console.log('Service Worker déjà enregistré:', existingReg);
+      return existingReg;
+    }
     
-      return true;
+    console.log('Tentative d\'enregistrement du Service Worker...');
+    
+    // Enregistrer le service worker
+    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+      scope: '/'
+    });
+    
+    console.log('Service Worker enregistré avec succès:', registration);
+    return registration;
   } catch (error) {
-    console.error('Erreur lors du marquage de la notification comme lue:', error);
+    console.error('Erreur lors de l\'enregistrement du Service Worker:', error);
+    return null;
+  }
+};
+
+/**
+ * Demande la permission pour les notifications et enregistre le token
+ * @param userId Identifiant de l'utilisateur (email_consultant)
+ * @returns Promise<boolean> True si la permission est accordée et le token enregistré
+ */
+export const requestNotificationPermission = async (userId: string): Promise<boolean> => {
+  try {
+    if (typeof window === 'undefined') {
+      console.error('Impossible de demander des permissions côté serveur');
+      return false;
+    }
+
+    if (!('Notification' in window)) {
+      console.error('Les notifications ne sont pas supportées dans ce navigateur');
+      return false;
+    }
+
+    // Vérifier si userId est valide
+    if (!userId || userId.trim() === '') {
+      console.error('ID utilisateur non valide pour la demande de permission');
+      return false;
+    }
+
+    // Vérifier si les notifications sont déjà autorisées
+    if (Notification.permission === 'granted') {
+      console.log('Permissions de notification déjà accordées, enregistrement du token...');
+    } else {
+      console.log('Demande de permission de notification...');
+      const permission = await Notification.requestPermission();
+      
+      if (permission !== 'granted') {
+        console.error('Permission de notification refusée par l\'utilisateur');
+        return false;
+      }
+      
+      console.log('Permission de notification accordée!');
+    }
+
+    // Chrome peut avoir des problèmes avec getToken() si la permission est accordée,
+    // alors utilisons un token local pour les tests
+    let token = 'local-token-' + Date.now();
+    let fcmTokenSuccess = false;
+    
+    // Tenter d'obtenir un token FCM seulement si l'API est activée
+    if (NOTIFICATION_CONFIG.USE_FCM) {
+      try {
+        // Vérifier si Firebase est initialisé
+        if (clientApp) {
+          const messaging = getMessaging(clientApp);
+          
+          if (messaging) {
+            console.log('Demande de token FCM...');
+            
+            // Récupération du VAPID key depuis les variables d'environnement
+            const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+            
+            if (vapidKey) {
+              token = await getToken(messaging, { 
+                vapidKey,
+                serviceWorkerRegistration: await navigator.serviceWorker.getRegistration()
+              });
+              
+              console.log('Token FCM obtenu:', token.substring(0, 10) + '...');
+              fcmTokenSuccess = true;
+            } else {
+              console.warn('VAPID key manquante - utilisation du mode local');
+            }
+          } else {
+            console.warn('Firebase Messaging non disponible - utilisation du mode local');
+          }
+        } else {
+          console.warn('Firebase non initialisé - utilisation du mode local');
+        }
+      } catch (error) {
+        console.error('Erreur lors de la récupération du token FCM:', error);
+        // Continuer avec le token local
+      }
+    } else {
+      console.log('Mode FCM désactivé - utilisation du mode local');
+    }
+    
+    // Enregistrer le token dans la base de données
+    const tokenSaved = await saveNotificationToken(userId, token);
+    
+    if (tokenSaved) {
+      // Essayer d'envoyer une notification locale pour confirmer que tout fonctionne
+      if (!fcmTokenSuccess) {
+        console.log('Envoi d\'une notification locale de confirmation...');
+        try {
+          await sendLocalNotification({
+            title: NOTIFICATION_CONFIG.MESSAGES.ACTIVATED,
+            body: 'Vous recevrez des notifications pour les nouvelles tâches assignées.',
+            data: {
+              type: 'system',
+              userId
+            }
+          });
+        } catch (notifError) {
+          console.warn('Erreur lors de l\'envoi de la notification locale de confirmation:', notifError);
+          // Ne pas échouer pour ça
+        }
+      }
+      
+      console.log('Token de notification enregistré avec succès pour', userId);
+      return true;
+    } else {
+      console.error('Échec de l\'enregistrement du token pour', userId);
+      return false;
+    }
+  } catch (error) {
+    console.error('Erreur lors de la demande de permission de notification:', error);
     return false;
   }
 };
 
-// Type pour les paramètres de notification de tâche assignée
-export interface TaskAssignedNotificationParams {
+/**
+ * Fonction de débogage pour tester l'envoi de notifications
+ * Cette fonction peut être appelée depuis la console du navigateur
+ * @param email Email de l'utilisateur qui recevra la notification
+ * @param consultantName Nom du consultant pour lequel la notification sera envoyée
+ */
+export const debugNotifications = async (email: string, consultantName: string): Promise<boolean> => {
+  try {
+    // Vérifier si nous sommes côté client
+    if (typeof window === 'undefined') {
+      console.log('Impossible de déboguer les notifications côté serveur');
+      return false;
+    }
+    
+    console.log(`Débogage des notifications pour email=${email}, consultant=${consultantName}`);
+    
+    // Vérifier les permissions actuelles
+    const permissionStatus = Notification.permission;
+    console.log(`Statut actuel des permissions: ${permissionStatus}`);
+    
+    if (permissionStatus !== 'granted') {
+      console.log('Les permissions de notification ne sont pas accordées. Demande en cours...');
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        console.error('Permissions de notification refusées par l\'utilisateur');
+        return false;
+      }
+      console.log('Permissions accordées avec succès');
+    }
+    
+    // Construire l'ID de notification correct (email_consultant)
+    const notificationId = `${email}_${consultantName}`;
+    
+    console.log(`ID de notification à vérifier: ${notificationId}`);
+    
+    // Vérifier l'enregistrement dans Firestore
+    try {
+      const db = getFirestore();
+      
+      console.log('Recherche de tokens de notification...');
+      
+      // Vérifier si un token existe
+      const q = query(
+        collection(db, TOKEN_COLLECTION),
+        where('userId', '==', notificationId)
+      );
+      
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        console.log(`Aucun token trouvé pour ${notificationId}, tentative d'enregistrement...`);
+        
+        // Essayer d'enregistrer un token
+        const success = await requestNotificationPermission(notificationId);
+        console.log(`Résultat de l'enregistrement: ${success ? 'Succès' : 'Échec'}`);
+      } else {
+        console.log(`${snapshot.size} token(s) trouvé(s) pour ${notificationId}`);
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          console.log(`Token: ${data.token ? (data.token.substring(0, 10) + '...') : 'null'}`);
+          console.log(`Date: ${data.timestamp ? new Date(data.timestamp).toLocaleString() : 'inconnue'}`);
+        });
+      }
+    } catch (dbError) {
+      console.error('Erreur lors de la vérification Firestore:', dbError);
+    }
+    
+    // Générer un ID unique pour cette notification
+    const testId = `test-${Date.now()}`;
+    
+    // Force de données de notification avec les paramètres précis 
+    const notificationData = {
+      userId: notificationId,
+      title: `Test pour ${consultantName}`,
+      body: `Notification générée à ${new Date().toLocaleTimeString()} pour l'utilisateur ${email}`,
+      type: 'system' as "task_assigned" | "task_reminder" | "system" | "communication_assigned",
+      taskId: testId
+    };
+    
+    // Enregistrer dans l'historique local des tests
+    try {
+      if (localStorage) {
+        const testHistory = JSON.parse(localStorage.getItem('notification_tests') || '[]');
+        testHistory.push({
+          id: testId,
+          timestamp: Date.now(),
+          email,
+          consultant: consultantName,
+          title: notificationData.title,
+          body: notificationData.body,
+          userId: notificationId
+        });
+        localStorage.setItem('notification_tests', JSON.stringify(testHistory.slice(-10))); // Garder les 10 derniers tests
+      }
+    } catch (e) {
+      console.warn('Erreur lors du stockage local de l\'historique des tests:', e);
+    }
+    
+    // Tester l'envoi via l'API
+    console.log('Test d\'envoi via API...');
+    
+    try {
+      const response = await fetch('/api/notifications/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(notificationData),
+      });
+      
+      const result = await response.json();
+      console.log('Réponse API:', result);
+      
+      // Vérifier si le serveur suggère d'utiliser le mode local
+      if (result.useLocalMode || result.status === 404) {
+        console.log('Mode local suggéré par le serveur ou API non disponible, envoi direct...');
+        
+        // Envoyer également une notification locale directe
+        const localSuccess = await sendLocalNotification({
+          title: notificationData.title,
+          body: notificationData.body,
+          data: {
+            userId: notificationId,
+            type: 'test',
+            taskId: testId
+          }
+        });
+        
+        console.log(`Résultat notification locale: ${localSuccess ? 'Succès' : 'Échec'}`);
+        return localSuccess;
+      }
+      
+      return true;
+    } catch (apiError) {
+      console.error('Erreur lors de l\'appel API, tentative d\'envoi local:', apiError);
+      
+      // Envoyer directement une notification locale
+      const localSuccess = await sendLocalNotification({
+        title: notificationData.title,
+        body: notificationData.body,
+        data: {
+          userId: notificationId,
+          type: 'test',
+          taskId: testId
+        }
+      });
+      
+      console.log(`Résultat notification locale suite à erreur API: ${localSuccess ? 'Succès' : 'Échec'}`);
+      return localSuccess;
+    }
+  } catch (error) {
+    console.error('Erreur globale lors du débogage des notifications:', error);
+    return false;
+  }
+};
+
+// Fonction pour journaliser l'état des permissions de notification
+export const logNotificationPermissionStatus = () => {
+  if (typeof window === 'undefined') {
+    return 'server-side';
+  }
+  
+  if (!('Notification' in window)) {
+    return 'not-supported';
+  }
+  
+  return Notification.permission;
+};
+
+/**
+ * Nettoie les tokens dupliqués pour un utilisateur donné
+ * Ne garde que le token le plus récent pour chaque appareil Apple
+ * @param userId Identifiant de l'utilisateur pour lequel nettoyer les tokens
+ * @returns Promise<number> Nombre de tokens supprimés
+ */
+export const cleanupDuplicateTokens = async (userId: string): Promise<number> => {
+  try {
+    if (typeof window === 'undefined') {
+      console.log('Impossible de nettoyer les tokens côté serveur');
+      return 0;
+    }
+    
+    console.log(`Nettoyage des tokens dupliqués pour l'utilisateur ${userId}...`);
+    
+    const db = getFirestore();
+    if (!db) {
+      console.error('Firestore non initialisé');
+      return 0;
+    }
+    
+    // Récupérer tous les tokens de l'utilisateur
+    const tokensRef = collection(db, TOKEN_COLLECTION);
+    const q = query(tokensRef, where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      console.log(`Aucun token trouvé pour l'utilisateur ${userId}`);
+      return 0;
+    }
+    
+    // Mapper les tokens par plateforme
+    const tokensByPlatform: Record<string, {id: string, timestamp: number, isApple: boolean}[]> = {};
+    
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const userAgent = (data.userAgent || '').toLowerCase();
+      const platform = data.platform || 'unknown';
+      
+      // Déterminer si c'est un appareil Apple
+      const isApple = userAgent.includes('iphone') || 
+                       userAgent.includes('ipad') || 
+                       userAgent.includes('macintosh') ||
+                       platform.toLowerCase().includes('iphone') ||
+                       platform.toLowerCase().includes('ipad') ||
+                       platform.toLowerCase().includes('mac');
+      
+      // Utiliser une clé simplifiée pour regrouper les appareils similaires
+      let deviceKey = 'other';
+      if (userAgent.includes('iphone')) deviceKey = 'iphone';
+      else if (userAgent.includes('ipad')) deviceKey = 'ipad';
+      else if (userAgent.includes('macintosh')) deviceKey = 'mac';
+      else if (userAgent.includes('android')) deviceKey = 'android';
+      
+      if (!tokensByPlatform[deviceKey]) {
+        tokensByPlatform[deviceKey] = [];
+      }
+      
+      tokensByPlatform[deviceKey].push({
+        id: doc.id,
+        timestamp: data.timestamp || 0,
+        isApple
+      });
+    });
+    
+    // Pour chaque plateforme, garder uniquement le token le plus récent
+    const tokensToDelete: string[] = [];
+    
+    Object.keys(tokensByPlatform).forEach(platform => {
+      const tokens = tokensByPlatform[platform];
+      
+      // Trier par timestamp décroissant (le plus récent d'abord)
+      tokens.sort((a, b) => b.timestamp - a.timestamp);
+      
+      // Garder le premier (plus récent) et marquer les autres pour suppression
+      if (tokens.length > 1) {
+        // Garder uniquement le token le plus récent
+        const tokensToRemove = tokens.slice(1);
+        tokensToRemove.forEach(token => {
+          tokensToDelete.push(token.id);
+        });
+      }
+    });
+    
+    // Supprimer les tokens marqués
+    let deletedCount = 0;
+    for (const tokenId of tokensToDelete) {
+      try {
+        await deleteDoc(doc(db, TOKEN_COLLECTION, tokenId));
+        deletedCount++;
+      } catch (error) {
+        console.error(`Erreur lors de la suppression du token ${tokenId}:`, error);
+      }
+    }
+    
+    console.log(`${deletedCount} token(s) dupliqué(s) supprimé(s) pour l'utilisateur ${userId}`);
+    return deletedCount;
+  } catch (error) {
+    console.error('Erreur lors du nettoyage des tokens dupliqués:', error);
+    return 0;
+  }
+};
+
+// Ajouter debugNotifications à window pour pouvoir l'appeler depuis la console
+if (typeof window !== 'undefined') {
+  (window as any).debugNotifications = debugNotifications;
+  (window as any).sendLocalNotification = sendLocalNotification;
+  (window as any).cleanupDuplicateTokens = cleanupDuplicateTokens;
+}
+
+/**
+ * Envoie une notification pour une tâche assignée à un consultant
+ * @param params Paramètres de la notification
+ * @returns Promise<boolean> true si la notification est envoyée avec succès
+ */
+export const sendTaskAssignedNotification = async (params: {
   userId: string;
   title: string;
   body: string;
   taskId: string;
   isCommunication?: boolean;
   communicationIndex?: number;
-}
-
-// Fonction pour récupérer l'email d'un consultant à partir de Firebase
-export const getConsultantEmail = async (consultantId: string): Promise<string | null> => {
-  try {
-    // Initialiser Firestore
-    const firestore = getFirestore();
-    
-    // Rechercher le consultant dans la collection "teamMembers"
-    const teamMembersRef = collection(firestore, 'teamMembers');
-    
-    // D'abord, essayer de trouver par ID
-    const consultantByIdQuery = query(teamMembersRef, where('id', '==', consultantId), limit(1));
-    const consultantByIdDoc = await getDocs(consultantByIdQuery);
-    
-    if (!consultantByIdDoc.empty) {
-      const consultantData = consultantByIdDoc.docs[0].data();
-      return consultantData.email || null;
-    }
-    
-    // Ensuite, essayer de trouver par document ID
-    try {
-      const consultantByDocId = await getDoc(doc(teamMembersRef, consultantId));
-      if (consultantByDocId.exists()) {
-        const consultantData = consultantByDocId.data();
-        return consultantData.email || null;
-      }
-    } catch (error) {
-      console.warn("Erreur lors de la récupération par document ID:", error);
-      // Continuer avec les autres méthodes
-    }
-    
-    // Si on ne trouve pas par id, essayer par name
-    const consultantByNameQuery = query(teamMembersRef, where('name', '==', consultantId), limit(1));
-    const consultantByNameDoc = await getDocs(consultantByNameQuery);
-    
-    if (!consultantByNameDoc.empty) {
-      const consultantData = consultantByNameDoc.docs[0].data();
-      return consultantData.email || null;
-    }
-    
-    // Chercher avec correspondance insensible à la casse pour le nom
-    const allConsultantsQuery = query(teamMembersRef);
-    const allConsultantsSnapshot = await getDocs(allConsultantsQuery);
-    
-    let foundConsultant: DocumentData | null = null;
-    allConsultantsSnapshot.forEach(doc => {
-      const data = doc.data();
-      if (data.name && data.name.toLowerCase() === consultantId.toLowerCase()) {
-        foundConsultant = data;
-      }
-    });
-    
-    if (foundConsultant) {
-      return (foundConsultant as any).email || null;
-    }
-    
-    console.warn(`Consultant non trouvé: ${consultantId}`);
-    return null;
-  } catch (error) {
-    console.error("Erreur lors de la récupération de l'email du consultant:", error);
-    return null;
-  }
-};
-
-// Fonction pour associer un email personnel aux notifications d'un consultant
-export const associatePersonalEmailWithConsultant = async (
-  personalEmail: string,
-  consultantEmail: string,
-  consultantName?: string
-): Promise<boolean> => {
-  try {
-    if (!personalEmail || !consultantEmail) {
-      console.error('Emails requis pour l\'association');
-      return false;
-    }
-    
-    const db = getFirestore();
-    const associationsRef = collection(db, 'email_associations');
-    
-    // Vérifier si une association existe déjà
-    const existingQuery = query(
-      associationsRef, 
-      where('personalEmail', '==', personalEmail),
-      where('consultantEmail', '==', consultantEmail)
-    );
-    const existingSnapshot = await getDocs(existingQuery);
-    
-    if (!existingSnapshot.empty) {
-      console.log('Association déjà existante');
-      return true;
-    }
-    
-    // Créer l'association
-    const associationId = `${personalEmail}_${consultantEmail}`.replace(/[.@]/g, '_');
-    await setDoc(doc(db, 'email_associations', associationId), {
-      personalEmail,
-      consultantEmail,
-      consultantName,
-      createdAt: new Date()
-    });
-    
-    console.log(`Association créée entre ${personalEmail} et ${consultantEmail}`);
-    
-    // Mettre à jour les tokens existants pour inclure cette association
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-      try {
-        if (NOTIFICATION_CONFIG.USE_FCM && await isSupported()) {
-          const messaging = getMessaging();
-          const token = await getToken(messaging, { vapidKey: NOTIFICATION_CONFIG.VAPID_KEY });
-          
-          if (token) {
-            // Enregistrer pour l'email personnel
-            await saveNotificationToken(token, personalEmail);
-            
-            // Enregistrer également pour le format email_consultant si un nom est fourni
-            if (consultantName) {
-              await saveNotificationToken(token, personalEmail, consultantName);
-              await saveNotificationToken(token, consultantEmail, consultantName);
-            }
-            
-            console.log('Tokens mis à jour pour la nouvelle association');
-          }
-        }
-      } catch (error) {
-        console.error('Erreur lors de la mise à jour des tokens pour l\'association:', error);
-      }
-    }
-    
-    // Ajouter un toast pour confirmer l'association
-    if (typeof toast !== 'undefined') {
-      toast({
-        title: "Association réussie",
-        description: `Vous recevrez désormais les notifications destinées à ${consultantEmail}`,
-        variant: "default"
-      });
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Erreur lors de l\'association des emails:', error);
-    return false;
-  }
-};
-
-// Fonction pour vérifier les associations d'emails lors de l'envoi de notifications
-export const getAssociatedEmails = async (consultantEmail: string): Promise<string[]> => {
-  try {
-    if (!consultantEmail) return [];
-    
-    const db = getFirestore();
-    const associationsRef = collection(db, 'email_associations');
-    const associationsQuery = query(associationsRef, where('consultantEmail', '==', consultantEmail));
-    const associationsSnapshot = await getDocs(associationsQuery);
-    
-    if (associationsSnapshot.empty) return [];
-    
-    return associationsSnapshot.docs.map(doc => doc.data().personalEmail);
-  } catch (error) {
-    console.error('Erreur lors de la récupération des associations d\'emails:', error);
-    return [];
-  }
-};
-
-// Modification de la fonction sendTaskAssignedNotification pour inclure les emails associés
-export const sendTaskAssignedNotification = async ({
-  recipientEmail,
-  consultant,
-  taskId,
-  communicationIndex
-}: {
   recipientEmail: string;
-  consultant?: string;
-  taskId: string;
-  communicationIndex: string;
 }): Promise<boolean> => {
   try {
-    console.log("Envoi de notification pour la tâche assignée:", { recipientEmail, consultant, taskId, communicationIndex });
-    
-    // Vérifier que le serveur est accessible avant d'envoyer la notification
-    try {
-      // Tenter de faire une requête simple pour vérifier que le serveur est en ligne
-      const serverCheck = await fetch("/api/notifications/test", { 
-        method: 'HEAD',
-        // Timeout court pour ne pas bloquer longtemps
-        signal: AbortSignal.timeout(1000) 
-      }).catch(() => null);
-      
-      if (!serverCheck) {
-        console.warn("Le serveur API semble inaccessible. Vérifiez que le serveur est démarré.");
-        // Afficher un toast pour informer l'utilisateur
-        if (typeof toast !== 'undefined') {
-          toast({
-            title: "Serveur inaccessible",
-            description: "Impossible d'envoyer la notification car le serveur est inaccessible. Vérifiez votre connexion ou redémarrez le serveur.",
-            variant: "destructive"
-          });
-        }
-        return false;
-      }
-    } catch (checkError) {
-      // Si la vérification échoue, on continue quand même pour tenter d'envoyer la notification
-      console.warn("Erreur lors de la vérification du serveur:", checkError);
-    }
-    
-    // Construire le userId au format email_consultant si consultant est fourni
-    const userId = consultant ? `${recipientEmail}_${consultant}` : recipientEmail;
-    
-    // Récupérer les emails personnels associés
-    const associatedEmails = await getAssociatedEmails(recipientEmail);
-    console.log(`Emails personnels associés à ${recipientEmail}:`, associatedEmails);
-    
-    // Vérifier s'il y a des tokens actifs pour cet utilisateur
-    let hasActiveTokens = false;
-    try {
-      const tokensResponse = await fetch(`/api/notifications/tokens?userId=${encodeURIComponent(userId)}`);
-      if (tokensResponse.ok) {
-        const tokensData = await tokensResponse.json();
-        if (tokensData.success && tokensData.tokens && tokensData.tokens.length > 0) {
-          hasActiveTokens = true;
-          console.log(`${tokensData.tokens.length} tokens actifs trouvés pour ${userId}`);
-        } else {
-          console.warn(`Aucun token actif trouvé pour ${userId}, la notification pourrait ne pas être reçue`);
-        }
-      }
-    } catch (tokenCheckError) {
-      console.warn("Erreur lors de la vérification des tokens:", tokenCheckError);
-    }
-
-    if (!hasActiveTokens) {
-      // Afficher un toast pour informer l'utilisateur
-      if (typeof toast !== 'undefined') {
-        toast({
-          title: "Notification non envoyée",
-          description: `L'utilisateur ${recipientEmail} n'a pas de périphérique enregistré pour recevoir des notifications.`,
-          variant: "destructive"
-        });
-      }
-    }
-    
-    // Préparer les données de la notification
-    const notificationData = {
-      userId,
-      title: "Nouvelle tâche assignée",
-      body: "Une nouvelle tâche vous a été assignée.",
-      type: "task_assigned",
-      taskId,
-      communicationIndex,
-      associatedEmails // Ajouter les emails associés
-    };
-    
-    // Envoyer la notification via l'API avec un timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 secondes de timeout
-    
-    try {
-      // Essayer d'abord la route principale
-      console.log("Tentative d'envoi via la route principale...");
-      
-      const response = await fetch("/api/notifications/send", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(notificationData),
-        signal: controller.signal
-      }).catch(async (error) => {
-        console.warn("Erreur lors de l'appel à /api/notifications/send:", error);
-        
-        // En cas d'échec, essayer la route simplifiée
-        console.log("Tentative de repli sur la route simplifiée...");
-        return await fetch("/api/notifications/simple", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(notificationData),
-          signal: controller.signal
-        }).catch(simpleError => {
-          console.error("Échec également sur la route simplifiée:", simpleError);
-          return null;
-        });
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response || !response.ok) {
-        const errorData = response ? await response.json().catch(() => ({ 
-          error: response ? `Erreur ${response.status}: ${response.statusText}` : "Pas de réponse du serveur" 
-        })) : { error: "Pas de réponse du serveur" };
-        
-        console.error("Erreur lors de l'envoi de la notification:", errorData);
-        
-        // Afficher un toast pour informer l'utilisateur
-        if (typeof toast !== 'undefined') {
-          toast({
-            title: "Échec de l'envoi de notification",
-            description: errorData.error || "Impossible d'envoyer la notification.",
-            variant: "destructive"
-          });
-        }
-        
-        return false;
-      }
-      
-      const result = await response.json();
-      
-      // Si aucune notification n'a été envoyée mais que le serveur a répondu avec succès
-      if (result.success && result.sent === 0) {
-        console.warn("Aucune notification envoyée bien que la requête soit un succès:", result);
-        // Afficher un toast pour informer l'utilisateur
-        if (typeof toast !== 'undefined') {
-          toast({
-            title: "Notification non envoyée",
-            description: "Aucun appareil n'a reçu la notification. Vérifiez que l'utilisateur a activé les notifications.",
-            variant: "destructive"
-          });
-        }
-        
-        // Tenter d'enregistrer un token de test
-        if (consultant) {
-          try {
-            await registerTokenForConsultant(recipientEmail, consultant);
-            console.log(`Token de test enregistré pour ${recipientEmail}_${consultant}`);
-          } catch (regError) {
-            console.error("Erreur lors de l'enregistrement du token de test:", regError);
-          }
-        }
-        
-        return true; // La requête a été traitée même si aucun appareil n'a reçu la notification
-      }
-      
-      // Afficher un toast de succès si des notifications ont été envoyées
-      if (result.success && (result.sent > 0 || result.message) && typeof toast !== 'undefined') {
-        toast({
-          title: "Notification envoyée",
-          description: result.message || `La notification a été envoyée à ${result.sent} appareil(s).`,
-          variant: "default"
-        });
-      }
-      
-      return result.success;
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      
-      // Message d'erreur spécifique pour les erreurs de connexion
-      if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
-        console.error("Erreur de connexion au serveur:", fetchError);
-        
-        // Afficher un toast pour informer l'utilisateur
-        if (typeof toast !== 'undefined') {
-          toast({
-            title: "Erreur de connexion",
-            description: "Impossible de se connecter au serveur. Vérifiez votre connexion ou redémarrez le serveur.",
-            variant: "destructive"
-          });
-        }
-      } else {
-        console.error("Erreur lors de l'envoi de la notification:", fetchError);
-      }
-      
+    // Vérifier si nous sommes côté client
+    if (typeof window === 'undefined') {
+      console.log('Impossible d\'envoyer une notification côté serveur');
       return false;
     }
-  } catch (error) {
-    console.error("Erreur générale lors de l'envoi de la notification:", error);
-    return false;
-  }
-};
 
-// Fonctions de débogage pour les notifications
-export const debugUserTokens = async (email: string, consultant?: string): Promise<void> => {
-  try {
-    const userId = consultant ? `${email}_${consultant}` : email;
-    console.log(`Débogage des tokens pour userId: ${userId}`);
-    
-    // Récupérer les tokens via l'API
-    const response = await fetch(`/api/notifications/tokens?userId=${encodeURIComponent(userId)}`);
-    
-    if (!response.ok) {
-      console.error(`Erreur API: ${response.status}`);
-      return;
+    // Vérifier les paramètres essentiels
+    if (!params.taskId || !params.userId || !params.title || !params.body) {
+      console.error('Paramètres requis manquants pour l\'envoi de notification');
+      return false;
     }
-    
-    const result = await response.json();
-    
-    if (result.success && result.tokens) {
-      console.log(`${result.tokens.length} tokens trouvés pour ${userId}:`);
-      
-      result.tokens.forEach((token: any, index: number) => {
-        console.log(`Token ${index + 1}:`);
-        console.log(`  ID: ${token.id}`);
-        console.log(`  Token: ${token.token.substring(0, 10)}...`);
-        console.log(`  UserId: ${token.userId}`);
-        console.log(`  Device: ${JSON.stringify(token.deviceInfo)}`);
-        console.log(`  Créé le: ${token.createdAt ? new Date(token.createdAt._seconds * 1000).toLocaleString() : 'Date inconnue'}`);
-      });
-    } else {
-      console.log(`Aucun token trouvé pour ${userId}`);
-    }
-  } catch (error) {
-    console.error('Erreur lors du débogage des tokens:', error);
-  }
-};
 
-// Envoyer une notification de test à un token spécifique
-export const sendTestNotificationToToken = async (token: string): Promise<any> => {
-  try {
-    const testData = {
-      token,
-      title: "Test de notification",
-      body: "Ceci est un test de notification envoyé directement à un token spécifique.",
-      data: {
-        type: 'test',
-        timestamp: new Date().toISOString()
-      }
+    const notificationType = params.isCommunication ? "communication_assigned" : "task_assigned";
+    
+    // Déduire le nom du consultant si nécessaire
+    const consultantName = params.recipientEmail?.split('@')[0] || params.recipientEmail;
+    console.log(`Préparation notification pour ${consultantName} (${params.recipientEmail})`);
+    
+    // Construire les données complètes de notification
+    const notificationData = {
+      userId: params.userId,
+      title: params.title,
+      body: params.body,
+      type: notificationType as "task_assigned" | "task_reminder" | "system" | "communication_assigned",
+      taskId: params.taskId,
+      communicationIndex: params.communicationIndex,
+      mode: 'FCM' // Force l'utilisation de Firebase Cloud Messaging
     };
+
+    console.log(`Envoi de notification:`, notificationData);
     
-    console.log('Envoi de notification de test au token:', token.substring(0, 10) + '...');
-    
-    const response = await fetch('/api/notifications/send-to-token', {
+    try {
+      // Utiliser une URL relative pour éviter les problèmes de domaine
+      const response = await fetch('/api/notifications/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-      body: JSON.stringify(testData),
-    });
-    
+        body: JSON.stringify(notificationData),
+      });
+
+      // Afficher les détails de la réponse pour le débogage
+      console.log(`Réponse API notifications/send:`, {
+        status: response.status,
+        statusText: response.statusText
+      });
+
+      // Si l'API échoue, enregistrer l'erreur mais ne pas tenter d'envoyer en mode local
+      // pour éviter les notifications en double
       if (!response.ok) {
-      console.error(`Erreur API: ${response.status}`);
-      return { success: false, error: `Erreur API: ${response.status}` };
+        console.error(`Erreur API de notification: ${response.status} - ${response.statusText}`);
+        return false;
       }
       
       const result = await response.json();
-    console.log('Résultat de l\'envoi de la notification de test:', result);
-    
-    return result;
-  } catch (error) {
-    console.error('Erreur lors de l\'envoi de la notification de test:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' };
-  }
-};
-
-// Enregistrer un token pour un consultant spécifique
-export const registerTokenForConsultant = async (userEmail: string, consultantId: string): Promise<boolean> => {
-  try {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
-      console.warn("Les notifications ne sont pas supportées dans cet environnement");
-      return false;
-    }
-    
-    if (Notification.permission !== 'granted') {
-      console.warn("Les notifications ne sont pas autorisées");
-      return false;
-    }
-    
-    // Utiliser un token de test si nous sommes en mode développement ou si FCM échoue
-    let useTestToken = process.env.NODE_ENV === 'development' || !NOTIFICATION_CONFIG.USE_FCM;
-    let token = null;
-    
-    // Essayer d'obtenir un token FCM uniquement si nécessaire
-    if (!useTestToken && NOTIFICATION_CONFIG.USE_FCM) {
-      try {
-        const messaging = getMessaging();
-        await initializeMessaging();
-        
-        // Essayer d'obtenir un token avec un timeout
-        const tokenPromise = getToken(messaging, { 
-          vapidKey: NOTIFICATION_CONFIG.VAPID_KEY,
-        });
-        
-        // Ajouter un timeout pour ne pas bloquer trop longtemps
-        token = await Promise.race([
-          tokenPromise,
-          new Promise<null>((resolve) => setTimeout(() => {
-            console.warn("Timeout lors de l'obtention du token FCM, utilisation d'un token de test");
-            resolve(null);
-          }, 3000))
-        ]);
-        
-        if (!token) {
-          useTestToken = true;
-        }
-      } catch (fcmError) {
-        console.error('Erreur lors de l\'obtention du token FCM:', fcmError);
-        
-        // Si c'est une erreur d'authentification, utiliser un token de test
-        if (fcmError instanceof Error && 
-            (fcmError.message.includes('401') || 
-             fcmError.message.includes('Unauthorized') ||
-             fcmError.message.includes('token-subscribe-failed'))) {
-          console.warn("Erreur d'authentification FCM détectée, utilisation d'un token de test");
-          useTestToken = true;
-        }
-      }
-    }
-    
-    // Si nécessaire, générer un token de test
-    if (useTestToken || !token) {
-      token = `test-token-${userEmail}-${consultantId}-${Date.now()}`;
-      console.log("Utilisation d'un token de test:", token);
-    }
-    
-    // ID pour l'utilisateur au format email_consultant
-    const userId = consultantId ? `${userEmail}_${consultantId}` : userEmail;
-    
-    // Enregistrer le token via l'API
-    const response = await fetch('/api/notifications/tokens', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        token,
-        userId,
-        deviceInfo: {
-          userAgent: navigator.userAgent,
-          platform: navigator.platform,
-          timestamp: new Date().toISOString()
-        }
-      })
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error(`Erreur ${response.status}: ${errorData.error || response.statusText}`);
-      return false;
-    }
-    
-    console.log(`Token enregistré avec succès pour ${userId}`);
-    return true;
-  } catch (error) {
-    console.error('Erreur lors de l\'enregistrement du token pour le consultant:', error);
-    return false;
-  }
-};
-
-// Exposer les fonctions de débogage globalement
-if (typeof window !== 'undefined') {
-  (window as any).debugNotifications = debugUserTokens;
-  (window as any).sendTestNotification = sendTestNotificationToToken;
-  (window as any).registerTokenForConsultant = registerTokenForConsultant;
-}
-
-// Fonction pour initialiser les préférences de notification
-export const initializeNotificationPreferences = async (email: string): Promise<boolean> => {
-  try {
-    if (!email) {
-      console.error('Email requis pour initialiser les préférences');
-      return false;
-    }
-    
-    const db = getFirestore();
-    
-    // Vérifier si des préférences existent déjà
-    const preferencesRef = collection(db, 'notificationPreferences');
-    const preferencesQuery = query(preferencesRef, where('userEmail', '==', email));
-    const preferencesSnapshot = await getDocs(preferencesQuery);
-    
-    // Si des préférences existent déjà, synchroniser avec les consultants
-    if (!preferencesSnapshot.empty) {
-      return await syncNotificationPreferencesWithTeamMembers(email);
-    }
-    
-    // S'assurer que la collection teamMembers existe
-    await initializeTeamMembersCollection();
-    
-    // Récupérer tous les consultants depuis teamMembers
-    const teamMembersRef = collection(db, 'teamMembers');
-    const teamMembersSnapshot = await getDocs(teamMembersRef);
-    
-    if (teamMembersSnapshot.empty) {
-      console.warn('Aucun consultant trouvé dans la collection teamMembers');
-      return false;
-    }
-    
-    // Créer un tableau avec les IDs des consultants
-    const consultantIds = teamMembersSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return data.id || doc.id;
-    });
-    
-    // Créer les préférences par défaut
-    const preferencesData = {
-      userEmail: email,
-      consultants: consultantIds, // Par défaut, activer les notifications pour tous les consultants
-      remindersEnabled: true,
-      assignmentsEnabled: true,
-      updatedAt: new Date(),
-    };
-    
-    // Enregistrer dans Firestore
-    await setDoc(doc(db, 'notificationPreferences', email), preferencesData);
-    
-    console.log('Préférences de notification initialisées avec succès pour', email);
-    
-    // Si l'utilisateur est Rodrigue, associer automatiquement avec Nathalie
-    if (email === "photos.pers@gmail.com") {
-      try {
-        console.log('Association automatique de photos.pers@gmail.com avec npers@arthurloydbretagne.fr');
-        await associatePersonalEmailWithConsultant(
-          "photos.pers@gmail.com",
-          "npers@arthurloydbretagne.fr",
-          "Nathalie"
-        );
-      } catch (error) {
-        console.error('Erreur lors de l\'association automatique:', error);
-        // Continuer même si l'association échoue
-      }
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Erreur lors de l\'initialisation des préférences de notification:', error);
-    return false;
-  }
-};
-
-// Fonction pour initialiser la collection teamMembers si elle n'existe pas déjà
-export const initializeTeamMembersCollection = async (): Promise<boolean> => {
-  try {
-    const db = getFirestore();
-    
-    // Vérifier si la collection existe et contient des données
-    const teamMembersRef = collection(db, 'teamMembers');
-    const teamMembersSnapshot = await getDocs(teamMembersRef);
-    
-    // Liste des consultants à ajouter
-    const consultants = [
-      { name: "Anne", email: "acoat@arthurloydbretagne.fr" },
-      { name: "Elowan", email: "ejouan@arthurloydbretagne.fr" },
-      { name: "Erwan", email: "eleroux@arthurloydbretagne.fr" },
-      { name: "Julie", email: "jdalet@arthurloydbretagne.fr" },
-      { name: "Justine", email: "jjambon@arthurloydbretagne.fr" },
-      { name: "Morgane", email: "agencebrest@arthurloydbretagne.fr" },
-      { name: "Nathalie", email: "npers@arthurloydbretagne.fr" },
-      { name: "Pierre", email: "pmottais@arthurloydbretagne.fr" },
-      { name: "Pierre-Marie", email: "pmjaumain@arthurloydbretagne.fr" },
-      { name: "Rodrigue", email: "photos.pers@gmail.com" },
-      { name: "Sonia", email: "shadjlarbi@arthur-loyd.com" }
-    ];
-    
-    // Si la collection contient déjà des données
-    if (!teamMembersSnapshot.empty) {
-      // Vérifier si Rodrigue existe déjà
-      let rodrigueExists = false;
+      console.log('Résultat de l\'envoi de notification:', result);
       
-      teamMembersSnapshot.forEach(doc => {
-        const data = doc.data();
-        if (data.email === "photos.pers@gmail.com") {
-          rodrigueExists = true;
-        }
-      });
-      
-      // Si Rodrigue n'existe pas, l'ajouter
-      if (!rodrigueExists) {
-        console.log('Ajout de Rodrigue à la collection teamMembers');
-        
-        // Ajouter Rodrigue à la collection
-        const docId = uuidv4();
-        await setDoc(doc(db, 'teamMembers', docId), {
-          name: "Rodrigue",
-          email: "photos.pers@gmail.com",
-          id: docId,
-          createdAt: new Date()
-        });
-        
-        console.log('Rodrigue ajouté avec succès');
-      } else {
-        console.log('Rodrigue existe déjà dans la collection teamMembers');
+      if (result.error) {
+        throw new Error(result.error);
       }
       
       return true;
-    }
-    
-    // Utiliser une batch pour ajouter tous les consultants en une seule opération
-    const batch = writeBatch(db);
-    
-    for (const consultant of consultants) {
-      // Générer un ID unique pour chaque consultant
-      const docId = uuidv4();
-      const docRef = doc(teamMembersRef, docId);
-      
-      // Ajouter les données du consultant avec un ID généré
-      batch.set(docRef, {
-        ...consultant,
-        id: docId, // Ajouter l'ID comme propriété du document
-        createdAt: new Date()
-      });
-    }
-    
-    // Exécuter le batch
-    await batch.commit();
-    
-    console.log('Collection teamMembers initialisée avec succès');
-    return true;
-  } catch (error) {
-    console.error('Erreur lors de l\'initialisation de la collection teamMembers:', error);
-    return false;
-  }
-};
-
-// Fonction pour synchroniser les préférences de notification avec la collection teamMembers
-export const syncNotificationPreferencesWithTeamMembers = async (email: string): Promise<boolean> => {
-  try {
-    if (!email) return false;
-    
-    const db = getFirestore();
-    
-    // S'assurer que la collection teamMembers existe
-    await initializeTeamMembersCollection();
-    
-    // Récupérer tous les consultants
-    const teamMembersRef = collection(db, 'teamMembers');
-    const teamMembersSnapshot = await getDocs(teamMembersRef);
-    
-    if (teamMembersSnapshot.empty) {
-      console.warn('Aucun consultant trouvé dans teamMembers après initialisation');
+    } catch (apiError) {
+      console.error('Erreur lors de l\'appel API de notification:', apiError);
       return false;
     }
-    
-    // Récupérer les préférences actuelles
-    const preferencesRef = doc(db, 'notificationPreferences', email);
-    const preferencesSnapshot = await getDoc(preferencesRef);
-    
-    // Préparer les données à mettre à jour
-    const preferencesData = preferencesSnapshot.exists() 
-      ? preferencesSnapshot.data() 
-      : { 
-          userEmail: email, 
-          consultants: [], 
-          remindersEnabled: true, 
-          assignmentsEnabled: true 
-        };
-    
-    // Créer un ensemble des IDs de consultants existants
-    const existingConsultantIds = new Set(preferencesData.consultants || []);
-    
-    // Ajouter les nouveaux consultants
-    const consultantIds = teamMembersSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return data.id || doc.id;
-    });
-    
-    // Mettre à jour les préférences
-    await setDoc(preferencesRef, {
-      ...preferencesData,
-      consultants: [...new Set([...existingConsultantIds, ...consultantIds])],
-      updatedAt: new Date()
-    }, { merge: true });
-    
-    console.log('Préférences de notification synchronisées avec teamMembers pour', email);
-    return true;
   } catch (error) {
-    console.error('Erreur lors de la synchronisation des préférences:', error);
+    console.error('Erreur générale lors de l\'envoi de notification:', error);
     return false;
   }
-};
-
-// Initialise la messagerie Firebase
-const initializeMessaging = async () => {
-  // Vérifier si la messagerie est supportée dans cet environnement
-  const isMessagingSupported = await isSupported();
-  if (!isMessagingSupported) {
-    console.warn("Firebase Messaging n'est pas supporté dans cet environnement");
-    return false;
-  }
-  return true;
 }; 

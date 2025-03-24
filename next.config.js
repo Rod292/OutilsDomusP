@@ -8,6 +8,10 @@ const nextConfig = {
         hostname: '**',
       },
     ],
+    domains: [
+      'hebbkx1anhila5yf.public.blob.vercel-storage.com',
+      'public.blob.vercel-storage.com'
+    ],
   },
   eslint: {
     // Ne pas exécuter ESLint lors du build en production
@@ -16,6 +20,26 @@ const nextConfig = {
   typescript: {
     // Ne pas faire de vérification de type lors du build en production
     ignoreBuildErrors: true,
+  },
+  // Ajouter cette configuration pour éviter les erreurs avec firebase-admin côté client
+  webpack: (config, { isServer }) => {
+    // Si c'est un build côté client, on ajoute des remplacements pour les modules Node.js
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        child_process: false,
+        http2: false,
+        dns: false,
+        crypto: false,
+        path: false,
+        os: false,
+        stream: false,
+      };
+    }
+    return config;
   },
   async rewrites() {
     return [
@@ -49,13 +73,6 @@ const nextConfig = {
       },
     ];
   },
-  // Configuration des images pour autoriser les domaines externes
-  images: {
-    domains: [
-      'hebbkx1anhila5yf.public.blob.vercel-storage.com',
-      'public.blob.vercel-storage.com'
-    ],
-  }
 }
 
 module.exports = nextConfig 
