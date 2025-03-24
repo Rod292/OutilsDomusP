@@ -12,6 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, LogIn, LogOut, User as UserIcon } from "lucide-react"
 import type React from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import FixNotificationTokensButton from "../components/FixNotificationTokensButton"
 
 // Variantes d'animation pour les éléments
 const containerVariants = {
@@ -298,18 +299,23 @@ export const LandingPage: React.FC = () => {
                             whileHover="hover"
                             whileTap="tap"
                           >
-                            <motion.button
-                              onClick={() => handleConsultantSelect(consultant.name)}
-                              className={`w-full h-16 text-base font-medium rounded-lg border transition-all duration-300 ${
-                                selectedConsultant === consultant.name 
-                                  ? "bg-[#DC0032] text-white border-[#DC0032]" 
-                                  : "bg-white text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700"
-                              }`}
-                              animate={selectedConsultant === consultant.name ? "selected" : "visible"}
-                              initial="hidden"
-                            >
-                              {consultant.name}
-                            </motion.button>
+                            <div className="flex flex-col space-y-2">
+                              <motion.button
+                                onClick={() => handleConsultantSelect(consultant.name)}
+                                className={`w-full h-16 text-base font-medium rounded-lg border transition-all duration-300 ${
+                                  selectedConsultant === consultant.name 
+                                    ? "bg-[#DC0032] text-white border-[#DC0032]" 
+                                    : "bg-white text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700"
+                                }`}
+                                animate={selectedConsultant === consultant.name ? "selected" : "visible"}
+                                initial="hidden"
+                              >
+                                {consultant.name}
+                              </motion.button>
+                              <div className="flex justify-center">
+                                <FixNotificationTokensButton consultant={consultant.name} />
+                              </div>
+                            </div>
                           </motion.div>
                         ))}
                       </motion.div>

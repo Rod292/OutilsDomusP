@@ -7,14 +7,14 @@ import { setDoc } from 'firebase/firestore';
 import { adminDb, firebaseAdmin } from '../../../lib/firebase-admin';
 
 // GET: Récupérer les tokens d'un utilisateur
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const searchParams = req.nextUrl.searchParams;
-    const userEmail = searchParams.get('email');
+    const searchParams = request.nextUrl.searchParams;
+    const userEmail = searchParams.get('email') || searchParams.get('userId');
 
     if (!userEmail) {
       return NextResponse.json(
-        { error: 'Email utilisateur requis' },
+        { error: 'Email ou userId utilisateur requis' },
         { status: 400 }
       );
     }
