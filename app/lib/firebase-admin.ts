@@ -1,7 +1,7 @@
 import { initializeApp, getApps, cert } from "firebase-admin/app"
 import { getFirestore, Firestore } from "firebase-admin/firestore"
 import { getAuth } from "firebase-admin/auth"
-import { getMessaging } from "firebase-admin/messaging"
+import { getMessaging, Messaging } from "firebase-admin/messaging"
 
 // Vérifier que les variables d'environnement nécessaires sont définies
 if (!process.env.FIREBASE_PRIVATE_KEY || !process.env.FIREBASE_CLIENT_EMAIL) {
@@ -23,7 +23,7 @@ const firebaseAdminConfig = {
 // Initialiser Firebase Admin seulement s'il n'a pas déjà été initialisé
 let firebaseAdmin;
 let adminDb: Firestore;
-let adminMessaging;
+let adminMessaging: Messaging;
 
 try {
   if (getApps().length === 0) {
