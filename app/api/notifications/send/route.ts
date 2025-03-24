@@ -392,14 +392,10 @@ export async function POST(request: NextRequest) {
       });
 
     } catch (error) {
-      console.error('Erreur lors de l\'envoi de la notification:', error);
-      return NextResponse.json(
-        { 
-          error: 'Erreur interne du serveur lors de l\'envoi de la notification',
-          useLocalMode: true
-        },
-        { status: 500 }
-      );
+      console.error('Erreur lors de l\'envoi FCM de la notification:', error);
+      // Ne pas retourner de réponse ici, laisser le catch extérieur gérer la réponse
+      // pour éviter la double réponse
+      throw error; // Remonter l'erreur au catch extérieur
     }
   } catch (error) {
     console.error('Erreur lors de l\'envoi de la notification:', error);

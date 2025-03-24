@@ -61,6 +61,20 @@ export const NOTIFICATION_OPTIONS = {
   TOKEN_CLEANUP_INTERVAL: 7 * 24 * 60 * 60 * 1000, // Nettoyer les tokens inactifs après 7 jours
 };
 
+// Configuration partagée pour les notifications
+export const NOTIFICATION_CONFIG = {
+  vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  USE_FCM: process.env.NEXT_PUBLIC_USE_FCM !== 'false',
+  USE_API_KEY: process.env.NEXT_PUBLIC_USE_NOTIFICATION_API_KEY === 'true',
+  MESSAGES: {
+    taskAssigned: 'Vous avez une nouvelle tâche assignée',
+    communicationAssigned: 'Vous avez une nouvelle communication assignée',
+    reminderSent: 'Rappel: vous avez une tâche à compléter',
+    ACTIVATED: 'Notifications activées pour'
+  }
+};
+
 // Fonction pour vérifier la disponibilité du service Firebase Admin
 export const checkFirebaseAdmin = async (): Promise<boolean> => {
   try {

@@ -445,54 +445,59 @@ export const requestNotificationPermission = async (userId: string): Promise<boo
       console.log('Permission de notification accordée!');
     }
 
-    // Chrome peut avoir des problèmes avec getToken() si la permission est accordée,
-    // alors utilisons un token local pour les tests
-    let token = 'local-token-' + Date.now();
+    let token = null;
     let fcmTokenSuccess = false;
     
-    // Tenter d'obtenir un token FCM seulement si l'API est activée
+    // Essayer d'obtenir un vrai token FCM
     if (NOTIFICATION_CONFIG.USE_FCM) {
       try {
-        // Vérifier si Firebase est initialisé
-        if (clientApp) {
+        console.log('Tentative d\'enregistrement du service worker...');
+        
+        // Enregistrer le service worker pour les notifications
+        const swRegistration = await registerServiceWorker();
+        
+        if (!swRegistration) {
+          console.error('Service Worker non enregistré, impossible d\'initialiser FCM');
+        } else {
+          console.log('Service Worker enregistré avec succès, initialisation de Firebase Messaging...');
+          
+          // Initialiser Firebase Messaging
           const messaging = getMessaging(clientApp);
           
           if (messaging) {
-            console.log('Demande de token FCM...');
+            console.log('Demande de token FCM avec VAPID key:', NOTIFICATION_CONFIG.vapidKey?.substring(0, 10) + '...');
             
-            // Récupération du VAPID key depuis les variables d'environnement
-            const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+            // Obtenir un token FCM
+            token = await getToken(messaging, { 
+              vapidKey: NOTIFICATION_CONFIG.vapidKey,
+              serviceWorkerRegistration: swRegistration
+            });
             
-            if (vapidKey) {
-              token = await getToken(messaging, { 
-                vapidKey,
-                serviceWorkerRegistration: await navigator.serviceWorker.getRegistration()
-              });
-              
-              console.log('Token FCM obtenu:', token.substring(0, 10) + '...');
-              fcmTokenSuccess = true;
-            } else {
-              console.warn('VAPID key manquante - utilisation du mode local');
-            }
+            console.log('Token FCM obtenu avec succès:', token.substring(0, 10) + '...');
+            fcmTokenSuccess = true;
           } else {
-            console.warn('Firebase Messaging non disponible - utilisation du mode local');
+            console.error('Firebase Messaging non disponible');
           }
-        } else {
-          console.warn('Firebase non initialisé - utilisation du mode local');
         }
       } catch (error) {
-        console.error('Erreur lors de la récupération du token FCM:', error);
-        // Continuer avec le token local
+        console.error('Erreur lors de l\'obtention du token FCM:', error);
       }
     } else {
-      console.log('Mode FCM désactivé - utilisation du mode local');
+      console.log('Mode FCM désactivé dans la configuration');
+    }
+    
+    // Si aucun token FCM obtenu, utiliser un token local comme solution de repli
+    if (!token) {
+      console.log('Utilisation d\'un token local comme repli');
+      token = 'local-notifications-mode';
     }
     
     // Enregistrer le token dans la base de données
+    console.log(`Enregistrement du token pour l'utilisateur ${userId}...`);
     const tokenSaved = await saveNotificationToken(userId, token);
     
     if (tokenSaved) {
-      // Essayer d'envoyer une notification locale pour confirmer que tout fonctionne
+      // Essayer d'envoyer une notification locale de confirmation
       if (!fcmTokenSuccess) {
         console.log('Envoi d\'une notification locale de confirmation...');
         try {

@@ -1,3 +1,4 @@
+import "@/app/browser-shims.js"
 import "@/styles/globals.css"
 import { Inter } from "next/font/google"
 import { IOSIcons } from "./components/ios-icons"

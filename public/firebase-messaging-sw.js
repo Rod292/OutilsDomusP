@@ -2,16 +2,16 @@
 // Ce fichier doit être à la racine du domaine
 
 // Version du service worker
-const SW_VERSION = '1.3.0';
+const SW_VERSION = '1.4.0';
 
 // Configuration Firebase pour le service worker
 const firebaseConfig = {
-  apiKey: self.FIREBASE_API_KEY || "AIzaSyB-Tg0BZCoKVwOYDRwqJcTLuwVKxzHGn8g",
+  apiKey: self.FIREBASE_API_KEY || "AIzaSyDujTJIyvicJnP-nMgodJs63rU0fDA69Qc",
   authDomain: self.FIREBASE_AUTH_DOMAIN || "etat-des-lieux-arthur-loyd.firebaseapp.com",
   projectId: self.FIREBASE_PROJECT_ID || "etat-des-lieux-arthur-loyd",
-  storageBucket: self.FIREBASE_STORAGE_BUCKET || "etat-des-lieux-arthur-loyd.appspot.com",
-  messagingSenderId: self.FIREBASE_MESSAGING_SENDER_ID || "613933229000",
-  appId: self.FIREBASE_APP_ID || "1:613933229000:web:59cc7e22c6dcda34d48a32"
+  storageBucket: self.FIREBASE_STORAGE_BUCKET || "etat-des-lieux-arthur-loyd.firebasestorage.app",
+  messagingSenderId: self.FIREBASE_MESSAGING_SENDER_ID || "602323147221",
+  appId: self.FIREBASE_APP_ID || "1:602323147221:web:7a1d976ac0478b593b455c"
 };
 
 // Import des scripts Firebase
