@@ -354,5 +354,8 @@ const NotificationPreferencesPage = () => {
   );
 };
 
-// Exporter le wrapper avec Suspense comme composant principal
-export default NotificationsPreferencesWrapper; 
+// Exporter le composant wrapper comme export par défaut
+export default NotificationsPreferencesWrapper;
+
+// Ne pas exporter le composant page directement
+// export default NotificationPreferencesPage; 

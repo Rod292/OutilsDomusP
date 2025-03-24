@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '../config';
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // Cette API route vérifie si un utilisateur a activé les notifications pour un consultant
 export async function GET(request: NextRequest) {

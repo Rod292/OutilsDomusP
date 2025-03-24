@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import admin from '@/app/firebase-admin';
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const db = admin.firestore();
 

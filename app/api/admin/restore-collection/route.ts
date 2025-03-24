@@ -3,6 +3,7 @@ import admin from '@/app/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const db = admin.firestore();
 
