@@ -12,7 +12,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, LogIn, LogOut, User as UserIcon } from "lucide-react"
 import type React from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import FixNotificationTokensButton from "../components/FixNotificationTokensButton"
 
 // Variantes d'animation pour les éléments
 const containerVariants = {
@@ -312,9 +311,6 @@ export const LandingPage: React.FC = () => {
                               >
                                 {consultant.name}
                               </motion.button>
-                              <div className="flex justify-center">
-                                <FixNotificationTokensButton consultant={consultant.name} />
-                              </div>
                             </div>
                           </motion.div>
                         ))}

@@ -7,7 +7,7 @@
  * Il fournit des implémentations vides des méthodes couramment utilisées pour éviter les erreurs.
  */
 
-console.warn('🚨 Tentative d\'utilisation de firebase-admin côté client. Ce module ne devrait être utilisé que côté serveur.');
+console.log('💡 Module firebase-admin remplacé par un stub côté client.');
 
 // Créer des stubs pour les fonctionnalités courantes de firebase-admin
 const noopFunction = () => {};
