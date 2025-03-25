@@ -14,7 +14,7 @@ const firebaseConfig = {
 };
 
 // Clé VAPID pour les notifications Web Push
-export const VAPID_KEY = 'BGzPLt8Qmv6lFQDwKZLJzcIqH4cwWJN2P_aPCp8HYXJn7LIXHA5RL9rUd2uxSCnD2XHJZFGVtV11i3n2Ux9JYXM';
+export const VAPID_KEY = 'BH4d9fbB2K03fd3E-WTtull3cTODxrtVhFQ94FKQgtt_grFm4QQkV6FzC6LlFNttXFCve5CKvDYlplXX1YbzHDo';
 
 // Initialiser Firebase seulement côté client
 export const initializeFirebase = () => {

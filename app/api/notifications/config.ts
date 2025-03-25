@@ -63,10 +63,11 @@ export const NOTIFICATION_OPTIONS = {
 
 // Configuration partagée pour les notifications
 export const NOTIFICATION_CONFIG = {
-  vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+  USE_FCM: true, // Utiliser Firebase Cloud Messaging (sinon mode local)
+  USE_API_KEY: false, // Utiliser une clé API pour l'authentification
+  vapidKey: 'BH4d9fbB2K03fd3E-WTtull3cTODxrtVhFQ94FKQgtt_grFm4QQkV6FzC6LlFNttXFCve5CKvDYlplXX1YbzHDo',
+  vapidPrivateKey: 'ivSo8psntra9Zwib5QYM4PbGfhmYIeMjGmsixu6wJCk',
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  USE_FCM: process.env.NEXT_PUBLIC_USE_FCM !== 'false',
-  USE_API_KEY: process.env.NEXT_PUBLIC_USE_NOTIFICATION_API_KEY === 'true',
   MESSAGES: {
     taskAssigned: 'Vous avez une nouvelle tâche assignée',
     communicationAssigned: 'Vous avez une nouvelle communication assignée',
