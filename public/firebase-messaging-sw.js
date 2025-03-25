@@ -42,8 +42,8 @@ messaging.onBackgroundMessage((payload) => {
   // Options pour la notification
   const options = {
     body: body,
-    icon: notification.icon || '/icons/arthur-loyd-logo-192.png',
-    badge: '/icons/arthur-loyd-badge-96.png',
+    icon: notification.icon || '/images/icons/icon-192x192.png',
+    badge: '/images/icons/badge-128x128.png',
     data: data,
     tag: data.threadId || data.taskId || `notification-${Date.now()}`,
     requireInteraction: true, // Garder la notification jusqu'à ce que l'utilisateur interagisse avec
