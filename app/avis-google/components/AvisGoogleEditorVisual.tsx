@@ -271,8 +271,15 @@ export default function AvisGoogleEditorVisual() {
         setPreviewHtml(generateHtml(updatedSections));
       }
       
-      toast.success("Contenu mis à jour avec succès");
+      // Afficher le toast de succès uniquement si on est dans le mode édition
+      if (mode === 'edit') {
+        toast.success("Contenu mis à jour avec succès");
+      }
+      
+      return updatedSections; // Retourner les sections mises à jour pour une utilisation externe
     }
+    
+    return sections; // Retourner les sections actuelles si pas de mise à jour
   };
 
   const parseHtmlToSections = (html: string): AvisGoogleSection[] => {
@@ -662,8 +669,13 @@ export default function AvisGoogleEditorVisual() {
             <Button 
               variant={mode === 'preview' ? "default" : "outline"}
               onClick={() => {
-                handleUpdateContent();
+                // S'assurer que le contenu est à jour avant de passer en mode aperçu
+                const updatedSections = handleUpdateContent();
                 setMode('preview');
+                // Forcer la mise à jour de l'aperçu après le changement de mode
+                setTimeout(() => {
+                  setPreviewHtml(generateHtml(updatedSections));
+                }, 0);
               }}
               size="sm"
             >
@@ -673,8 +685,13 @@ export default function AvisGoogleEditorVisual() {
             <Button 
               variant={mode === 'send' ? "default" : "outline"}
               onClick={() => {
-                handleUpdateContent();
+                // S'assurer que le contenu est à jour avant de passer en mode envoi
+                const updatedSections = handleUpdateContent();
                 setMode('send');
+                // Forcer la mise à jour de l'aperçu après le changement de mode
+                setTimeout(() => {
+                  setPreviewHtml(generateHtml(updatedSections));
+                }, 0);
               }}
               size="sm"
             >
