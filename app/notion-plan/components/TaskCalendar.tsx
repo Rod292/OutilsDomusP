@@ -10,7 +10,7 @@ import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, ImageIcon, VideoIcon, Fi
 import { Task, CommunicationDetail } from '../types';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { format, isSameDay } from 'date-fns';
+import { format, isSameDay, getYear, getMonth, getDate, isWithinInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 interface TaskCalendarProps {
@@ -587,15 +587,27 @@ const DroppableDay = ({
            date.getFullYear() === currentDate.getFullYear();
   };
 
+  // Vérifier si Justine est présente ce jour-là
+  const justinePresent = isJustinePresent(date);
+
   return (
     <div
       ref={dropRef as any}
-      className={`h-full min-h-[120px] p-1 rounded border border-gray-100 transition-colors ${
-        isOver ? 'bg-blue-50' : isToday(date) ? 'bg-red-50' : 'bg-white'
+      className={`h-full min-h-[120px] p-1 rounded border ${
+        isOver ? 'border-blue-300 border-dashed border-2' : 'border-gray-100'
+      } ${
+        isOver ? 'bg-blue-50' : 
+        isToday(date) ? 'bg-red-50' : 
+        'bg-white'
       } ${isCurrentMonth(date, new Date()) ? '' : 'opacity-60'}`}
     >
-      <div className={`text-xs font-medium mb-1 ${isToday(date) ? 'text-[#DC0032] font-bold' : ''}`}>
-        {date.getDate()}
+      <div className={`text-xs font-medium mb-1 flex justify-between items-center ${isToday(date) ? 'text-[#DC0032] font-bold' : ''}`}>
+        <span>{date.getDate()}</span>
+        {justinePresent && (
+          <Badge variant="outline" className="text-[0.6rem] px-1 py-0 bg-green-100 text-green-800 border-green-200">
+            J
+          </Badge>
+        )}
       </div>
       <div className="space-y-1 max-h-[200px] overflow-y-auto">
         {tasksToDisplay.map((item, index) => (
@@ -639,6 +651,37 @@ const getOrCreateCommunicationUUID = (taskId: string, commType: string, commInde
   }
   
   return (window as any).communicationUUIDs[key];
+};
+
+// Fonction pour vérifier si une date correspond à un jour de présence de Justine
+const isJustinePresent = (date: Date) => {
+  const year = getYear(date);
+  const month = getMonth(date) + 1; // getMonth() est 0-indexé
+  const day = getDate(date);
+  
+  // Si l'année ne correspond pas à 2025, retourner false
+  if (year !== 2025) return false;
+  
+  // Période de présence de Justine
+  const presenceDays = {
+    // Mars 2025
+    3: [25, 26, 27, 28],
+    // Avril 2025
+    4: [...Array(5).fill(0).map((_, i) => i + 7), ...[22, 23, 24, 25], 28, 29, 30],
+    // Mai 2025
+    5: [2, 5, 6, 7, 9, 12, 13, 14, 15, 16, 26, 27, 28, 30],
+    // Juin 2025
+    6: [10, 11, 12, 13, 16, 17, 18, 19, 20, 30],
+    // Juillet 2025
+    7: [1, 2, 3, 4, 7, 8, 9, 10, 11, 21, 22, 23, 24, 25, 28, 29, 30, 31],
+    // Août 2025
+    8: [1, 4, 5, 6, 7, 8, 11, 12, 13, 14, 18, 19, 20, 21, 22, 25, 26, 27, 28, 29],
+    // Septembre 2025
+    9: [8, 9, 10, 11, 12, 15, 16, 17, 18, 19, 22, 23, 24, 25, 26, 29, 30]
+  };
+  
+  // Vérifier si le jour est dans la liste des jours de présence pour ce mois
+  return presenceDays[month as keyof typeof presenceDays]?.includes(day) || false;
 };
 
 export default function TaskCalendar({ tasks, onEditTask, onUpdateTask }: TaskCalendarProps) {
@@ -899,28 +942,47 @@ export default function TaskCalendar({ tasks, onEditTask, onUpdateTask }: TaskCa
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <Card className="border-none shadow-none pb-6">
-        <CardContent className="p-0">
-          <div className="flex items-center justify-between p-4 border-b">
+      <Card className="w-full h-full overflow-hidden">
+        <CardContent className="p-0 pb-0 h-full flex flex-col">
+          {/* En-tête du calendrier */}
+          <div className="flex justify-between items-center p-4 border-b">
             <div className="flex items-center space-x-2">
-              <h2 className="text-xl font-bold capitalize">{formatMonthYear(currentDate)}</h2>
+              <h2 className="text-xl font-semibold">{formatMonthYear(currentDate)}</h2>
+              <Select value={displayMode} onValueChange={(value) => setDisplayMode(value as 'month' | 'week')}>
+                <SelectTrigger className="w-[100px]">
+                  <SelectValue placeholder="Mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="month">Mois</SelectItem>
+                  <SelectItem value="week">Semaine</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm" onClick={goToPreviousMonth}>
+                <ChevronLeftIcon className="h-4 w-4" />
+              </Button>
               <Button variant="outline" size="sm" onClick={goToToday}>
                 Aujourd'hui
               </Button>
-              <Button variant="outline" size="icon" onClick={goToPreviousMonth}>
-                <ChevronLeftIcon className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon" onClick={goToNextMonth}>
+              <Button variant="outline" size="sm" onClick={goToNextMonth}>
                 <ChevronRightIcon className="h-4 w-4" />
               </Button>
             </div>
           </div>
 
+          {/* Légendes */}
+          <div className="flex flex-wrap gap-2 px-4 py-2 border-b text-xs">
+            <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+              Présence de Justine
+            </Badge>
+            {/* Autres légendes existantes */}
+          </div>
+
+          {/* Jours de la semaine */}
           <div className="grid grid-cols-7 border-b">
             {weekDays.map((day, index) => (
-              <div key={index} className="p-2 text-center text-sm font-medium text-gray-500">
+              <div key={index} className="p-2 text-center text-sm font-medium">
                 {day}
               </div>
             ))}
