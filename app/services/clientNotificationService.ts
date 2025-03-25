@@ -998,15 +998,15 @@ export const regenerateAndSaveToken = async (userEmail: string, consultantName?:
       
       // Afficher une notification locale pour confirmer que tout fonctionne
       try {
-        const notif = new Notification('Notifications activées', {
-          body: consultantName 
+        const notification = new Notification(consultantName 
             ? `Vous recevrez désormais les notifications pour ${consultantName}`
             : 'Vous recevrez désormais les notifications',
-          icon: '/icons/arthur-loyd-logo-192.png'
+        {
+          icon: '/images/icons/icon-192x192.png'
         });
         
         // Si nous sommes arrivés ici sans erreur, les notifications fonctionnent
-        setTimeout(() => notif.close(), 3000);
+        setTimeout(() => notification.close(), 3000);
       } catch (notifError) {
         console.error('Erreur lors de l\'affichage de la notification de test:', notifError);
         // Si on ne peut pas afficher de notification alors que la permission est "granted",
@@ -1051,7 +1051,7 @@ export const sendCurrentUserNotification = async (
     // Créer une notification directement dans le navigateur
     const notification = new Notification(title, {
       body,
-      icon: '/icons/arthur-loyd-logo-192.png',
+      icon: '/images/icons/icon-192x192.png',
       data,
       tag: `direct-notification-${Date.now()}`
     });
