@@ -93,17 +93,82 @@ export default function GlobalNotificationButton({
     
     setLoading(true);
     try {
-      // Même si les notifications sont déjà activées, on permet de les réactiver
+      console.log("Tentative de demande de permission pour les notifications...");
+      
+      // Vérifier d'abord l'état réel des permissions
+      const realStatus = await checkRealNotificationPermission();
+      console.log(`Statut réel avant demande: ${realStatus}`);
+      
+      if (realStatus === 'denied') {
+        // Si les notifications sont bloquées, montrer des instructions
+        toast({
+          title: "Notifications bloquées",
+          description: "Les notifications sont bloquées dans votre navigateur. Utilisez les paramètres du navigateur pour les autoriser.",
+          variant: "destructive"
+        });
+        
+        // Tenter quand même une réinitialisation en mode fallback
+        if (notificationId) {
+          console.log("Tentative de réinitialisation en mode fallback...");
+          const resetSuccess = await resetNotificationSettings(notificationId);
+          if (resetSuccess) {
+            toast({
+              title: "Mode alternatif activé",
+              description: "Un mode alternatif de notification a été activé",
+              variant: "default"
+            });
+          }
+        }
+        
+        setPermissionStatus('denied');
+        return;
+      }
+      
+      // Même si les notifications sont déjà activées, on tente de les réactiver
+      console.log("Appel de requestNotificationPermission...");
       const result = await requestNotificationPermission(notificationId);
+      console.log(`Résultat de la demande: ${result}`);
       
       if (result === true) {
         setPermissionStatus('granted');
         console.log(`Notifications activées pour: ${notificationId}`);
+        
+        // Afficher un toast de confirmation
+        toast({
+          title: "Notifications activées",
+          description: `Vous recevrez désormais les notifications pour ${consultantName}`,
+          variant: "default"
+        });
       } else {
+        // Tenter une approche alternative en cas d'échec
+        console.log("La demande a échoué, tentative de régénération du token...");
+        if (user?.email) {
+          const tokenResult = await regenerateAndSaveToken(user.email, consultantName);
+          if (tokenResult) {
+            setPermissionStatus('granted');
+            toast({
+              title: "Notifications activées",
+              description: "Les notifications ont été activées avec succès.",
+              variant: "default"
+            });
+            return;
+          }
+        }
+        
         setPermissionStatus('denied');
+        toast({
+          title: "Échec d'activation",
+          description: "Impossible d'activer les notifications. Vérifiez les paramètres de votre navigateur.",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error('Erreur lors de la demande de permission:', error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de l'activation des notifications.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -270,6 +335,11 @@ export default function GlobalNotificationButton({
                 size={size}
                 className={buttonClass}
                 disabled={disabled}
+                onClick={(e) => {
+                  // Arrêter la propagation pour éviter que le dropdown ne s'ouvre pas
+                  e.stopPropagation();
+                  handleClick(e);
+                }}
               >
                 {icon}
                 <span className="sr-only">Notifications</span>

@@ -249,24 +249,31 @@ export const requestNotificationPermission = async (userId: string): Promise<boo
 
     console.log(`Demande de permission de notification pour ${userId}...`);
 
-    // Vérifier le statut actuel
-    const currentPermission = Notification.permission;
-    console.log(`Statut actuel des permissions: ${currentPermission}`);
+    // Vérifier le statut actuel avec une méthode plus robuste
+    const realPermission = await checkRealNotificationPermission();
+    console.log(`Statut réel des permissions: ${realPermission}`);
     
-    // Si les notifications sont bloquées, ouvrir les paramètres de notification du navigateur
-    if (currentPermission === 'denied') {
+    // Si les notifications sont déjà bloquées, essayer de guider l'utilisateur
+    if (realPermission === 'denied') {
       console.log('Les notifications sont bloquées par le navigateur');
       
-      // Afficher un message à l'utilisateur
-      alert('Les notifications sont bloquées dans votre navigateur. Veuillez les autoriser dans les paramètres de votre navigateur puis réessayer.');
-      
-      // Essayer d'ouvrir les paramètres (fonctionne sur Chrome)
+      // Essayer d'ouvrir les paramètres du navigateur pour aider l'utilisateur
       try {
+        // Pour Chrome, on peut essayer d'ouvrir la page des paramètres
         if (navigator.userAgent.includes('Chrome')) {
           window.open('chrome://settings/content/notifications', '_blank');
+          // Cette alerte sera probablement bloquée, mais on essaie quand même
+          setTimeout(() => {
+            alert('Les notifications sont bloquées. Une nouvelle fenêtre a été ouverte pour modifier vos paramètres.');
+          }, 500);
+        } else if (navigator.userAgent.includes('Firefox')) {
+          // Pour Firefox
+          window.open('about:preferences#privacy', '_blank');
         } else {
-          // Pour Firefox et autres navigateurs
-          window.open('/help/notifications', '_blank');
+          // Pour les autres navigateurs, ouvrir la page d'aide
+          if (typeof window !== 'undefined') {
+            window.open('/help/notifications', '_blank');
+          }
         }
       } catch (error) {
         console.warn('Impossible d\'ouvrir les paramètres automatiquement:', error);
@@ -275,22 +282,39 @@ export const requestNotificationPermission = async (userId: string): Promise<boo
       return false;
     }
 
-    // Vérifier si les notifications sont déjà autorisées
-    if (currentPermission !== 'granted') {
+    // Si l'état est "default", demander la permission
+    // Même si l'état est "granted", on tente de demander à nouveau pour vérifier et être sûr
+    let permission = realPermission;
+    
+    if (realPermission !== 'granted') {
       console.log('Demande de permission de notification au navigateur...');
-      const permission = await Notification.requestPermission();
-      
-      if (permission !== 'granted') {
-        console.error('Permission de notification refusée par l\'utilisateur');
-        return false;
+      try {
+        permission = await Notification.requestPermission();
+        console.log(`Résultat de la demande de permission: ${permission}`);
+      } catch (permError) {
+        console.error('Erreur lors de la demande de permission:', permError);
+        // Certains navigateurs peuvent lever une exception avec l'API Promise
+        // On essaie avec la version callback comme solution de repli
+        try {
+          console.log('Tentative avec la version callback...');
+          Notification.requestPermission(function(status) {
+            console.log(`Permission (callback): ${status}`);
+            permission = status;
+          });
+        } catch (callbackError) {
+          console.error('Échec également avec la version callback:', callbackError);
+        }
       }
-      
-      console.log('Permission de notification accordée!');
-    } else {
-      console.log('Les notifications sont déjà autorisées');
     }
+    
+    if (permission !== 'granted') {
+      console.error('Permission de notification refusée par l\'utilisateur');
+      return false;
+    }
+    
+    console.log('Permission de notification accordée!');
 
-    // Essayer d'obtenir un token FCM
+    // Essayer de créer un token FCM ou local
     let token = null;
     if (NOTIFICATION_CONFIG.USE_FCM) {
       console.log('Tentative d\'obtention d\'un token FCM...');
@@ -300,20 +324,30 @@ export const requestNotificationPermission = async (userId: string): Promise<boo
     // Si aucun token FCM obtenu, utiliser un token local
     if (!token) {
       console.log('Utilisation d\'un token local comme solution de repli');
-      token = 'local-notifications-mode';
+      token = `local-notifications-mode-${Date.now()}`;
       
       // Enregistrer le token local
-      await saveNotificationToken(userId, token);
+      const saveResult = await saveNotificationToken(userId, token);
+      if (!saveResult) {
+        console.error('Échec de l\'enregistrement du token local');
+        return false;
+      }
       
       // Envoyer une notification locale de confirmation
       try {
-        await sendLocalNotification({
+        const notifResult = await sendLocalNotification({
           title: `${NOTIFICATION_CONFIG.MESSAGES.ACTIVATED} ${userId.split('_')[1] || ''}`,
           body: 'Vous recevrez des notifications pour les nouvelles tâches assignées.',
           data: { userId, type: 'system' }
         });
-      } catch (error) {
-        console.warn('Erreur lors de l\'envoi de la notification de confirmation:', error);
+        
+        // Si on arrive à envoyer une notification, c'est que les permissions sont bien accordées
+        if (notifResult) {
+          console.log('Notification de test envoyée avec succès');
+        }
+      } catch (notifError) {
+        console.warn('Erreur lors de l\'envoi de la notification de confirmation:', notifError);
+        // On n'échoue pas la fonction ici, car le token a été enregistré
       }
     }
     
@@ -338,67 +372,91 @@ export const checkRealNotificationPermission = async (): Promise<string> => {
     return 'not-supported';
   }
   
+  console.log("Vérification des permissions de notification...");
+  console.log(`État actuel selon Notification.permission: ${Notification.permission}`);
+  
   // Utiliser une approche plus agressive pour détecter des permissions incorrectes
   try {
-    // Si les notifications sont "granted" selon l'API mais que nous ne pouvons pas créer de notification,
-    // cela signifie probablement que les permissions ont été révoquées ou le site supprimé des paramètres
+    // Pour Chrome qui peut avoir un état incohérent entre l'API et la réalité
     if (Notification.permission === 'granted') {
+      console.log("Les notifications sont marquées comme 'granted', vérification...");
       try {
-        // Tenter de créer une notification invisible pour tester si cela fonctionne réellement
-        const testNotification = new Notification('', { 
+        // Tenter de créer une notification silencieuse pour tester
+        const options = { 
           silent: true,
-          requireInteraction: false
-        });
-        // Fermer immédiatement la notification de test
-        setTimeout(() => testNotification.close(), 10);
+          requireInteraction: false,
+          tag: 'test-permission-' + Date.now()
+        };
+        
+        // Cette ligne peut lever une exception si les permissions sont révoquées
+        // même si l'API indique "granted"
+        const testNotification = new Notification('', options);
+        
+        // Si aucune exception n'est levée, fermer la notification de test
+        setTimeout(() => {
+          try {
+            testNotification.close();
+          } catch (e) {
+            console.log("Erreur lors de la fermeture de la notification test:", e);
+          }
+        }, 10);
+        
+        console.log("Test de notification réussi, les permissions sont bien accordées");
+        
+        // Essayer aussi l'API Permissions pour vérifier la cohérence
+        try {
+          const permissionStatus = await navigator.permissions.query({ name: 'notifications' as PermissionName });
+          console.log(`État selon Permissions API: ${permissionStatus.state}`);
+          
+          // Si les deux APIs sont cohérentes, retourner granted
+          if (permissionStatus.state === 'granted') {
+            return 'granted';
+          } else {
+            console.log("Incohérence détectée entre Notification et Permissions API");
+            
+            // Essayer quand même de continuer car la notification de test a fonctionné
+            return 'granted';
+          }
+        } catch (permError) {
+          console.log("Erreur lors de l'accès à l'API Permissions:", permError);
+          // Si la notification de test a fonctionné, on considère que c'est granted
+          return 'granted';
+        }
       } catch (testError) {
-        console.log('Détection d\'un état incohérent: les notifications sont marquées comme "granted" mais ne fonctionnent pas');
+        console.log("Échec du test de notification:", testError);
+        console.log("Les notifications sont marquées comme 'granted' mais ne fonctionnent pas");
         return 'denied';
       }
-    }
-    
-    // Essayer de détecter si les notifications sont réellement bloquées via l'API Permissions
-    const permissionStatus = await navigator.permissions.query({ name: 'notifications' as PermissionName });
-    console.log('État des permissions via API:', permissionStatus.state);
-    
-    // Si l'API Permissions indique un état différent de l'API Notification
-    if (permissionStatus.state === 'denied' && Notification.permission !== 'denied') {
-      console.log('Incohérence détectée : Permissions API indique denied mais Notification indique', Notification.permission);
-      return 'denied';
-    }
-    
-    if (permissionStatus.state === 'granted' && Notification.permission !== 'granted') {
-      console.log('Incohérence détectée : Permissions API indique granted mais Notification indique', Notification.permission);
-      return 'granted';
-    }
-
-    // Écouter les changements d'état pour détecter les mises à jour en temps réel
-    permissionStatus.onchange = () => {
-      console.log('Changement détecté dans les permissions:', permissionStatus.state);
-      // Rafraîchir l'UI si nécessaire
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('notification-permission-changed', { 
-          detail: { state: permissionStatus.state } 
-        }));
+    } 
+    // Pour les autres états
+    else {
+      // Essayer d'utiliser l'API Permissions si disponible
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: 'notifications' as PermissionName });
+        console.log(`État des permissions via API Permissions: ${permissionStatus.state}`);
+        
+        // Écouter les changements d'état pour détecter les mises à jour en temps réel
+        permissionStatus.onchange = () => {
+          console.log('Changement détecté dans les permissions:', permissionStatus.state);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('notification-permission-changed', { 
+              detail: { state: permissionStatus.state } 
+            }));
+          }
+        };
+        
+        return permissionStatus.state;
+      } catch (error) {
+        console.warn("Impossible d'accéder à l'API Permissions:", error);
+        // Si on ne peut pas accéder à l'API Permissions, on utilise Notification.permission
+        return Notification.permission;
       }
-    };
+    }
   } catch (error) {
-    console.warn('Impossible d\'accéder à l\'API Permissions:', error);
+    console.error("Erreur lors de la vérification des permissions:", error);
+    // En cas d'erreur, utiliser la valeur de l'API Notification
+    return Notification.permission;
   }
-  
-  // Essayer de demander une permission pour détecter si le navigateur est réellement bloqué
-  if (Notification.permission === 'default') {
-    try {
-      const testRequest = await navigator.permissions.query({ name: 'notifications' as PermissionName });
-      if (testRequest.state === 'denied') {
-        return 'denied';
-      }
-    } catch (error) {
-      console.warn('Impossible de vérifier les permissions avancées:', error);
-    }
-  }
-  
-  return Notification.permission;
 };
 
 /**
