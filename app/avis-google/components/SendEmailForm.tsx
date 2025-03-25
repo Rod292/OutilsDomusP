@@ -18,6 +18,7 @@ interface SendEmailFormProps {
   onError: (error: string) => void;
   senderName: string;
   emailSubject: string;
+  onCancel?: () => void;
 }
 
 interface Contact {
@@ -26,7 +27,7 @@ interface Contact {
   prenom?: string;
 }
 
-export default function SendEmailForm({ htmlContent, onError, senderName, emailSubject }: SendEmailFormProps) {
+export default function SendEmailForm({ htmlContent, onError, senderName, emailSubject, onCancel }: SendEmailFormProps) {
   const theme = useTheme();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(false);
@@ -447,35 +448,47 @@ export default function SendEmailForm({ htmlContent, onError, senderName, emailS
         </Box>
       )}
 
-      <Button
-        variant="contained"
-        fullWidth
-        disabled={contacts.length === 0 || loading}
-        onClick={handleSendEmails}
-        startIcon={loading ? undefined : <SendIcon />}
-        sx={{ 
-          mt: 2,
-          py: 1.5,
-          borderRadius: '8px',
-          textTransform: 'none',
-          fontWeight: 600,
-          boxShadow: 2,
-          backgroundColor: '#DC0032',
-          '&:hover': {
-            backgroundColor: '#B00028'
-          },
-          '&.Mui-disabled': {
-            backgroundColor: theme.palette.action.disabledBackground,
-            color: theme.palette.action.disabled
-          }
-        }}
-      >
-        {loading ? (
-          <CircularProgress size={24} color="inherit" />
-        ) : (
-          `Envoyer ${contacts.length} demande${contacts.length > 1 ? 's' : ''} d'avis`
+      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+        {contacts.length > 0 && (
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<SendIcon />}
+            onClick={handleSendEmails}
+            disabled={loading}
+            sx={{
+              borderRadius: '8px',
+              textTransform: 'none',
+              boxShadow: 2,
+              backgroundColor: '#DC0032',
+              '&:hover': {
+                backgroundColor: '#B00028'
+              }
+            }}
+          >
+            {loading ? 'Envoi en cours...' : `Envoyer ${contacts.length} email${contacts.length > 1 ? 's' : ''}`}
+          </Button>
         )}
-      </Button>
+        {onCancel && (
+          <Button
+            variant="outlined"
+            color="inherit"
+            onClick={onCancel}
+            sx={{
+              borderRadius: '8px',
+              textTransform: 'none',
+              borderColor: '#666',
+              color: '#666',
+              '&:hover': {
+                borderColor: '#333',
+                backgroundColor: 'rgba(0, 0, 0, 0.04)'
+              }
+            }}
+          >
+            Retour à l'édition
+          </Button>
+        )}
+      </Box>
       
       <Typography 
         variant="caption" 

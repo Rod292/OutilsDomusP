@@ -6,25 +6,18 @@ import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc } from '
 import { uploadImage } from '@/lib/firebase';
 import SendEmailForm from './SendEmailForm';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import { 
-  Box, Typography, Button, Paper, Tabs, Tab, CircularProgress, Alert,
-  TextField, Divider, Chip, IconButton, Tooltip
-} from '@mui/material';
-import { useTheme } from '@mui/material/styles';
-import EditIcon from '@mui/icons-material/Edit';
-import PreviewIcon from '@mui/icons-material/Preview';
-import SendIcon from '@mui/icons-material/Send';
-import SaveIcon from '@mui/icons-material/Save';
-import HistoryIcon from '@mui/icons-material/History';
-import FormatBoldIcon from '@mui/icons-material/FormatBold';
-import FormatItalicIcon from '@mui/icons-material/FormatItalic';
-import FormatUnderlinedIcon from '@mui/icons-material/FormatUnderlined';
-import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
-import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
-import InsertLinkIcon from '@mui/icons-material/InsertLink';
 import { Editor } from '@tinymce/tinymce-react';
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { 
+  Send, Save, History, Edit, Eye, RefreshCw, 
+  Bold, Italic, Underline, List, ListOrdered, Link
+} from 'lucide-react';
 
 // Récupérer la clé API TinyMCE depuis les variables d'environnement ou utiliser la clé en dur comme fallback
 const TINYMCE_API_KEY = process.env.NEXT_PUBLIC_TINYMCE_API_KEY || 'r4grgrcqwxc80gk44x3aaiqm3rqa29t3utou9a0224ixu4gc';
@@ -67,7 +60,6 @@ type AvisGoogleSection = {
 };
 
 export default function AvisGoogleEditorVisual() {
-  const theme = useTheme();
   const editorRef = useRef<TinyMCEEditor | null>(null);
   
   // États
@@ -249,88 +241,52 @@ export default function AvisGoogleEditorVisual() {
           .footer {
             background-color: #464254;
             padding: 20px;
-            color: #ffffff;
+            color: #FFFFFF;
             text-align: center;
-            border-radius: 0 0 8px 8px;
-            margin-top: 20px;
-          }
-          .signature { 
-            margin-top: 30px; 
-            color: #666666;
-            font-style: italic;
-          }
-          .social-links { 
-            margin-top: 20px;
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-          }
-          .social-link { 
-            color: #DC0032;
-            text-decoration: none;
-            padding: 5px 10px;
             border-radius: 4px;
-            background-color: #F5F7FA;
           }
-          .social-link:hover {
-            background-color: #f8e6ea;
+          .signature {
+            font-style: italic;
+            margin-top: 15px;
           }
-          p {
-            margin: 10px 0;
+          .social-links {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
           }
-          a {
-            color: #DC0032;
+          .social-link {
+            color: #FFFFFF;
             text-decoration: none;
-          }
-          a:hover {
-            text-decoration: underline;
-          }
-          h1, h2, h3, h4, h5, h6 {
-            color: #DC0032;
-          }
-          ul, ol {
-            margin: 10px 0;
-            padding-left: 20px;
-          }
-          li {
-            margin-bottom: 5px;
           }
           .cta-button {
             display: inline-block;
             background-color: #DC0032;
-            color: white !important;
-            text-decoration: none;
-            padding: 12px 24px;
+            color: #FFFFFF;
+            padding: 10px 24px;
             border-radius: 4px;
-            margin: 20px 0;
+            text-decoration: none;
             font-weight: bold;
-          }
-          .cta-button:hover {
-            background-color: #B00028;
-          }
-          .emoji {
-            font-size: 1.2em;
-            margin: 0 2px;
+            margin: 15px 0;
           }
         </style>
       </head>
       <body>
         <div class="container">
-          <img src="/images/logo-arthur-loyd.png" alt="Arthur Loyd" class="small-logo">
-          
+          ${headerSection?.content.logo ? `<img src="${headerSection.content.logo}" alt="Logo" class="logo">` : ''}
           <div class="content">
             ${contentSection?.content.content || ''}
           </div>
-          
           ${footerSection ? `
             <div class="footer">
-              <div class="signature">
-                ${footerSection.content.signature || 'Arthur Loyd Bretagne'}
-              </div>
-              <div class="social-links">
-                <a href="https://www.linkedin.com/company/arthur-loyd-bretagne" class="social-link" target="_blank">LinkedIn</a>
-                <a href="https://www.instagram.com/arthurloydbretagne/" class="social-link" target="_blank">Instagram</a>
-              </div>
+              ${footerSection.content.signature ? `<div class="signature">${footerSection.content.signature}</div>` : ''}
+              ${footerSection.content.socialLinks && footerSection.content.socialLinks.length > 0 ? `
+                <div class="social-links">
+                  ${footerSection.content.socialLinks.map(link => `
+                    <a href="${link.url}" class="social-link">${link.platform}</a>
+                  `).join('')}
+                </div>
+              ` : ''}
             </div>
           ` : ''}
         </div>
@@ -339,363 +295,139 @@ export default function AvisGoogleEditorVisual() {
     `;
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <div className="w-12 h-12 border-4 border-[#DC0032] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300">
+        <p className="font-medium">{error}</p>
+        <Button 
+          variant="outline"
+          size="sm"
+          className="mt-2"
+          onClick={loadDefaultTemplate}
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Réessayer
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <Box sx={{ width: '100%' }}>
-      {error && (
-        <Alert 
-          severity="error" 
-          sx={{ 
-            mb: 3, 
-            borderRadius: 2,
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
-          }}
-        >
-          {error}
-        </Alert>
-      )}
-
-      {/* Onglets pour choisir entre nouveau client et relance */}
-      <Box 
-        sx={{ 
-          mb: 3, 
-          borderBottom: 1, 
-          borderColor: 'divider',
-          display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
-          alignItems: { xs: 'flex-start', sm: 'center' },
-          gap: { xs: 1, sm: 2 }
-        }}
+    <div className="p-6">
+      <Tabs 
+        defaultValue={selectedTab} 
+        value={selectedTab}
+        onValueChange={(value) => setSelectedTab(value as 'nouveau' | 'relance')}
+        className="w-full"
       >
-        <Typography 
-          variant="subtitle1" 
-          sx={{ 
-            fontWeight: 600,
-            color: theme.palette.text.primary,
-            minWidth: { sm: '120px' }
-          }}
-        >
-          Type de message:
-        </Typography>
-        <Tabs 
-          value={selectedTab} 
-          onChange={(_, newValue) => setSelectedTab(newValue)}
-          sx={{
-            minHeight: '40px',
-            '& .MuiTabs-indicator': {
-              backgroundColor: '#DC0032',
-              height: 3
-            }
-          }}
-        >
-          <Tab 
-            label="Nouveau client" 
-            value="nouveau"
-            sx={{
-              textTransform: 'none',
-              fontWeight: 500,
-              fontSize: '0.9rem',
-              minHeight: '40px',
-              '&.Mui-selected': {
-                color: '#DC0032',
-                fontWeight: 600
-              }
-            }}
-          />
-          <Tab 
-            label="Relance" 
-            value="relance"
-            sx={{
-              textTransform: 'none',
-              fontWeight: 500,
-              fontSize: '0.9rem',
-              minHeight: '40px',
-              '&.Mui-selected': {
-                color: '#DC0032',
-                fontWeight: 600
-              }
-            }}
-          />
-        </Tabs>
-      </Box>
+        <div className="flex justify-between items-center mb-6">
+          <TabsList className="grid w-[400px] grid-cols-2">
+            <TabsTrigger value="nouveau">Nouveau client</TabsTrigger>
+            <TabsTrigger value="relance">Relance client</TabsTrigger>
+          </TabsList>
+          
+          <div className="flex space-x-2">
+            <Button 
+              variant={mode === 'edit' ? "default" : "outline"}
+              onClick={() => setMode('edit')}
+              size="sm"
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Éditer
+            </Button>
+            <Button 
+              variant={mode === 'send' ? "default" : "outline"}
+              onClick={() => {
+                handleUpdateContent();
+                setMode('send');
+              }}
+              size="sm"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              Envoyer
+            </Button>
+          </div>
+        </div>
 
-      {/* Mode tabs */}
-      <Box 
-        sx={{ 
-          mb: 3,
-          display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
-          alignItems: { xs: 'flex-start', sm: 'center' },
-          gap: { xs: 1, sm: 2 }
-        }}
-      >
-        <Typography 
-          variant="subtitle1" 
-          sx={{ 
-            fontWeight: 600,
-            color: theme.palette.text.primary,
-            minWidth: { sm: '120px' }
-          }}
-        >
-          Mode:
-        </Typography>
-        <Box 
-          sx={{ 
-            display: 'flex', 
-            gap: 1,
-            flexWrap: 'wrap'
-          }}
-        >
-          <Button
-            variant={mode === 'edit' ? 'contained' : 'outlined'}
-            size="small"
-            startIcon={<EditIcon />}
-            onClick={() => setMode('edit')}
-            sx={{
-              borderRadius: '20px',
-              textTransform: 'none',
-              boxShadow: mode === 'edit' ? 2 : 0,
-              backgroundColor: mode === 'edit' ? '#DC0032' : 'transparent',
-              borderColor: '#DC0032',
-              color: mode === 'edit' ? '#fff' : '#DC0032',
-              '&:hover': {
-                backgroundColor: mode === 'edit' ? '#B00028' : 'rgba(220, 0, 50, 0.08)',
-                borderColor: '#DC0032'
-              }
-            }}
-          >
-            Éditer
-          </Button>
-          <Button
-            variant={mode === 'send' ? 'contained' : 'outlined'}
-            size="small"
-            startIcon={<SendIcon />}
-            onClick={() => setMode('send')}
-            sx={{
-              borderRadius: '20px',
-              textTransform: 'none',
-              boxShadow: mode === 'send' ? 2 : 0,
-              backgroundColor: mode === 'send' ? '#DC0032' : 'transparent',
-              borderColor: '#DC0032',
-              color: mode === 'send' ? '#fff' : '#DC0032',
-              '&:hover': {
-                backgroundColor: mode === 'send' ? '#B00028' : 'rgba(220, 0, 50, 0.08)',
-                borderColor: '#DC0032'
-              }
-            }}
-          >
-            Envoyer
-          </Button>
-        </Box>
-      </Box>
-
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress size={40} thickness={4} sx={{ color: '#DC0032' }} />
-        </Box>
-      ) : (
-        <>
-          {mode === 'edit' && (
-            <Box sx={{ mb: 3 }}>
-              <Paper 
-                elevation={0} 
-                sx={{ 
-                  p: { xs: 2, sm: 3 }, 
-                  borderRadius: 2,
-                  border: `1px solid ${theme.palette.divider}`,
-                  backgroundColor: theme.palette.background.paper,
-                  position: 'relative',
-                  zIndex: 1 // Assurer que le contenu est au-dessus
-                }}
-              >
-                <Typography 
-                  variant="h6" 
-                  gutterBottom
-                  sx={{ 
-                    fontWeight: 600,
-                    color: '#DC0032',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    mb: 2
-                  }}
-                >
-                  <EditIcon fontSize="small" />
-                  Éditer le contenu
-                </Typography>
-
-                {/* Champs pour le nom de l'expéditeur et l'objet du mail */}
-                <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <TextField
-                    label="Nom de l'expéditeur"
-                    value={senderName}
-                    onChange={(e) => setSenderName(e.target.value)}
-                    fullWidth
-                    variant="outlined"
-                    size="small"
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 1.5,
-                        '&:hover fieldset': {
-                          borderColor: '#DC0032',
-                        },
-                        '&.Mui-focused fieldset': {
-                          borderColor: '#DC0032',
-                        }
-                      },
-                      '& .MuiInputLabel-root.Mui-focused': {
-                        color: '#DC0032'
-                      }
-                    }}
-                  />
-                  <TextField
-                    label="Objet du mail"
+        <Card className="border-gray-200 dark:border-gray-700">
+          <CardContent className="p-6">
+            {mode === 'edit' ? (
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="email-subject">Objet de l'email</Label>
+                  <Input
+                    id="email-subject"
                     value={emailSubject}
                     onChange={(e) => setEmailSubject(e.target.value)}
-                    fullWidth
-                    variant="outlined"
-                    size="small"
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 1.5,
-                        '&:hover fieldset': {
-                          borderColor: '#DC0032',
-                        },
-                        '&.Mui-focused fieldset': {
-                          borderColor: '#DC0032',
-                        }
-                      },
-                      '& .MuiInputLabel-root.Mui-focused': {
-                        color: '#DC0032'
-                      }
-                    }}
+                    className="w-full"
+                    placeholder="Entrez l'objet de l'email"
                   />
-                </Box>
+                </div>
                 
-                {/* Conteneur pour la barre d'outils TinyMCE */}
-                <div id="toolbar-container" style={{ position: 'relative', zIndex: 0 }}></div>
+                <div className="space-y-2">
+                  <Label htmlFor="tinymce-editor">Contenu de l'email</Label>
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
+                    <Editor
+                      id="tinymce-editor"
+                      apiKey={TINYMCE_API_KEY}
+                      onInit={(evt, editor) => editorRef.current = editor as any}
+                      initialValue={emailContent}
+                      init={{
+                        height: 500,
+                        menubar: false,
+                        plugins: [
+                          'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
+                          'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                          'insertdatetime', 'media', 'table', 'preview', 'wordcount'
+                        ],
+                        toolbar: 'undo redo | blocks | bold italic underline | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image | removeformat | code',
+                        content_style: 'body { font-family:Poppins,Arial,sans-serif; font-size:14px }',
+                        skin: 'oxide',
+                        skin_url: '/tinymce/skins/ui/oxide',
+                        content_css: '/tinymce/skins/content/default/content.css',
+                        branding: false
+                      }}
+                    />
+                  </div>
+                </div>
                 
-                <Box sx={{ mb: 3, position: 'relative', zIndex: 0 }}>
-                  <Editor
-                    apiKey={TINYMCE_API_KEY}
-                    onInit={(evt: TinyMCEInitEvent, editor: TinyMCEEditor) => editorRef.current = editor}
-                    initialValue={emailContent}
-                    init={{
-                      height: 400,
-                      menubar: false,
-                      plugins: [
-                        'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
-                        'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                        'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
-                      ],
-                      toolbar: 'undo redo | blocks | ' +
-                        'bold italic forecolor | alignleft aligncenter ' +
-                        'alignright alignjustify | bullist numlist outdent indent | ' +
-                        'removeformat | help',
-                      content_style: 'body { font-family:Poppins,Arial,sans-serif; font-size:14px }',
-                      skin: 'oxide',
-                      content_css: 'default',
-                      branding: false,
-                      resize: false,
-                      statusbar: false,
-                      setup: (editor: TinyMCEEditor) => {
-                        editor.on('Change', () => {
-                          setEmailContent(editor.getContent());
-                        });
-                      }
-                    }}
-                  />
-                </Box>
-
-                {/* Aperçu intégré */}
-                <Typography 
-                  variant="h6" 
-                  gutterBottom
-                  sx={{ 
-                    fontWeight: 600,
-                    color: '#DC0032',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    mb: 2,
-                    mt: 3
-                  }}
-                >
-                  <PreviewIcon fontSize="small" />
-                  Aperçu de l'email
-                </Typography>
-                <Box 
-                  sx={{ 
-                    border: `1px solid ${theme.palette.divider}`,
-                    borderRadius: 1.5,
-                    p: 2,
-                    backgroundColor: '#fff',
-                    maxHeight: '400px',
-                    overflow: 'auto',
-                    mb: 3
-                  }}
-                >
-                  <div dangerouslySetInnerHTML={{ __html: generateHtml(sections) }} />
-                </Box>
-                
-                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                <div className="flex justify-end space-x-2">
                   <Button
-                    variant="contained"
-                    startIcon={<SaveIcon />}
-                    onClick={handleUpdateContent}
-                    sx={{
-                      borderRadius: '8px',
-                      textTransform: 'none',
-                      boxShadow: 2,
-                      backgroundColor: '#DC0032',
-                      '&:hover': {
-                        backgroundColor: '#B00028'
-                      }
-                    }}
+                    variant="outline"
+                    onClick={loadDefaultTemplate}
                   >
-                    Enregistrer les modifications
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Réinitialiser
                   </Button>
-                </Box>
-              </Paper>
-            </Box>
-          )}
-
-          {mode === 'send' && (
-            <Box sx={{ mb: 3 }}>
-              <Paper 
-                elevation={0} 
-                sx={{ 
-                  p: { xs: 2, sm: 3 }, 
-                  borderRadius: 2,
-                  border: `1px solid ${theme.palette.divider}`,
-                  backgroundColor: theme.palette.background.paper
-                }}
-              >
-                <Typography 
-                  variant="h6" 
-                  gutterBottom
-                  sx={{ 
-                    fontWeight: 600,
-                    color: '#DC0032',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    mb: 2
-                  }}
-                >
-                  <SendIcon fontSize="small" />
-                  Envoyer les demandes d'avis
-                </Typography>
-                <SendEmailForm 
-                  htmlContent={generateHtml(sections)} 
-                  onError={setError}
-                  senderName={senderName}
-                  emailSubject={emailSubject}
-                />
-              </Paper>
-            </Box>
-          )}
-        </>
-      )}
-    </Box>
+                  <Button
+                    variant="default"
+                    onClick={handleUpdateContent}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Enregistrer
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <SendEmailForm
+                htmlContent={generateHtml(sections)}
+                emailSubject={emailSubject}
+                senderName={senderName}
+                onError={(error) => setError(error)}
+                onCancel={() => setMode('edit')}
+              />
+            )}
+          </CardContent>
+        </Card>
+      </Tabs>
+    </div>
   );
 } 
