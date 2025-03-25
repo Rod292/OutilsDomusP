@@ -1028,4 +1028,42 @@ export const regenerateAndSaveToken = async (userEmail: string, consultantName?:
 // Ajouter la fonction à window pour pouvoir l'appeler depuis la console
 if (typeof window !== 'undefined') {
   (window as any).regenerateAndSaveToken = regenerateAndSaveToken;
-} 
+}
+
+/**
+ * Envoie une notification à l'utilisateur actuellement connecté.
+ * Utile pour avertir l'utilisateur lorsqu'il assigne des tâches/communications.
+ * @param title Titre de la notification
+ * @param body Corps de la notification
+ * @param data Données supplémentaires (optionnel)
+ * @returns Promise<boolean> True si la notification a été envoyée
+ */
+export const sendCurrentUserNotification = async (
+  title: string,
+  body: string,
+  data?: any
+): Promise<boolean> => {
+  try {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    // Créer une notification directement dans le navigateur
+    const notification = new Notification(title, {
+      body,
+      icon: '/icons/arthur-loyd-logo-192.png',
+      data,
+      tag: `direct-notification-${Date.now()}`
+    });
+
+    // Fermer automatiquement après 5 secondes
+    setTimeout(() => {
+      notification.close();
+    }, 5000);
+
+    return true;
+  } catch (error) {
+    console.error('Erreur lors de l\'envoi de notification directe:', error);
+    return false;
+  }
+}; 
