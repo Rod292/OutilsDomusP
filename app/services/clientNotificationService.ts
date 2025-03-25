@@ -338,8 +338,26 @@ export const checkRealNotificationPermission = async (): Promise<string> => {
     return 'not-supported';
   }
   
-  // Essayer de détecter si les notifications sont réellement bloquées via l'API Permissions
+  // Utiliser une approche plus agressive pour détecter des permissions incorrectes
   try {
+    // Si les notifications sont "granted" selon l'API mais que nous ne pouvons pas créer de notification,
+    // cela signifie probablement que les permissions ont été révoquées ou le site supprimé des paramètres
+    if (Notification.permission === 'granted') {
+      try {
+        // Tenter de créer une notification invisible pour tester si cela fonctionne réellement
+        const testNotification = new Notification('', { 
+          silent: true,
+          requireInteraction: false
+        });
+        // Fermer immédiatement la notification de test
+        setTimeout(() => testNotification.close(), 10);
+      } catch (testError) {
+        console.log('Détection d\'un état incohérent: les notifications sont marquées comme "granted" mais ne fonctionnent pas');
+        return 'denied';
+      }
+    }
+    
+    // Essayer de détecter si les notifications sont réellement bloquées via l'API Permissions
     const permissionStatus = await navigator.permissions.query({ name: 'notifications' as PermissionName });
     console.log('État des permissions via API:', permissionStatus.state);
     
@@ -353,6 +371,17 @@ export const checkRealNotificationPermission = async (): Promise<string> => {
       console.log('Incohérence détectée : Permissions API indique granted mais Notification indique', Notification.permission);
       return 'granted';
     }
+
+    // Écouter les changements d'état pour détecter les mises à jour en temps réel
+    permissionStatus.onchange = () => {
+      console.log('Changement détecté dans les permissions:', permissionStatus.state);
+      // Rafraîchir l'UI si nécessaire
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('notification-permission-changed', { 
+          detail: { state: permissionStatus.state } 
+        }));
+      }
+    };
   } catch (error) {
     console.warn('Impossible d\'accéder à l\'API Permissions:', error);
   }
@@ -360,9 +389,6 @@ export const checkRealNotificationPermission = async (): Promise<string> => {
   // Essayer de demander une permission pour détecter si le navigateur est réellement bloqué
   if (Notification.permission === 'default') {
     try {
-      // Demander la permission uniquement pour vérifier, sans afficher la boîte de dialogue
-      // Cette technique permet de détecter si le site est bloqué dans les paramètres du navigateur
-      // même si l'API indique 'default'
       const testRequest = await navigator.permissions.query({ name: 'notifications' as PermissionName });
       if (testRequest.state === 'denied') {
         return 'denied';
@@ -833,14 +859,41 @@ export const regenerateAndSaveToken = async (userEmail: string, consultantName?:
       return false;
     }
 
-    // Vérifier si l'utilisateur a autorisé les notifications
-    if (Notification.permission !== 'granted') {
+    // Vérifier l'état réel des permissions, pas seulement ce que dit l'API Notification
+    console.log("Vérification de l'état réel des permissions...");
+    const realPermissionStatus = await checkRealNotificationPermission();
+    console.log(`État réel des permissions: ${realPermissionStatus}`);
+
+    // Si le statut est "granted" mais que le site a été supprimé des paramètres,
+    // la fonction checkRealNotificationPermission devrait renvoyer "denied"
+    if (realPermissionStatus === 'denied') {
+      // Afficher une notification à l'utilisateur
+      console.log('Les notifications sont bloquées ou ont été supprimées des paramètres du navigateur');
+      
+      // Ouvrir les paramètres du navigateur pour permettre à l'utilisateur de réactiver
+      try {
+        if (navigator.userAgent.includes('Chrome')) {
+          window.open('chrome://settings/content/notifications', '_blank');
+          alert("Les notifications sont bloquées dans votre navigateur. Veuillez les réactiver dans l'onglet qui vient de s'ouvrir, puis réessayez.");
+          return false;
+        }
+      } catch (error) {
+        console.error('Impossible d\'ouvrir les paramètres du navigateur:', error);
+      }
+    }
+
+    // Si les notifications ne sont pas encore autorisées (ou si elles ont été révoquées),
+    // demander à nouveau la permission
+    if (realPermissionStatus !== 'granted') {
       console.log('Demande de permission pour les notifications...');
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
         console.error('Permission refusée pour les notifications');
         return false;
       }
+      console.log('Permission accordée!');
+    } else {
+      console.log('Les notifications sont déjà autorisées selon l\'API');
     }
 
     // Construire l'ID utilisateur
@@ -886,13 +939,21 @@ export const regenerateAndSaveToken = async (userEmail: string, consultantName?:
       console.log(`Token FCM régénéré et enregistré avec succès pour ${userId}`);
       
       // Afficher une notification locale pour confirmer que tout fonctionne
-      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        new Notification('Notifications activées', {
+      try {
+        const notif = new Notification('Notifications activées', {
           body: consultantName 
             ? `Vous recevrez désormais les notifications pour ${consultantName}`
             : 'Vous recevrez désormais les notifications',
           icon: '/icons/arthur-loyd-logo-192.png'
         });
+        
+        // Si nous sommes arrivés ici sans erreur, les notifications fonctionnent
+        setTimeout(() => notif.close(), 3000);
+      } catch (notifError) {
+        console.error('Erreur lors de l\'affichage de la notification de test:', notifError);
+        // Si on ne peut pas afficher de notification alors que la permission est "granted",
+        // c'est que l'état réel des permissions est incohérent
+        return false;
       }
       
       return true;

@@ -41,23 +41,45 @@ export default function GlobalNotificationButton({
   // Vérifier le statut des notifications au chargement du composant
   useEffect(() => {
     if (user?.email && consultantName) {
-      // Vérifier d'abord le statut réel des permissions dans le navigateur
-      checkRealNotificationPermission().then(realStatus => {
-        if (realStatus === 'denied') {
-          setPermissionStatus('denied');
-        } else {
-          // Si ce n'est pas bloqué, vérifier si l'utilisateur a activé les notifications pour ce consultant
-          checkConsultantPermission(user.email as string, consultantName)
-            .then(hasPermission => {
-              setPermissionStatus(hasPermission ? 'granted' : 'default');
-            })
-            .catch(() => {
-              setPermissionStatus('default');
-            });
-        }
-      });
+      checkNotificationStatus();
+      
+      // Ajouter un écouteur d'événement pour les changements de permission
+      const handlePermissionChange = (event: Event) => {
+        const customEvent = event as CustomEvent;
+        console.log('Événement de changement de permission détecté:', customEvent.detail);
+        checkNotificationStatus();
+      };
+      
+      window.addEventListener('notification-permission-changed', handlePermissionChange);
+      
+      // Nettoyage lors du démontage du composant
+      return () => {
+        window.removeEventListener('notification-permission-changed', handlePermissionChange);
+      };
     }
   }, [user?.email, consultantName]);
+
+  // Fonction séparée pour vérifier le statut des notifications
+  const checkNotificationStatus = async () => {
+    if (!user?.email || !consultantName) return;
+    
+    // Vérifier d'abord le statut réel des permissions dans le navigateur
+    const realStatus = await checkRealNotificationPermission();
+    console.log(`Statut réel des notifications: ${realStatus}`);
+    
+    if (realStatus === 'denied') {
+      setPermissionStatus('denied');
+    } else {
+      // Si ce n'est pas bloqué, vérifier si l'utilisateur a activé les notifications pour ce consultant
+      try {
+        const hasPermission = await checkConsultantPermission(user.email as string, consultantName);
+        setPermissionStatus(hasPermission ? 'granted' : 'default');
+      } catch (error) {
+        console.error("Erreur lors de la vérification des permissions:", error);
+        setPermissionStatus('default');
+      }
+    }
+  };
 
   // Identifiant pour les notifications - combinaison de l'email de l'utilisateur et du consultant
   const notificationId = user?.email && consultantName ? `${user.email}_${consultantName}` : null;
@@ -173,7 +195,29 @@ export default function GlobalNotificationButton({
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (permissionStatus === 'denied') {
+    
+    // Si les notifications sont actuellement activées, vérifier d'abord si elles le sont réellement
+    if (permissionStatus === 'granted') {
+      checkRealNotificationPermission().then(realStatus => {
+        if (realStatus !== 'granted') {
+          // Si le statut réel est différent, mettre à jour notre état
+          setPermissionStatus(realStatus);
+          
+          // Afficher un message
+          toast({
+            title: "Statut des notifications incorrect",
+            description: "Les notifications semblaient activées mais ne le sont plus. Tentative de réactivation...",
+            variant: "destructive"
+          });
+          
+          // Essayer de les réactiver
+          handleRequestPermission();
+        } else {
+          // Si elles sont bien activées, permettre de les réactiver
+          handleRequestPermission();
+        }
+      });
+    } else if (permissionStatus === 'denied') {
       // Afficher un message explicatif
       toast({
         title: "Notifications bloquées",
