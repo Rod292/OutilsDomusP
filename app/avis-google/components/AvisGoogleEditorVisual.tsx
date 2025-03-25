@@ -463,6 +463,14 @@ export default function AvisGoogleEditorVisual() {
     // Transformer les URLs relatives en URLs absolues
     const headerLogoUrl = getAbsoluteUrl(headerSection?.content.logo || HEADER_LOGO_URL);
     const footerLogoUrl = getAbsoluteUrl(FOOTER_LOGO_URL);
+    
+    // Afficher les URLs dans la console pour le debug
+    console.log('Header logo URL:', headerLogoUrl);
+    console.log('Footer logo URL:', footerLogoUrl);
+    
+    // Forcer les URLs directes pour le debug
+    const forceHeaderLogoUrl = "https://firebasestorage.googleapis.com/v0/b/etat-des-lieux-arthur-loyd.appspot.com/o/newsletter-images%2Flogo-arthur-loyd.png?alt=media";
+    const forceFooterLogoUrl = "https://firebasestorage.googleapis.com/v0/b/etat-des-lieux-arthur-loyd.appspot.com/o/newsletter-images%2FLogoFooterEmail.png?alt=media";
 
     return `
       <!DOCTYPE html>
@@ -562,7 +570,8 @@ export default function AvisGoogleEditorVisual() {
           <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff;">
             <tr>
               <td align="center" style="padding: 20px; text-align: center;">
-                <img src="${headerLogoUrl}" alt="Arthur Loyd Logo" class="logo" width="180" height="auto" style="display: block; margin: 0 auto; float: none; text-align: center;">
+                <!-- Utiliser l'URL forcée pour le test -->
+                <img src="${forceHeaderLogoUrl}" alt="Arthur Loyd Logo" class="logo" width="180" height="auto" style="display: block; margin: 0 auto; float: none; text-align: center;">
               </td>
             </tr>
           </table>
@@ -580,7 +589,8 @@ export default function AvisGoogleEditorVisual() {
                 <table border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#464254" style="background-color: #464254 !important; background: #464254 !important;">
                   <tr bgcolor="#464254" style="background-color: #464254 !important;">
                     <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 0;">
-                      <img src="${footerLogoUrl}" alt="Arthur Loyd - Créateur de possibilités" style="width: 400px; max-width: 100%; height: auto; display: inline-block; filter: brightness(1.1);" width="400">
+                      <!-- Utiliser l'URL forcée pour le test -->
+                      <img src="${forceFooterLogoUrl}" alt="Arthur Loyd - Créateur de possibilités" style="width: 400px; max-width: 100%; height: auto; display: inline-block; filter: brightness(1.1);" width="400">
                     </td>
                   </tr>
                   <tr bgcolor="#464254" style="background-color: #464254 !important;">
