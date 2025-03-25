@@ -458,6 +458,8 @@ export default function AvisGoogleEditorVisual() {
             width: 100%;
             height: auto;
             display: inline-block;
+            margin: 0 auto 20px auto;
+            filter: brightness(1.1);
           }
           .social-links {
             margin: 25px 0;
@@ -523,7 +525,7 @@ export default function AvisGoogleEditorVisual() {
                 <table border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#464254" style="background-color: #464254 !important; background: #464254 !important;">
                   <tr bgcolor="#464254" style="background-color: #464254 !important;">
                     <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 0;">
-                      <img src="${footerLogoUrl}" alt="Arthur Loyd - Créateur de possibilités" style="width: 400px; max-width: 100%; height: auto; display: inline-block;" width="400">
+                      <img src="${footerLogoUrl}" alt="Arthur Loyd - Créateur de possibilités" style="width: 400px; max-width: 100%; height: auto; display: inline-block; filter: brightness(1.1);" width="400">
                     </td>
                   </tr>
                   <tr bgcolor="#464254" style="background-color: #464254 !important;">
@@ -590,6 +592,9 @@ export default function AvisGoogleEditorVisual() {
     }
     
     try {
+      // Afficher le toast de chargement
+      toast.loading("Envoi de l'email de test en cours...", { id: "test-email-loading" });
+      
       // Préparer un seul destinataire pour le test
       const testRecipient = {
         email: testEmail,
@@ -622,6 +627,9 @@ export default function AvisGoogleEditorVisual() {
       
       const data = await response.json();
       
+      // Supprimer le toast de chargement
+      toast.dismiss("test-email-loading");
+      
       if (response.ok && data.success) {
         toast.success(`Email de test envoyé à ${testEmail}`);
         setShowTestForm(false);
@@ -629,6 +637,8 @@ export default function AvisGoogleEditorVisual() {
         toast.error(data.error || "Échec de l'envoi de l'email de test");
       }
     } catch (error) {
+      // Supprimer le toast de chargement en cas d'erreur
+      toast.dismiss("test-email-loading");
       console.error('Erreur lors de l\'envoi de l\'email de test:', error);
       toast.error("Une erreur s'est produite lors de l'envoi de l'email de test");
     }

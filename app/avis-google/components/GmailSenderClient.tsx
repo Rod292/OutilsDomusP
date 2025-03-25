@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { 
   AlertCircle, CheckCircle, Mail, LogOut, Upload, 
-  PlusCircle, RefreshCw, Send, Pause, Play, Users
+  PlusCircle, RefreshCw, Send, Pause, Play, Users, Loader2
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
@@ -140,116 +140,85 @@ export default function GmailSenderClient({ newsletterHtml, recipients = [], sub
     }
   }, [recipients]);
 
-  // Fonction pour générer l'URL d'authentification OAuth
-  const handleAuthenticate = () => {
-    setAuthError('');
-    setAuthenticating(true);
-    
+  // Démarrer le processus d'authentification OAuth
+  const startOAuthFlow = async () => {
     try {
-      // Construire l'URL de redirection basée sur l'origine actuelle
-      const origin = window.location.origin;
-      const redirectUri = `${origin}/avis-google/oauth-redirect`;
+      setAuthError('');
+      setAuthenticating(true);
+      const response = await fetch('/api/gmail/auth-url');
+      const data = await response.json();
       
-      // Construire l'URL d'authentification Google
-      const scope = encodeURIComponent(SCOPES);
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${encodeURIComponent(CLIENT_ID)}&` +
-        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-        `response_type=code&` +
-        `scope=${scope}&` +
-        `access_type=offline&` +
-        `prompt=consent`;  // Forcer le consentement à chaque fois
-      
-      // Ouvrir la fenêtre d'authentification
-      const authWindow = window.open(authUrl, 'oauth', 'width=600,height=600');
-      
-      if (!authWindow) {
-        setAuthError('Impossible d\'ouvrir la fenêtre d\'authentification. Veuillez vérifier que les popups sont autorisés.');
-        setAuthenticating(false);
-        return;
-      }
-      
-      // Fonction pour écouter les messages de la fenêtre de redirection
-      const messageHandler = (event: MessageEvent) => {
-        if (event.origin !== window.location.origin) {
-          return;
-        }
+      if (data.url) {
+        // Ouvrir la fenêtre d'authentification
+        const authWindow = window.open(data.url, 'gmailAuth', 'width=500,height=600');
         
-        if (event.data.code) {
+        // Surveiller le changement d'URL de la fenêtre popupGmail
+        const checkPopup = setInterval(() => {
           try {
-            if (authWindow && !authWindow.closed) {
+            // Vérifier si la fenêtre existe et est fermée
+            if (!authWindow || authWindow.closed) {
+              clearInterval(checkPopup);
+              verifyAuthStatus();
+              return;
+            }
+            
+            // Vérifier l'URL actuelle
+            const currentUrl = authWindow?.location.href;
+            
+            // Si l'URL contient 'code=', l'authentification est terminée
+            if (currentUrl && currentUrl.includes('/api/gmail/callback')) {
               authWindow.close();
+              clearInterval(checkPopup);
+              
+              // Attendre un peu avant de vérifier le statut pour laisser le temps au serveur de traiter
+              setTimeout(() => {
+                verifyAuthStatus();
+              }, 1500);
             }
-          } catch (err) {
-            console.warn('Impossible de fermer la fenêtre popup:', err);
+          } catch (e) {
+            // Une erreur peut se produire lors de la tentative d'accès à la propriété location
+            // d'une fenêtre cross-origin, ce qui est normal pendant OAuth
+            console.log("Attente de la fin du processus d'authentification...");
           }
-          
-          // Récupérer le code d'autorisation et l'échanger contre un token
-          const code = event.data.code;
-          
-          (async () => {
-            try {
-              const response = await fetch('/api/gmail-auth', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ code }),
-              });
-              
-              const data = await response.json();
-              
-              if (!response.ok) {
-                const errorMessage = data.error || 'Échec de l\'authentification';
-                setAuthError(errorMessage);
-                setAuthenticating(false);
-                toast.error(errorMessage);
-                return;
-              }
-              
-              if (data.success) {
-                setIsAuthenticated(true);
-                setAuthError('');
-                toast.success("Connecté à Gmail avec succès");
-              } else {
-                const errorMsg = `Erreur d'authentification: ${data.error || 'Échec de l\'authentification'}`;
-                setAuthError(errorMsg);
-                toast.error(errorMsg);
-              }
-              setAuthenticating(false);
-            } catch (error: any) {
-              console.error('Erreur lors de l\'authentification:', error);
-              const errorMsg = `Erreur lors de l'authentification: ${error.message || 'Erreur inconnue'}`;
-              setAuthError(errorMsg);
-              setAuthenticating(false);
-              toast.error(errorMsg);
-            }
-          })();
-        } else if (event.data.error) {
-          const errorMsg = `Erreur d'authentification: ${event.data.error}`;
-          setAuthError(errorMsg);
-          setAuthenticating(false);
-          toast.error(errorMsg);
-        }
-      };
-      
-      window.addEventListener('message', messageHandler);
-      
-      setTimeout(() => {
-        window.removeEventListener('message', messageHandler);
-        if (!isAuthenticated) {
-          const errorMsg = 'Délai d\'authentification dépassé. Veuillez réessayer.';
-          setAuthError(errorMsg);
-          setAuthenticating(false);
-          toast.error(errorMsg);
-        }
-      }, 300000); // 5 minutes
-    } catch (error: any) {
-      console.error('Erreur lors de l\'initialisation de l\'authentification:', error);
-      const errorMsg = `Erreur: ${error.message || 'Erreur inconnue'}`;
-      setAuthError(errorMsg);
+        }, 500);
+      } else {
+        setAuthenticating(false);
+        setAuthError("Impossible d'obtenir l'URL d'authentification");
+      }
+    } catch (error) {
+      console.error('Erreur lors du démarrage du flux OAuth:', error);
       setAuthenticating(false);
-      toast.error(errorMsg);
+      setAuthError("Erreur lors de l'authentification");
+    }
+  };
+
+  // Vérifier l'état d'authentification après le retour OAuth
+  const verifyAuthStatus = async () => {
+    try {
+      // Rafraîchir la vérification d'authentification
+      setAuthenticating(true);
+      
+      // Laisser un délai pour que le token puisse être traité côté serveur
+      setTimeout(async () => {
+        const response = await fetch('/api/gmail/check-auth');
+        const data = await response.json();
+        
+        if (data.authenticated) {
+          setAuthenticating(false);
+          setAuthError('');
+          setIsAuthenticated(true);
+          toast.success('Authentification Gmail réussie !');
+        } else {
+          setAuthenticating(false);
+          setAuthError(data.error || "L'authentification a échoué");
+          setIsAuthenticated(false);
+          toast.error("L'authentification Gmail a échoué");
+        }
+      }, 2000);
+    } catch (error) {
+      console.error('Erreur lors de la vérification du statut d\'authentification:', error);
+      setAuthenticating(false);
+      setAuthError("Erreur lors de la vérification de l'authentification");
     }
   };
 
@@ -376,6 +345,80 @@ export default function GmailSenderClient({ newsletterHtml, recipients = [], sub
     }
   };
 
+  // Fonction pour réinitialiser l'authentification Gmail
+  const resetAuth = () => {
+    setIsAuthenticated(false);
+    setAuthError('');
+    setAuthenticating(false);
+    // Appeler l'API pour révoquer l'accès ou supprimer les tokens localement
+    fetch('/api/gmail/logout', { method: 'POST' })
+      .then(() => {
+        toast.success('Déconnecté de Gmail');
+      })
+      .catch(error => {
+        console.error('Erreur lors de la déconnexion:', error);
+      });
+  };
+
+  // Vérifier l'authentification si nécessaire
+  useEffect(() => {
+    fetch('/api/gmail/check-auth')
+      .then(response => response.json())
+      .then(data => {
+        if (data.authenticated) {
+          setIsAuthenticated(true);
+        }
+      })
+      .catch(error => {
+        console.error('Erreur lors de la vérification de l\'authentification:', error);
+      });
+  }, []);
+  
+  // UI pour les boutons
+  const renderAuthButtons = () => {
+    if (isAuthenticated) {
+      return (
+        <>
+          <Button
+            className="w-full"
+            onClick={sendEmails}
+            disabled={isSending || allRecipients.length === 0}
+          >
+            <Send className="mr-2 h-4 w-4" />
+            Envoyer {allRecipients.length} email{allRecipients.length > 1 ? 's' : ''}
+          </Button>
+          <Button
+            className="w-full mt-2"
+            variant="outline"
+            onClick={resetAuth}
+          >
+            Déconnecter Gmail
+          </Button>
+        </>
+      );
+    }
+
+    return (
+      <Button
+        className="w-full"
+        onClick={startOAuthFlow}
+        disabled={authenticating}
+      >
+        {authenticating ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Authentification en cours...
+          </>
+        ) : (
+          <>
+            <Mail className="mr-2 h-4 w-4" />
+            Se connecter à Gmail
+          </>
+        )}
+      </Button>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {!isAuthenticated ? (
@@ -392,23 +435,7 @@ export default function GmailSenderClient({ newsletterHtml, recipients = [], sub
             </div>
           </div>
           
-          <Button
-            className="w-full"
-            onClick={handleAuthenticate}
-            disabled={authenticating}
-          >
-            {authenticating ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                Authentification en cours...
-              </>
-            ) : (
-              <>
-                <Mail className="h-4 w-4 mr-2" />
-                Se connecter avec Gmail
-              </>
-            )}
-          </Button>
+          {renderAuthButtons()}
           
           {authError && (
             <Alert variant="destructive" className="mt-4">
@@ -604,26 +631,7 @@ export default function GmailSenderClient({ newsletterHtml, recipients = [], sub
               </div>
             )}
             
-            <Button 
-              className="w-full"
-              onClick={sendEmails}
-              disabled={isSending || allRecipients.length === 0}
-            >
-              {isSending ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Envoi en cours...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  {testMode 
-                    ? "Envoyer un email test" 
-                    : `Envoyer ${allRecipients.length} email${allRecipients.length > 1 ? 's' : ''}`
-                  }
-                </>
-              )}
-            </Button>
+            {renderAuthButtons()}
           </div>
         </div>
       )}
