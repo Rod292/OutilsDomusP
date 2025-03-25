@@ -603,6 +603,27 @@ export const sendTaskAssignedNotification = async (params: {
       const result = await response.json();
       console.log('Résultat de l\'envoi de notification:', result);
       
+      // Vérifier si le service FCM a échoué à envoyer la notification même si l'API a réussi
+      if (result.success === true && result.sent === 0 && result.failed > 0) {
+        console.log('FCM a échoué à envoyer la notification, utilisation du mode local comme solution de repli');
+        
+        // Envoyer une notification locale en cas d'échec FCM
+        try {
+          await sendLocalNotification({
+            title,
+            body,
+            data: {
+              userId,
+              taskId: params.taskId,
+              type: notificationType
+            }
+          });
+          console.log('Notification locale envoyée avec succès comme solution de repli');
+        } catch (localError) {
+          console.warn('Échec de l\'envoi de notification locale:', localError);
+        }
+      }
+      
       // Modification pour traiter le cas du mode local comme un succès
       if (result.success === false && result.useLocalMode === true) {
         console.log(`Notification enregistrée en mode local pour ${userId} (aucun token FCM trouvé)`);

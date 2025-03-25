@@ -397,6 +397,41 @@ export async function POST(request: NextRequest) {
         nonAppleDevices: nonAppleTokens.length
       });
 
+      // Traiter les tokens invalides pour les nettoyer
+      if (response.failureCount > 0) {
+        // Récupérer les résultats détaillés pour identifier les tokens à supprimer
+        const failedTokens = response.responses
+          .map((resp, idx) => {
+            if (!resp.success && 
+                (resp.error?.code === 'messaging/invalid-registration-token' || 
+                 resp.error?.code === 'messaging/registration-token-not-registered')) {
+              return tokensToNotify[idx];
+            }
+            return null;
+          })
+          .filter(token => token !== null);
+
+        // Supprimer les tokens invalides
+        if (failedTokens.length > 0) {
+          console.log(`Nettoyage de ${failedTokens.length} tokens FCM invalides...`);
+          
+          // Rechercher et supprimer ces tokens dans Firestore
+          const batch = db.batch();
+          const tokensRef = db.collection(TOKEN_COLLECTION);
+          
+          for (const token of failedTokens) {
+            const tokenQuery = await tokensRef.where('token', '==', token).get();
+            tokenQuery.forEach(doc => {
+              batch.delete(doc.ref);
+            });
+          }
+          
+          // Exécuter le lot de suppressions
+          await batch.commit();
+          console.log(`${failedTokens.length} tokens invalides supprimés avec succès`);
+        }
+      }
+
       return NextResponse.json({
         success: true,
         sent: response.successCount,

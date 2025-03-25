@@ -3,9 +3,16 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Bell, BellOff, BellRing, RefreshCw } from 'lucide-react';
-import { requestNotificationPermission, checkConsultantPermission } from '@/app/services/clientNotificationService';
+import { requestNotificationPermission, checkConsultantPermission, regenerateAndSaveToken } from '@/app/services/clientNotificationService';
 import { useAuth } from '@/app/hooks/useAuth';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+import { toast } from '@/components/ui/use-toast';
 
 interface GlobalNotificationButtonProps {
   consultantName: string;
@@ -63,6 +70,38 @@ export default function GlobalNotificationButton({
     }
   };
 
+  const handleRegenerateToken = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user?.email) return;
+    
+    setLoading(true);
+    try {
+      const success = await regenerateAndSaveToken(user.email, consultantName);
+      if (success) {
+        toast({
+          title: "Token régénéré",
+          description: "Le token a été régénéré avec succès.",
+          variant: "default"
+        });
+        setPermissionStatus('granted');
+      } else {
+        toast({
+          title: "Échec",
+          description: "Impossible de régénérer le token.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de la régénération du token.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!user || !consultantName) {
     return null;
   }
@@ -93,24 +132,36 @@ export default function GlobalNotificationButton({
   };
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size={size}
-            className={buttonClass}
-            onClick={handleClick}
-            disabled={disabled}
-          >
-            {icon}
-            <span className="sr-only">Notifications</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{tooltipText}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size={size}
+                className={buttonClass}
+                disabled={disabled}
+              >
+                {icon}
+                <span className="sr-only">Notifications</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{tooltipText}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={handleClick}>
+          {permissionStatus === 'granted' ? 'Réactiver les notifications' : 'Activer les notifications'}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleRegenerateToken}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Régénérer le token
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 } 
