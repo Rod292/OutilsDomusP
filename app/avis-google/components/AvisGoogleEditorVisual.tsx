@@ -24,6 +24,10 @@ import {
 // Récupérer la clé API TinyMCE depuis les variables d'environnement ou utiliser la clé en dur comme fallback
 const TINYMCE_API_KEY = process.env.NEXT_PUBLIC_TINYMCE_API_KEY || 'r4grgrcqwxc80gk44x3aaiqm3rqa29t3utou9a0224ixu4gc';
 
+// URLs des logos
+const HEADER_LOGO_URL = "/images/logo-arthur-loyd.png";
+const FOOTER_LOGO_URL = "/images/logo-createur-de-possibilites.png";
+
 // Types pour TinyMCE
 type TinyMCEEditor = {
   getContent: () => string;
@@ -73,12 +77,15 @@ export default function AvisGoogleEditorVisual() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
   const [user, setUser] = useState<User | null>(null);
-  const [selectedTab, setSelectedTab] = useState<'nouveau' | 'relance'>('nouveau');
+  const [selectedTab, setSelectedTab] = useState<'nouveau' | 'relance' | 'bailleur'>('nouveau');
   const [emailContent, setEmailContent] = useState<string>('');
   const [emailSubject, setEmailSubject] = useState<string>('');
   const [senderName, setSenderName] = useState<string>('Arthur Loyd Bretagne');
   const [previewHtml, setPreviewHtml] = useState<string>('');
   const [previewExpanded, setPreviewExpanded] = useState<boolean>(false);
+  const [testEmail, setTestEmail] = useState<string>('');
+  const [testName, setTestName] = useState<string>('');
+  const [showTestForm, setShowTestForm] = useState<boolean>(false);
 
   // Charger le template par défaut
   useEffect(() => {
@@ -86,8 +93,10 @@ export default function AvisGoogleEditorVisual() {
     // Définir l'objet du mail en fonction du type de message
     if (selectedTab === 'nouveau') {
       setEmailSubject('Merci pour votre confiance !');
-    } else {
+    } else if (selectedTab === 'relance') {
       setEmailSubject('Déjà X an(s) dans vos locaux !');
+    } else if (selectedTab === 'bailleur') {
+      setEmailSubject('Merci pour votre collaboration !');
     }
   }, [selectedTab]);
 
@@ -128,12 +137,112 @@ export default function AvisGoogleEditorVisual() {
       }
       
       const data = await response.json();
-      setSections(parseHtmlToSections(data.htmlContent));
+      
+      // Vérifier si htmlContent est vide ou manquant et fournir un contenu par défaut
+      if (!data.htmlContent) {
+        const defaultContent = getDefaultContent(selectedTab);
+        setSections([
+          {
+            id: 'header',
+            type: 'header',
+            content: {
+              logo: HEADER_LOGO_URL
+            }
+          },
+          {
+            id: 'content',
+            type: 'content',
+            content: {
+              content: defaultContent
+            }
+          },
+          {
+            id: 'footer',
+            type: 'footer',
+            content: {
+              signature: 'Arthur Loyd Bretagne',
+              socialLinks: [
+                { platform: 'LinkedIn', url: 'https://www.linkedin.com/company/arthur-loyd-bretagne/' },
+                { platform: 'Instagram', url: 'https://www.instagram.com/arthurloydbretagne/' },
+                { platform: 'Site Web', url: 'https://www.arthur-loyd.com/brest' }
+              ]
+            }
+          }
+        ]);
+      } else {
+        setSections(parseHtmlToSections(data.htmlContent));
+      }
     } catch (error) {
       console.error('Erreur:', error);
       setError('Impossible de charger le template. Veuillez réessayer.');
+      
+      // Fournir un contenu par défaut en cas d'erreur
+      const defaultContent = getDefaultContent(selectedTab);
+      setSections([
+        {
+          id: 'header',
+          type: 'header',
+          content: {
+            logo: HEADER_LOGO_URL
+          }
+        },
+        {
+          id: 'content',
+          type: 'content',
+          content: {
+            content: defaultContent
+          }
+        },
+        {
+          id: 'footer',
+          type: 'footer',
+          content: {
+            signature: 'Arthur Loyd Bretagne',
+            socialLinks: [
+              { platform: 'LinkedIn', url: 'https://www.linkedin.com/company/arthur-loyd-bretagne/' },
+              { platform: 'Instagram', url: 'https://www.instagram.com/arthurloydbretagne/' },
+              { platform: 'Site Web', url: 'https://www.arthur-loyd.com/brest' }
+            ]
+          }
+        }
+      ]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fonction pour obtenir le contenu par défaut en fonction du type de message
+  const getDefaultContent = (type: 'nouveau' | 'relance' | 'bailleur') => {
+    switch (type) {
+      case 'nouveau':
+        return `
+          <p>Bonjour [Nom],</p>
+          <p>Nous tenons à vous remercier de votre confiance. Votre avis compte énormément pour nous !</p>
+          <p>Pourriez-vous prendre quelques instants pour partager votre expérience sur Google ? Cela nous aiderait beaucoup dans notre visibilité.</p>
+          <p><a href="https://g.page/r/CY5qQsrZgBTHEAg/review" class="cta-button">Laisser un avis Google</a></p>
+          <p>Merci d'avance pour votre temps.</p>
+          <p>Cordialement,</p>
+        `;
+      case 'relance':
+        return `
+          <p>Bonjour [Nom],</p>
+          <p>Cela fait maintenant [X] an(s) que vous êtes dans vos locaux. Nous espérons que vous y êtes bien installés !</p>
+          <p>Nous serions ravis de savoir comment se passe votre expérience. Pourriez-vous partager votre avis sur Google ?</p>
+          <p><a href="https://g.page/r/CY5qQsrZgBTHEAg/review" class="cta-button">Laisser un avis Google</a></p>
+          <p>Merci d'avance pour votre retour.</p>
+          <p>Cordialement,</p>
+        `;
+      case 'bailleur':
+        return `
+          <p>Bonjour [Nom],</p>
+          <p>Nous tenons à vous remercier pour votre collaboration. En tant que bailleur, votre confiance en nos services est très importante pour nous.</p>
+          <p>Si vous avez un moment, nous serions très reconnaissants si vous pouviez partager votre expérience avec Arthur Loyd Bretagne sur Google.</p>
+          <p><a href="https://g.page/r/CY5qQsrZgBTHEAg/review" class="cta-button">Laisser un avis Google</a></p>
+          <p>Merci d'avance pour votre temps.</p>
+          <p>Cordialement,</p>
+        `;
+      default:
+        return '';
     }
   };
 
@@ -169,9 +278,9 @@ export default function AvisGoogleEditorVisual() {
   const parseHtmlToSections = (html: string): AvisGoogleSection[] => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
-    const container = doc.querySelector('.container');
+    const container = doc.querySelector('.newsletter-container') || doc.querySelector('.container');
     
-    if (!container) return [];
+    if (!container) return getDefaultSections();
 
     const sections: AvisGoogleSection[] = [];
 
@@ -182,7 +291,15 @@ export default function AvisGoogleEditorVisual() {
         id: 'header',
         type: 'header',
         content: {
-          logo: logo.src
+          logo: logo.src || HEADER_LOGO_URL
+        }
+      });
+    } else {
+      sections.push({
+        id: 'header',
+        type: 'header',
+        content: {
+          logo: HEADER_LOGO_URL
         }
       });
     }
@@ -194,7 +311,15 @@ export default function AvisGoogleEditorVisual() {
         id: 'content',
         type: 'content',
         content: {
-          content: content.innerHTML
+          content: content.innerHTML || getDefaultContent(selectedTab)
+        }
+      });
+    } else {
+      sections.push({
+        id: 'content',
+        type: 'content',
+        content: {
+          content: getDefaultContent(selectedTab)
         }
       });
     }
@@ -207,18 +332,52 @@ export default function AvisGoogleEditorVisual() {
       url: (link as HTMLAnchorElement).href
     }));
 
-    if (signature || socialLinks.length > 0) {
-      sections.push({
+    sections.push({
+      id: 'footer',
+      type: 'footer',
+      content: {
+        signature: signature?.textContent || 'Arthur Loyd Bretagne',
+        socialLinks: socialLinks.length > 0 ? socialLinks : [
+          { platform: 'LinkedIn', url: 'https://www.linkedin.com/company/arthur-loyd-bretagne/' },
+          { platform: 'Instagram', url: 'https://www.instagram.com/arthurloydbretagne/' },
+          { platform: 'Site Web', url: 'https://www.arthur-loyd.com/brest' }
+        ]
+      }
+    });
+
+    return sections;
+  };
+
+  // Obtenir des sections par défaut si le parsing échoue
+  const getDefaultSections = (): AvisGoogleSection[] => {
+    return [
+      {
+        id: 'header',
+        type: 'header',
+        content: {
+          logo: HEADER_LOGO_URL
+        }
+      },
+      {
+        id: 'content',
+        type: 'content',
+        content: {
+          content: getDefaultContent(selectedTab)
+        }
+      },
+      {
         id: 'footer',
         type: 'footer',
         content: {
-          signature: signature?.textContent || '',
-          socialLinks
+          signature: 'Arthur Loyd Bretagne',
+          socialLinks: [
+            { platform: 'LinkedIn', url: 'https://www.linkedin.com/company/arthur-loyd-bretagne/' },
+            { platform: 'Instagram', url: 'https://www.instagram.com/arthurloydbretagne/' },
+            { platform: 'Site Web', url: 'https://www.arthur-loyd.com/brest' }
+          ]
         }
-      });
-    }
-
-    return sections;
+      }
+    ];
   };
 
   const generateHtml = (sections: AvisGoogleSection[]): string => {
@@ -233,51 +392,64 @@ export default function AvisGoogleEditorVisual() {
         <meta charset="utf-8">
         <style>
           body { 
-            font-family: Poppins, Arial, sans-serif; 
-            line-height: 1.6; 
-            color: #1A1A1A;
+            font-family: 'Arial', sans-serif;
             margin: 0;
             padding: 0;
+            background-color: #f0f0f0;
+            color: #333333;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
           }
-          .container { 
-            max-width: 600px; 
-            margin: 0 auto; 
+          .newsletter-container {
+            width: 100%;
+            max-width: 700px;
+            margin: 0 auto;
+            background-color: #ffffff;
+          }
+          .header {
+            text-align: center;
             padding: 20px;
-            background-color: #FFFFFF;
+            background-color: #ffffff;
           }
-          .logo { 
-            max-width: 200px; 
-            margin-bottom: 20px; 
-          }
-          .small-logo {
-            max-width: 120px;
-            margin-bottom: 15px;
+          .logo {
+            max-width: 180px;
+            width: 180px;
+            height: auto;
             display: block;
+            margin: 0 auto;
           }
           .content {
-            margin: 20px 0;
+            padding: 30px 20px;
           }
           .footer {
-            background-color: #464254;
-            padding: 20px;
-            color: #FFFFFF;
+            background-color: #464254 !important;
+            color: #ffffff;
+            padding: 50px 20px;
             text-align: center;
-            border-radius: 4px;
+            font-size: 14px;
+            line-height: 1.8;
           }
-          .signature {
-            font-style: italic;
-            margin-top: 15px;
+          .footer img {
+            max-width: 400px;
+            width: 100%;
+            height: auto;
+            display: inline-block;
           }
           .social-links {
-            margin-top: 15px;
-            display: flex;
-            justify-content: center;
-            gap: 10px;
+            margin: 25px 0;
           }
-          .social-link {
-            color: #FFFFFF;
+          .social-links a {
+            color: #ffffff;
             text-decoration: none;
+            font-size: 16px;
+            font-weight: 600;
+            display: block;
+            padding: 8px 5px;
+            border-radius: 4px;
+            background-color: #363143;
+            white-space: nowrap;
           }
+          
           .cta-button {
             display: inline-block;
             background-color: #DC0032;
@@ -288,26 +460,93 @@ export default function AvisGoogleEditorVisual() {
             font-weight: bold;
             margin: 15px 0;
           }
+          
+          @media only screen and (max-width: 600px) {
+            .footer img {
+              max-width: 90%;
+            }
+            .logo {
+              max-width: 160px !important;
+              width: 160px !important;
+              margin: 0 auto !important;
+              display: block !important;
+              float: none !important;
+            }
+          }
         </style>
       </head>
       <body>
-        <div class="container">
-          ${headerSection?.content.logo ? `<img src="${headerSection.content.logo}" alt="Logo" class="logo">` : ''}
+        <div class="newsletter-container">
+          <!-- En-tête fixe -->
+          <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff;">
+            <tr>
+              <td align="center" style="padding: 20px; text-align: center;">
+                <img src="${headerSection?.content.logo || HEADER_LOGO_URL}" alt="Arthur Loyd Logo" class="logo" width="180" height="auto" style="display: block; margin: 0 auto; float: none; text-align: center;">
+              </td>
+            </tr>
+          </table>
+          
+          <!-- Corps de la newsletter -->
           <div class="content">
             ${contentSection?.content.content || ''}
           </div>
-          ${footerSection ? `
-            <div class="footer">
-              ${footerSection.content.signature ? `<div class="signature">${footerSection.content.signature}</div>` : ''}
-              ${footerSection.content.socialLinks && footerSection.content.socialLinks.length > 0 ? `
-                <div class="social-links">
-                  ${footerSection.content.socialLinks.map(link => `
-                    <a href="${link.url}" class="social-link">${link.platform}</a>
-                  `).join('')}
-                </div>
-              ` : ''}
-            </div>
-          ` : ''}
+          
+          <!-- Pied de page fixe -->
+          <table border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#464254" style="background-color: #464254 !important; background: #464254 !important; mso-background-themecolor: #464254 !important;">
+            <tr bgcolor="#464254" style="background-color: #464254 !important;">
+              <td align="center" bgcolor="#464254" style="padding: 50px 20px; color: #ffffff; text-align: center; font-size: 14px; line-height: 1.8; background-color: #464254 !important; background: #464254 !important;">
+                <!-- Table wrapper pour garantir la couleur de fond -->
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#464254" style="background-color: #464254 !important; background: #464254 !important;">
+                  <tr bgcolor="#464254" style="background-color: #464254 !important;">
+                    <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 0;">
+                      <img src="${FOOTER_LOGO_URL}" alt="Arthur Loyd - Créateur de possibilités" style="width: 400px; max-width: 100%; height: auto; display: inline-block;" width="400">
+                    </td>
+                  </tr>
+                  <tr bgcolor="#464254" style="background-color: #464254 !important;">
+                    <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 25px 0;">
+                      <!-- Séparateur dans le footer -->
+                      <table border="0" cellpadding="0" cellspacing="0" width="50" bgcolor="#464254" style="background-color: #464254 !important;">
+                        <tr bgcolor="#464254" style="background-color: #464254 !important;">
+                          <td height="3" bgcolor="#464254" style="background-color: rgba(255,255,255,0.3); height: 3px;"></td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr bgcolor="#464254" style="background-color: #464254 !important;">
+                    <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 0;">
+                      <div class="social-links">
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 400px; margin: 0 auto;" bgcolor="#464254">
+                          <tr bgcolor="#464254" style="background-color: #464254 !important;">
+                            ${footerSection?.content.socialLinks?.map((link, index) => `
+                              <td align="center" width="${100 / (footerSection.content.socialLinks?.length || 1)}%" bgcolor="#464254" style="padding: 5px; background-color: #464254 !important;">
+                                <a href="${link.url}" class="social-link" style="color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; display: block; padding: 8px 5px; border-radius: 4px; background-color: #363143; white-space: nowrap;">${link.platform}</a>
+                              </td>
+                            `).join('') || `
+                              <td align="center" width="33.33%" bgcolor="#464254" style="padding: 5px; background-color: #464254 !important;">
+                                <a href="https://www.linkedin.com/company/arthur-loyd-bretagne/" class="social-link" style="color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; display: block; padding: 8px 5px; border-radius: 4px; background-color: #363143; white-space: nowrap;">LinkedIn</a>
+                              </td>
+                              <td align="center" width="33.33%" bgcolor="#464254" style="padding: 5px; background-color: #464254 !important;">
+                                <a href="https://www.instagram.com/arthurloydbretagne/" class="social-link" style="color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; display: block; padding: 8px 5px; border-radius: 4px; background-color: #363143; white-space: nowrap;">Instagram</a>
+                              </td>
+                              <td align="center" width="33.33%" bgcolor="#464254" style="padding: 5px; background-color: #464254 !important;">
+                                <a href="https://www.arthur-loyd.com/brest" class="social-link" style="color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; display: block; padding: 8px 5px; border-radius: 4px; background-color: #363143; white-space: nowrap;">Site Web</a>
+                              </td>
+                            `}
+                          </tr>
+                        </table>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr bgcolor="#464254" style="background-color: #464254 !important;">
+                    <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 15px 0 0 0;">
+                      <p style="margin-top: 0; opacity: 0.8; color: #ffffff;">${footerSection?.content.signature || 'Arthur Loyd Bretagne'}</p>
+                      <p style="margin-top: 0; opacity: 0.8; color: #ffffff;">© ${new Date().getFullYear()} Arthur Loyd Bretagne. Tous droits réservés.</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
         </div>
       </body>
       </html>
@@ -317,6 +556,58 @@ export default function AvisGoogleEditorVisual() {
   // Gestion de la prévisualisation en plein écran
   const togglePreviewExpand = () => {
     setPreviewExpanded(!previewExpanded);
+  };
+  
+  // Fonction pour envoyer un email de test
+  const sendTestEmail = async () => {
+    if (!testEmail.trim()) {
+      toast.error("Veuillez entrer une adresse email valide");
+      return;
+    }
+    
+    try {
+      // Préparer un seul destinataire pour le test
+      const testRecipient = {
+        email: testEmail,
+        name: testName || "Test User",
+        company: ""
+      };
+      
+      // Créer l'objet pour l'API
+      const requestData = {
+        recipients: [testRecipient],
+        subject: emailSubject,
+        html: previewHtml,
+        consultant: { 
+          nom: senderName,
+          fonction: '',
+          email: '',
+          telephone: ''
+        },
+        baseUrl: window.location.origin,
+      };
+      
+      // Envoyer l'email via l'API
+      const response = await fetch('/api/send-gmail', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        toast.success(`Email de test envoyé à ${testEmail}`);
+        setShowTestForm(false);
+      } else {
+        toast.error(data.error || "Échec de l'envoi de l'email de test");
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi de l\'email de test:', error);
+      toast.error("Une erreur s'est produite lors de l'envoi de l'email de test");
+    }
   };
 
   if (loading) {
@@ -349,13 +640,14 @@ export default function AvisGoogleEditorVisual() {
       <Tabs 
         defaultValue={selectedTab} 
         value={selectedTab}
-        onValueChange={(value) => setSelectedTab(value as 'nouveau' | 'relance')}
+        onValueChange={(value) => setSelectedTab(value as 'nouveau' | 'relance' | 'bailleur')}
         className="w-full"
       >
         <div className="flex justify-between items-center mb-6">
-          <TabsList className="grid w-[400px] grid-cols-2">
+          <TabsList className="grid w-[500px] grid-cols-3">
             <TabsTrigger value="nouveau">Nouveau client</TabsTrigger>
             <TabsTrigger value="relance">Relance client</TabsTrigger>
+            <TabsTrigger value="bailleur">Bailleur</TabsTrigger>
           </TabsList>
           
           <div className="flex space-x-2">
@@ -421,18 +713,19 @@ export default function AvisGoogleEditorVisual() {
                         plugins: [
                           'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
                           'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                          'insertdatetime', 'media', 'table', 'preview', 'wordcount'
+                          'insertdatetime', 'media', 'table', 'preview', 'wordcount', 'template'
                         ],
-                        toolbar: 'undo redo | blocks | bold italic underline | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image | removeformat | code',
-                        content_style: 'body { font-family:Poppins,Arial,sans-serif; font-size:14px }',
+                        toolbar: 'undo redo | blocks | bold italic underline | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image | template | removeformat | code',
+                        content_style: 'body { font-family:Arial,sans-serif; font-size:14px }',
                         skin: 'oxide',
                         skin_url: '/tinymce/skins/ui/oxide',
                         content_css: '/tinymce/skins/content/default/content.css',
                         branding: false,
                         // Ajouter la gestion des templates
                         templates: [
-                          { title: 'Demande d\'avis', description: 'Template pour demander un avis Google', content: '<p>Bonjour [Nom],</p><p>Nous tenons à vous remercier de votre confiance. Votre avis compte énormément pour nous !</p><p>Pourriez-vous prendre quelques instants pour partager votre expérience sur Google ? Cela nous aiderait beaucoup dans notre visibilité.</p><p><a href="https://g.page/r/CY5qQsrZgBTHEAg/review" class="cta-button">Laisser un avis Google</a></p><p>Merci d\'avance pour votre temps.</p><p>Cordialement,</p>' },
-                          { title: 'Relance client', description: 'Template pour relancer un client', content: '<p>Bonjour [Nom],</p><p>Cela fait maintenant [X] an(s) que vous êtes dans vos locaux. Nous espérons que vous y êtes bien installés !</p><p>Nous serions ravis de savoir comment se passe votre expérience. Pourriez-vous partager votre avis sur Google ?</p><p><a href="https://g.page/r/CY5qQsrZgBTHEAg/review" class="cta-button">Laisser un avis Google</a></p><p>Merci d\'avance pour votre retour.</p><p>Cordialement,</p>' }
+                          { title: 'Demande d\'avis (nouveau client)', description: 'Template pour demander un avis Google à un nouveau client', content: getDefaultContent('nouveau') },
+                          { title: 'Relance client', description: 'Template pour relancer un client existant', content: getDefaultContent('relance') },
+                          { title: 'Bailleur', description: 'Template pour demander un avis à un bailleur', content: getDefaultContent('bailleur') }
                         ]
                       }}
                     />
@@ -462,15 +755,63 @@ export default function AvisGoogleEditorVisual() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-medium">Aperçu de l'email</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={togglePreviewExpand}
-                  >
-                    {previewExpanded ? <Minimize className="h-4 w-4 mr-2" /> : <Maximize className="h-4 w-4 mr-2" />}
-                    {previewExpanded ? 'Réduire' : 'Agrandir'}
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowTestForm(!showTestForm)}
+                    >
+                      <Mail className="h-4 w-4 mr-2" />
+                      {showTestForm ? "Annuler" : "Envoyer un test"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={togglePreviewExpand}
+                    >
+                      {previewExpanded ? <Minimize className="h-4 w-4 mr-2" /> : <Maximize className="h-4 w-4 mr-2" />}
+                      {previewExpanded ? 'Réduire' : 'Agrandir'}
+                    </Button>
+                  </div>
                 </div>
+                
+                {showTestForm && (
+                  <Card className="p-4 border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20">
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-blue-800 dark:text-blue-300">Envoyer un email de test</h4>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="test-email">Email de test</Label>
+                          <Input
+                            id="test-email"
+                            value={testEmail}
+                            onChange={(e) => setTestEmail(e.target.value)}
+                            placeholder="Adresse email pour le test"
+                            type="email"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="test-name">Nom (optionnel)</Label>
+                          <Input
+                            id="test-name"
+                            value={testName}
+                            onChange={(e) => setTestName(e.target.value)}
+                            placeholder="Nom du destinataire de test"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-end">
+                        <Button onClick={sendTestEmail}>
+                          <Send className="h-4 w-4 mr-2" />
+                          Envoyer le test
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                )}
                 
                 <div className="bg-gray-100 dark:bg-gray-700 rounded-md p-4">
                   <div className="bg-white dark:bg-gray-800 p-2 rounded mb-2">
