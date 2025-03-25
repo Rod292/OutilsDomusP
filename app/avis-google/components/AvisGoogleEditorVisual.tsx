@@ -130,6 +130,8 @@ export default function AvisGoogleEditorVisual() {
     try {
       setLoading(true);
       setError('');
+      setEmailContent(''); // Réinitialiser le contenu pour éviter des problèmes lors du changement de template
+      
       const response = await fetch(`/api/avis-google/default-template?type=${selectedTab}`);
       
       if (!response.ok) {
@@ -138,10 +140,13 @@ export default function AvisGoogleEditorVisual() {
       
       const data = await response.json();
       
-      // Vérifier si htmlContent est vide ou manquant et fournir un contenu par défaut
+      // Chargement initial du contenu par défaut pour s'assurer qu'il n'est jamais vide
+      const defaultContent = getDefaultContent(selectedTab);
+      
+      // Vérifier si htmlContent est présent
       if (!data.htmlContent) {
-        const defaultContent = getDefaultContent(selectedTab);
-        setSections([
+        // Si pas de HTML, utiliser le contenu par défaut
+        const newSections: AvisGoogleSection[] = [
           {
             id: 'header',
             type: 'header',
@@ -168,9 +173,50 @@ export default function AvisGoogleEditorVisual() {
               ]
             }
           }
-        ]);
+        ];
+        
+        setSections(newSections);
+        setEmailContent(defaultContent);
       } else {
-        setSections(parseHtmlToSections(data.htmlContent));
+        // Essayer de parser le HTML
+        try {
+          const parsedSections = parseHtmlToSections(data.htmlContent);
+          
+          // Vérifier si le contenu est correctement extrait
+          const contentSection = parsedSections.find(s => s.type === 'content');
+          
+          if (!contentSection || !contentSection.content.content || contentSection.content.content.trim() === '') {
+            // Si le parsing a échoué ou le contenu est vide, remplacer par le contenu par défaut
+            const sectionWithDefaultContent = parsedSections.map(section => {
+              if (section.type === 'content') {
+                return {
+                  ...section,
+                  content: {
+                    ...section.content,
+                    content: defaultContent
+                  }
+                };
+              }
+              return section;
+            });
+            
+            setSections(sectionWithDefaultContent);
+            setEmailContent(defaultContent);
+          } else {
+            // Si tout est OK, utiliser le contenu parsé
+            setSections(parsedSections);
+            setEmailContent(contentSection.content.content);
+          }
+        } catch (parseError) {
+          console.error('Erreur lors du parsing du HTML:', parseError);
+          // En cas d'erreur de parsing, utiliser les sections par défaut
+          const defaultSections = getDefaultSections();
+          setSections(defaultSections);
+          
+          // S'assurer que le contenu est défini
+          const contentSection = defaultSections.find(s => s.type === 'content');
+          setEmailContent(contentSection?.content.content || defaultContent);
+        }
       }
     } catch (error) {
       console.error('Erreur:', error);
@@ -178,7 +224,7 @@ export default function AvisGoogleEditorVisual() {
       
       // Fournir un contenu par défaut en cas d'erreur
       const defaultContent = getDefaultContent(selectedTab);
-      setSections([
+      const defaultSections: AvisGoogleSection[] = [
         {
           id: 'header',
           type: 'header',
@@ -205,7 +251,10 @@ export default function AvisGoogleEditorVisual() {
             ]
           }
         }
-      ]);
+      ];
+      
+      setSections(defaultSections);
+      setEmailContent(defaultContent);
     } finally {
       setLoading(false);
     }
@@ -585,11 +634,6 @@ export default function AvisGoogleEditorVisual() {
     `;
   };
   
-  // Gestion de la prévisualisation en plein écran
-  const togglePreviewExpand = () => {
-    setPreviewExpanded(!previewExpanded);
-  };
-  
   // Fonction pour envoyer un email de test
   const sendTestEmail = async () => {
     if (!testEmail.trim()) {
@@ -814,14 +858,6 @@ export default function AvisGoogleEditorVisual() {
                       <Mail className="h-4 w-4 mr-2" />
                       {showTestForm ? "Annuler" : "Envoyer un test"}
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={togglePreviewExpand}
-                    >
-                      {previewExpanded ? <Minimize className="h-4 w-4 mr-2" /> : <Maximize className="h-4 w-4 mr-2" />}
-                      {previewExpanded ? 'Réduire' : 'Agrandir'}
-                    </Button>
                   </div>
                 </div>
                 
@@ -876,13 +912,13 @@ export default function AvisGoogleEditorVisual() {
                 
                 <div 
                   ref={previewRef}
-                  className={`border border-gray-200 dark:border-gray-700 rounded-md overflow-auto bg-white ${previewExpanded ? 'fixed inset-4 z-50' : 'h-[500px]'}`}
+                  className="border border-gray-200 dark:border-gray-700 rounded-md overflow-auto bg-white h-[500px]"
                 >
-                  <div className={`${previewExpanded ? 'p-8' : 'p-4'}`}>
+                  <div className="p-4">
                     <iframe
                       srcDoc={previewHtml}
                       className="w-full h-full border-0"
-                      style={{ height: previewExpanded ? 'calc(100vh - 120px)' : '460px' }}
+                      style={{ height: '460px' }}
                     ></iframe>
                   </div>
                 </div>
