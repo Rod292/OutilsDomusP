@@ -2,17 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bell, BellOff, BellRing, RefreshCw } from 'lucide-react';
-import { requestNotificationPermission, checkConsultantPermission, regenerateAndSaveToken } from '@/app/services/clientNotificationService';
+import { Bell, BellOff, BellRing, RefreshCw, Settings } from 'lucide-react';
+import { 
+  requestNotificationPermission, 
+  checkConsultantPermission, 
+  regenerateAndSaveToken, 
+  checkRealNotificationPermission 
+} from '@/app/services/clientNotificationService';
 import { useAuth } from '@/app/hooks/useAuth';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { toast } from '@/components/ui/use-toast';
+import { useRouter } from 'next/navigation';
 
 interface GlobalNotificationButtonProps {
   consultantName: string;
@@ -28,17 +35,26 @@ export default function GlobalNotificationButton({
   const { user } = useAuth();
   const [permissionStatus, setPermissionStatus] = useState<string>('default');
   const [loading, setLoading] = useState<boolean>(false);
+  const router = useRouter();
 
   // Vérifier le statut des notifications au chargement du composant
   useEffect(() => {
     if (user?.email && consultantName) {
-      checkConsultantPermission(user.email, consultantName)
-        .then(hasPermission => {
-          setPermissionStatus(hasPermission ? 'granted' : 'default');
-        })
-        .catch(() => {
-          setPermissionStatus('default');
-        });
+      // Vérifier d'abord le statut réel des permissions dans le navigateur
+      checkRealNotificationPermission().then(realStatus => {
+        if (realStatus === 'denied') {
+          setPermissionStatus('denied');
+        } else {
+          // Si ce n'est pas bloqué, vérifier si l'utilisateur a activé les notifications pour ce consultant
+          checkConsultantPermission(user.email as string, consultantName)
+            .then(hasPermission => {
+              setPermissionStatus(hasPermission ? 'granted' : 'default');
+            })
+            .catch(() => {
+              setPermissionStatus('default');
+            });
+        }
+      });
     }
   }, [user?.email, consultantName]);
 
@@ -125,9 +141,44 @@ export default function GlobalNotificationButton({
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (permissionStatus === 'denied') {
-      window.open('chrome://settings/content/notifications', '_blank');
+      // Afficher un message explicatif
+      toast({
+        title: "Notifications bloquées",
+        description: "Les notifications sont bloquées dans les paramètres de votre navigateur. Vous devez les autoriser manuellement.",
+        variant: "destructive"
+      });
+      
+      try {
+        if (navigator.userAgent.includes('Chrome')) {
+          window.open('chrome://settings/content/notifications', '_blank');
+        } else {
+          window.open('about:preferences#privacy', '_blank');
+        }
+      } catch (error) {
+        console.warn('Impossible d\'ouvrir les paramètres du navigateur:', error);
+      }
     } else {
       handleRequestPermission();
+    }
+  };
+  
+  const openBrowserSettings = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      if (navigator.userAgent.includes('Chrome')) {
+        // Ouvrir directement les paramètres Chrome
+        window.open('chrome://settings/content/notifications', '_blank');
+      } else if (navigator.userAgent.includes('Firefox')) {
+        window.open('about:preferences#privacy', '_blank');
+      } else {
+        // Pour les autres navigateurs, rediriger vers notre page d'aide
+        router.push('/help/notifications');
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'ouverture des paramètres:', error);
+      
+      // Rediriger vers notre page d'aide
+      router.push('/help/notifications');
     }
   };
 
@@ -160,6 +211,13 @@ export default function GlobalNotificationButton({
         <DropdownMenuItem onClick={handleRegenerateToken}>
           <RefreshCw className="h-4 w-4 mr-2" />
           Régénérer le token
+        </DropdownMenuItem>
+        
+        <DropdownMenuSeparator />
+        
+        <DropdownMenuItem onClick={openBrowserSettings}>
+          <Settings className="h-4 w-4 mr-2" />
+          Paramètres du navigateur
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

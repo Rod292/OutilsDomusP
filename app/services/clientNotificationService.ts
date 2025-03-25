@@ -249,8 +249,34 @@ export const requestNotificationPermission = async (userId: string): Promise<boo
 
     console.log(`Demande de permission de notification pour ${userId}...`);
 
+    // Vérifier le statut actuel
+    const currentPermission = Notification.permission;
+    console.log(`Statut actuel des permissions: ${currentPermission}`);
+    
+    // Si les notifications sont bloquées, ouvrir les paramètres de notification du navigateur
+    if (currentPermission === 'denied') {
+      console.log('Les notifications sont bloquées par le navigateur');
+      
+      // Afficher un message à l'utilisateur
+      alert('Les notifications sont bloquées dans votre navigateur. Veuillez les autoriser dans les paramètres de votre navigateur puis réessayer.');
+      
+      // Essayer d'ouvrir les paramètres (fonctionne sur Chrome)
+      try {
+        if (navigator.userAgent.includes('Chrome')) {
+          window.open('chrome://settings/content/notifications', '_blank');
+        } else {
+          // Pour Firefox et autres navigateurs
+          window.open('/help/notifications', '_blank');
+        }
+      } catch (error) {
+        console.warn('Impossible d\'ouvrir les paramètres automatiquement:', error);
+      }
+      
+      return false;
+    }
+
     // Vérifier si les notifications sont déjà autorisées
-    if (Notification.permission !== 'granted') {
+    if (currentPermission !== 'granted') {
       console.log('Demande de permission de notification au navigateur...');
       const permission = await Notification.requestPermission();
       
@@ -296,6 +322,38 @@ export const requestNotificationPermission = async (userId: string): Promise<boo
     console.error('Erreur lors de la demande de permission de notification:', error);
     return false;
   }
+};
+
+/**
+ * Vérifie l'état réel des permissions de notification dans le navigateur
+ * et tente de détecter les incohérences
+ * @returns Le statut réel des notifications
+ */
+export const checkRealNotificationPermission = async (): Promise<string> => {
+  if (typeof window === 'undefined') {
+    return 'server-side';
+  }
+  
+  if (!('Notification' in window)) {
+    return 'not-supported';
+  }
+  
+  // Essayer de demander une permission pour détecter si le navigateur est réellement bloqué
+  if (Notification.permission === 'default') {
+    try {
+      // Demander la permission uniquement pour vérifier, sans afficher la boîte de dialogue
+      // Cette technique permet de détecter si le site est bloqué dans les paramètres du navigateur
+      // même si l'API indique 'default'
+      const testRequest = await navigator.permissions.query({ name: 'notifications' as PermissionName });
+      if (testRequest.state === 'denied') {
+        return 'denied';
+      }
+    } catch (error) {
+      console.warn('Impossible de vérifier les permissions avancées:', error);
+    }
+  }
+  
+  return Notification.permission;
 };
 
 /**
@@ -391,6 +449,13 @@ export const checkConsultantPermission = async (userEmail: string, consultantNam
 
     if (!userEmail || !consultantName) {
       console.error('Email utilisateur ou nom consultant manquant');
+      return false;
+    }
+
+    // Vérifier d'abord le statut réel des permissions dans le navigateur
+    const realPermission = await checkRealNotificationPermission();
+    if (realPermission === 'denied') {
+      console.log('Les notifications sont bloquées par le navigateur');
       return false;
     }
 
