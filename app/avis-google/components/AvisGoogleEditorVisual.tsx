@@ -389,13 +389,19 @@ export default function AvisGoogleEditorVisual() {
 
   // Générer des URLs absolues pour les ressources
   const getAbsoluteUrl = (path: string): string => {
-    // En développement, utiliser le localhost
+    // Si c'est déjà une URL absolue, la retourner telle quelle
+    if (path && (path.startsWith('http://') || path.startsWith('https://'))) {
+      return path;
+    }
+    
+    // Pour les chemins relatifs, ajouter l'origine
     if (typeof window !== 'undefined') {
       const origin = window.location.origin;
       // S'assurer que le chemin commence par un slash
       const normalizedPath = path.startsWith('/') ? path : `/${path}`;
       return `${origin}${normalizedPath}`;
     }
+    
     // Fallback pour SSR
     return path;
   };
