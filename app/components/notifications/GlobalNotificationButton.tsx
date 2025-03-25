@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bell, BellOff, BellRing, RefreshCw, Settings } from 'lucide-react';
+import { Bell, BellOff, BellRing, RefreshCw, Settings, RotateCcw } from 'lucide-react';
 import { 
   requestNotificationPermission, 
   checkConsultantPermission, 
   regenerateAndSaveToken, 
-  checkRealNotificationPermission 
+  checkRealNotificationPermission,
+  resetNotificationSettings
 } from '@/app/services/clientNotificationService';
 import { useAuth } from '@/app/hooks/useAuth';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -118,6 +119,38 @@ export default function GlobalNotificationButton({
     }
   };
 
+  const handleResetNotifications = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!notificationId) return;
+    
+    setLoading(true);
+    try {
+      const success = await resetNotificationSettings(notificationId);
+      if (success) {
+        toast({
+          title: "Notifications réinitialisées",
+          description: "Les paramètres de notification ont été réinitialisés avec succès.",
+          variant: "default"
+        });
+        setPermissionStatus('granted');
+      } else {
+        toast({
+          title: "Échec",
+          description: "Impossible de réinitialiser les paramètres de notification.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de la réinitialisation des notifications.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!user || !consultantName) {
     return null;
   }
@@ -134,7 +167,7 @@ export default function GlobalNotificationButton({
     buttonClass += ' text-green-500';
   } else if (permissionStatus === 'denied') {
     icon = <BellOff className="h-5 w-5 text-red-500" />;
-    tooltipText = 'Notifications bloquées - Cliquez pour ouvrir les paramètres';
+    tooltipText = 'Notifications bloquées - Cliquez pour les options';
     buttonClass += ' text-red-500';
   }
 
@@ -144,19 +177,9 @@ export default function GlobalNotificationButton({
       // Afficher un message explicatif
       toast({
         title: "Notifications bloquées",
-        description: "Les notifications sont bloquées dans les paramètres de votre navigateur. Vous devez les autoriser manuellement.",
+        description: "Les notifications sont bloquées dans les paramètres de votre navigateur. Utilisez le bouton 'Paramètres du navigateur' pour les activer.",
         variant: "destructive"
       });
-      
-      try {
-        if (navigator.userAgent.includes('Chrome')) {
-          window.open('chrome://settings/content/notifications', '_blank');
-        } else {
-          window.open('about:preferences#privacy', '_blank');
-        }
-      } catch (error) {
-        console.warn('Impossible d\'ouvrir les paramètres du navigateur:', error);
-      }
     } else {
       handleRequestPermission();
     }
@@ -168,8 +191,18 @@ export default function GlobalNotificationButton({
       if (navigator.userAgent.includes('Chrome')) {
         // Ouvrir directement les paramètres Chrome
         window.open('chrome://settings/content/notifications', '_blank');
+        
+        // Également ouvrir notre page d'aide au cas où l'ouverture des paramètres Chrome échoue
+        setTimeout(() => {
+          router.push('/help/notifications');
+        }, 500);
       } else if (navigator.userAgent.includes('Firefox')) {
         window.open('about:preferences#privacy', '_blank');
+        
+        // Également ouvrir notre page d'aide au cas où l'ouverture des paramètres Firefox échoue
+        setTimeout(() => {
+          router.push('/help/notifications');
+        }, 500);
       } else {
         // Pour les autres navigateurs, rediriger vers notre page d'aide
         router.push('/help/notifications');
@@ -214,6 +247,11 @@ export default function GlobalNotificationButton({
         </DropdownMenuItem>
         
         <DropdownMenuSeparator />
+        
+        <DropdownMenuItem onClick={handleResetNotifications}>
+          <RotateCcw className="h-4 w-4 mr-2" />
+          Réinitialiser complètement
+        </DropdownMenuItem>
         
         <DropdownMenuItem onClick={openBrowserSettings}>
           <Settings className="h-4 w-4 mr-2" />

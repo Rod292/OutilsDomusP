@@ -56,11 +56,25 @@ export default function NotificationsHelpPage() {
             <ol className="list-decimal pl-6 space-y-4">
               <li>Cliquez sur l'icône de cadenas à gauche de l'URL dans la barre d'adresse</li>
               <li>Trouvez l'option "Notifications" et sélectionnez "Autoriser"</li>
-              <li>Rafraîchissez la page après avoir activé les notifications</li>
+              <li>Si les notifications étaient précédemment bloquées, vous verrez peut-être "Bloqué" - Cliquez dessus pour changer en "Autoriser"</li>
+              <li>Si vous ne voyez pas d'option pour changer le paramètre, suivez ces étapes supplémentaires:
+                <ul className="list-disc pl-6 mt-2 space-y-2">
+                  <li>Cliquez sur l'icône ⋮ (menu) en haut à droite de Chrome</li>
+                  <li>Sélectionnez "Paramètres"</li>
+                  <li>Dans la section "Confidentialité et sécurité", cliquez sur "Paramètres des sites"</li>
+                  <li>Cliquez sur "Notifications"</li>
+                  <li>Recherchez notre site dans la liste des sites bloqués</li>
+                  <li>Changez le statut de "Bloquer" à "Autoriser"</li>
+                </ul>
+              </li>
+              <li>Rafraîchissez cette page après avoir activé les notifications</li>
             </ol>
             <div className="mt-6">
-              <Button onClick={openChromeSettings}>
+              <Button onClick={openChromeSettings} className="mr-4">
                 Ouvrir les paramètres de notifications Chrome
+              </Button>
+              <Button onClick={() => window.location.reload()} variant="outline">
+                Rafraîchir la page
               </Button>
             </div>
           </div>

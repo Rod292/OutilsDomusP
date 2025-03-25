@@ -338,6 +338,25 @@ export const checkRealNotificationPermission = async (): Promise<string> => {
     return 'not-supported';
   }
   
+  // Essayer de détecter si les notifications sont réellement bloquées via l'API Permissions
+  try {
+    const permissionStatus = await navigator.permissions.query({ name: 'notifications' as PermissionName });
+    console.log('État des permissions via API:', permissionStatus.state);
+    
+    // Si l'API Permissions indique un état différent de l'API Notification
+    if (permissionStatus.state === 'denied' && Notification.permission !== 'denied') {
+      console.log('Incohérence détectée : Permissions API indique denied mais Notification indique', Notification.permission);
+      return 'denied';
+    }
+    
+    if (permissionStatus.state === 'granted' && Notification.permission !== 'granted') {
+      console.log('Incohérence détectée : Permissions API indique granted mais Notification indique', Notification.permission);
+      return 'granted';
+    }
+  } catch (error) {
+    console.warn('Impossible d\'accéder à l\'API Permissions:', error);
+  }
+  
   // Essayer de demander une permission pour détecter si le navigateur est réellement bloqué
   if (Notification.permission === 'default') {
     try {
@@ -354,6 +373,53 @@ export const checkRealNotificationPermission = async (): Promise<string> => {
   }
   
   return Notification.permission;
+};
+
+/**
+ * Tente de réinitialiser le statut des notifications dans l'application
+ * même si les notifications sont bloquées au niveau du navigateur
+ * @param userId Identifiant de l'utilisateur
+ * @returns Promise<boolean> True si le processus a réussi
+ */
+export const resetNotificationSettings = async (userId: string): Promise<boolean> => {
+  try {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    
+    console.log(`Tentative de réinitialisation des paramètres de notification pour ${userId}...`);
+    
+    // Même si les notifications sont bloquées, essayons d'enregistrer un token local
+    const db = getFirestore();
+    if (!db) {
+      console.error('Firestore non disponible');
+      return false;
+    }
+    
+    // Ajouter un nouveau token "local" pour permettre à l'utilisateur de recevoir
+    // des notifications via la base de données même si le navigateur bloque les notifications push
+    const tokenData = {
+      userId,
+      email: userId.split('_')[0],
+      consultant: userId.split('_')[1] || '',
+      token: `local-notifications-fallback-${Date.now()}`,
+      platform: navigator.platform,
+      userAgent: navigator.userAgent,
+      timestamp: Date.now(),
+      createdAt: serverTimestamp(),
+      lastActive: serverTimestamp(),
+      isLocalFallback: true
+    };
+    
+    // Ajouter le document à la collection
+    await addDoc(collection(db, TOKEN_COLLECTION), tokenData);
+    
+    console.log(`Paramètres de notification réinitialisés pour ${userId}`);
+    return true;
+  } catch (error) {
+    console.error('Erreur lors de la réinitialisation des paramètres de notification:', error);
+    return false;
+  }
 };
 
 /**
