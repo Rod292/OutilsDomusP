@@ -1179,19 +1179,9 @@ export default function NotionPlanWorkspace({ consultant }: NotionPlanWorkspaceP
                 </h1>
                 <div className="flex gap-2">
                   <GlobalNotificationButton 
+                    className="mr-2" 
                     consultantName={consultant || ''} 
-                    size="default"
-                    className="mr-1"
                   />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="mr-2"
-                    onClick={() => window.location.href = '/notifications/preferences'}
-                    title="Préférences des notifications"
-                  >
-                    <Settings className="h-5 w-5" />
-                  </Button>
                   <div className="flex items-center space-x-2">
                     {/* Bouton de création de tâche */}
                     <Button 

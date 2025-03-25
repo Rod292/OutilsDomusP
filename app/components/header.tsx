@@ -277,45 +277,6 @@ export function Header() {
                         <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
                           <DropdownMenuItem asChild>
                             <div className="flex items-center p-2 cursor-pointer">
-                              <Bell className="mr-2 h-4 w-4 text-[#DC0032]" />
-                              <Link
-                                href="/notifications"
-                                className="flex-1"
-                              >
-                                Notifications
-                              </Link>
-                            </div>
-                          </DropdownMenuItem>
-                        </motion.div>
-                        <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
-                          <DropdownMenuItem asChild>
-                            <div className="flex items-center p-2 cursor-pointer">
-                              <Settings className="mr-2 h-4 w-4 text-[#DC0032]" />
-                              <Link
-                                href="/notifications/preferences"
-                                className="flex-1"
-                              >
-                                Préférences notifications
-                              </Link>
-                            </div>
-                          </DropdownMenuItem>
-                        </motion.div>
-                        <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
-                          <DropdownMenuItem asChild>
-                            <div className="flex items-center p-2 cursor-pointer">
-                              <Bell className="mr-2 h-4 w-4 text-[#DC0032]" />
-                              <Link
-                                href="/test-notifications"
-                                className="flex-1"
-                              >
-                                Test FCM
-                              </Link>
-                            </div>
-                          </DropdownMenuItem>
-                        </motion.div>
-                        <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
-                          <DropdownMenuItem asChild>
-                            <div className="flex items-center p-2 cursor-pointer">
                               <Eraser className="mr-2 h-4 w-4 text-[#DC0032]" />
                               <CleanupNotificationsButton 
                                 variant="ghost"
