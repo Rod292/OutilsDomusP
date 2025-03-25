@@ -260,6 +260,18 @@ export async function POST(request: NextRequest) {
     // AINSI QUE les tokens qui ont urlConsultant = consultantName
     let tokensSnapshot;
     
+    // Déterminer si c'est un cas spécial pour photos.pers@gmail.com
+    const isSpecialCase = (
+      (userEmail && userEmail.toLowerCase().includes('photos.pers')) ||
+      (consultantName && consultantName.toLowerCase().includes('photos.pers')) ||
+      (userEmail && userEmail.toLowerCase().includes('npers')) ||
+      (consultantName && consultantName.toLowerCase().includes('npers')) ||
+      (userEmail && userEmail.toLowerCase().includes('nathalie')) ||
+      (consultantName && consultantName.toLowerCase().includes('nathalie'))
+    );
+    
+    console.log(`Détection de cas spécial: ${isSpecialCase} pour ${userId}`);
+    
     if (consultantName) {
       // Format spécifique email_consultant ou tokens avec urlConsultant correspondant
       const directTokens = await db.collection(TOKEN_COLLECTION)
@@ -274,13 +286,63 @@ export async function POST(request: NextRequest) {
       // AJOUT: Pour un cas spécial avec photos.pers@gmail.com qui veut recevoir les notifications pour npers
       let specialUserTokens: FirebaseFirestore.QuerySnapshot = { empty: true, docs: [], forEach: () => {} } as any;
       
-      if (consultantName === 'nathalie' || consultantName.toLowerCase() === 'npers') {
+      // Pour le cas spécial de photos.pers@gmail.com
+      if (isSpecialCase) {
         const specialUserEmail = 'photos.pers@gmail.com';
+        
+        // Chercher tous les tokens de photos.pers@gmail.com
         specialUserTokens = await db.collection(TOKEN_COLLECTION)
           .where('userId', '==', specialUserEmail)
           .get();
         
-        console.log(`Tokens spéciaux trouvés pour ${specialUserEmail} concernant ${consultantName}: ${specialUserTokens.size} tokens`);
+        // Aussi rechercher les tokens avec la structure inversée (format: npers@arthurloydbretagne.fr_photos.pers)
+        const invertedTokens = await db.collection(TOKEN_COLLECTION)
+          .where('userId', '==', 'npers@arthurloydbretagne.fr_photos.pers')
+          .get();
+        
+        // Rechercher également le format alternatif
+        const altFormatTokens = await db.collection(TOKEN_COLLECTION)
+          .where('userId', '==', 'photos.pers@gmail.com_npers')
+          .get();
+        
+        // Rechercher un autre format possible
+        const anotherAltFormatTokens = await db.collection(TOKEN_COLLECTION)
+          .where('userId', '==', 'photos.pers@gmail.com_nathalie')
+          .get();
+        
+        // Rechercher par les tokens avec specialAccess
+        const specialAccessTokens = await db.collection(TOKEN_COLLECTION)
+          .where('specialAccess', 'array-contains', 'nathalie')
+          .get();
+        
+        // Ajouter ces tokens à la collection spéciale
+        const allSpecialTokens = [
+          ...specialUserTokens.docs,
+          ...invertedTokens.docs,
+          ...altFormatTokens.docs,
+          ...anotherAltFormatTokens.docs,
+          ...specialAccessTokens.docs
+        ];
+        
+        if (allSpecialTokens.length > 0) {
+          // Créer un objet simplifié avec la même interface qu'un QuerySnapshot
+          specialUserTokens = {
+            empty: allSpecialTokens.length === 0,
+            docs: allSpecialTokens,
+            forEach: (callback: (doc: FirebaseFirestore.QueryDocumentSnapshot) => void) => {
+              allSpecialTokens.forEach(callback);
+            },
+            // Ajouter des propriétés minimales pour satisfaire le type
+            size: allSpecialTokens.length,
+            query: specialUserTokens.query,
+            readTime: specialUserTokens.readTime,
+            docChanges: () => [],
+            isEqual: () => false
+          } as FirebaseFirestore.QuerySnapshot;
+        }
+        
+        console.log(`Tokens spéciaux trouvés pour le cas photos.pers/npers/nathalie: ${allSpecialTokens.length} tokens`);
+        console.log('Formats des IDs utilisateur recherchés:', specialUserEmail, 'npers@arthurloydbretagne.fr_photos.pers', 'photos.pers@gmail.com_npers', 'photos.pers@gmail.com_nathalie');
       }
       
       // Créer un objet avec la même structure qu'un QuerySnapshot
