@@ -14,9 +14,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import GmailSenderClient from './GmailSenderClient';
 import { 
   Send, Save, History, Edit, Eye, RefreshCw, 
-  Bold, Italic, Underline, List, ListOrdered, Link
+  Bold, Italic, Underline, List, ListOrdered, Link,
+  Mail, Maximize, Minimize
 } from 'lucide-react';
 
 // Récupérer la clé API TinyMCE depuis les variables d'environnement ou utiliser la clé en dur comme fallback
@@ -61,12 +63,13 @@ type AvisGoogleSection = {
 
 export default function AvisGoogleEditorVisual() {
   const editorRef = useRef<TinyMCEEditor | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   
   // États
   const [sections, setSections] = useState<AvisGoogleSection[]>([]);
   const [savedTemplates, setSavedTemplates] = useState<AvisGoogleTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('default');
-  const [mode, setMode] = useState<'edit' | 'send'>('edit');
+  const [mode, setMode] = useState<'edit' | 'preview' | 'send'>('edit');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
   const [user, setUser] = useState<User | null>(null);
@@ -74,6 +77,8 @@ export default function AvisGoogleEditorVisual() {
   const [emailContent, setEmailContent] = useState<string>('');
   const [emailSubject, setEmailSubject] = useState<string>('');
   const [senderName, setSenderName] = useState<string>('Arthur Loyd Bretagne');
+  const [previewHtml, setPreviewHtml] = useState<string>('');
+  const [previewExpanded, setPreviewExpanded] = useState<boolean>(false);
 
   // Charger le template par défaut
   useEffect(() => {
@@ -104,6 +109,13 @@ export default function AvisGoogleEditorVisual() {
       setEmailContent(contentSection.content.content || '');
     }
   }, [sections]);
+
+  // Mettre à jour la prévisualisation HTML quand les sections changent
+  useEffect(() => {
+    if (mode === 'preview' || mode === 'send') {
+      setPreviewHtml(generateHtml(sections));
+    }
+  }, [sections, mode]);
 
   const loadDefaultTemplate = async () => {
     try {
@@ -144,6 +156,13 @@ export default function AvisGoogleEditorVisual() {
 
       setSections(updatedSections);
       setEmailContent(content);
+      
+      // Mettre à jour la prévisualisation si nécessaire
+      if (mode === 'preview') {
+        setPreviewHtml(generateHtml(updatedSections));
+      }
+      
+      toast.success("Contenu mis à jour avec succès");
     }
   };
 
@@ -294,6 +313,11 @@ export default function AvisGoogleEditorVisual() {
       </html>
     `;
   };
+  
+  // Gestion de la prévisualisation en plein écran
+  const togglePreviewExpand = () => {
+    setPreviewExpanded(!previewExpanded);
+  };
 
   if (loading) {
     return (
@@ -344,6 +368,17 @@ export default function AvisGoogleEditorVisual() {
               Éditer
             </Button>
             <Button 
+              variant={mode === 'preview' ? "default" : "outline"}
+              onClick={() => {
+                handleUpdateContent();
+                setMode('preview');
+              }}
+              size="sm"
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Aperçu
+            </Button>
+            <Button 
               variant={mode === 'send' ? "default" : "outline"}
               onClick={() => {
                 handleUpdateContent();
@@ -359,7 +394,7 @@ export default function AvisGoogleEditorVisual() {
 
         <Card className="border-gray-200 dark:border-gray-700">
           <CardContent className="p-6">
-            {mode === 'edit' ? (
+            {mode === 'edit' && (
               <div className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="email-subject">Objet de l'email</Label>
@@ -393,7 +428,12 @@ export default function AvisGoogleEditorVisual() {
                         skin: 'oxide',
                         skin_url: '/tinymce/skins/ui/oxide',
                         content_css: '/tinymce/skins/content/default/content.css',
-                        branding: false
+                        branding: false,
+                        // Ajouter la gestion des templates
+                        templates: [
+                          { title: 'Demande d\'avis', description: 'Template pour demander un avis Google', content: '<p>Bonjour [Nom],</p><p>Nous tenons à vous remercier de votre confiance. Votre avis compte énormément pour nous !</p><p>Pourriez-vous prendre quelques instants pour partager votre expérience sur Google ? Cela nous aiderait beaucoup dans notre visibilité.</p><p><a href="https://g.page/r/CY5qQsrZgBTHEAg/review" class="cta-button">Laisser un avis Google</a></p><p>Merci d\'avance pour votre temps.</p><p>Cordialement,</p>' },
+                          { title: 'Relance client', description: 'Template pour relancer un client', content: '<p>Bonjour [Nom],</p><p>Cela fait maintenant [X] an(s) que vous êtes dans vos locaux. Nous espérons que vous y êtes bien installés !</p><p>Nous serions ravis de savoir comment se passe votre expérience. Pourriez-vous partager votre avis sur Google ?</p><p><a href="https://g.page/r/CY5qQsrZgBTHEAg/review" class="cta-button">Laisser un avis Google</a></p><p>Merci d\'avance pour votre retour.</p><p>Cordialement,</p>' }
+                        ]
                       }}
                     />
                   </div>
@@ -416,14 +456,104 @@ export default function AvisGoogleEditorVisual() {
                   </Button>
                 </div>
               </div>
-            ) : (
-              <SendEmailForm
-                htmlContent={generateHtml(sections)}
-                emailSubject={emailSubject}
-                senderName={senderName}
-                onError={(error) => setError(error)}
-                onCancel={() => setMode('edit')}
-              />
+            )}
+            
+            {mode === 'preview' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium">Aperçu de l'email</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={togglePreviewExpand}
+                  >
+                    {previewExpanded ? <Minimize className="h-4 w-4 mr-2" /> : <Maximize className="h-4 w-4 mr-2" />}
+                    {previewExpanded ? 'Réduire' : 'Agrandir'}
+                  </Button>
+                </div>
+                
+                <div className="bg-gray-100 dark:bg-gray-700 rounded-md p-4">
+                  <div className="bg-white dark:bg-gray-800 p-2 rounded mb-2">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <span className="font-semibold">De:</span> {senderName}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <span className="font-semibold">Objet:</span> {emailSubject}
+                    </p>
+                  </div>
+                </div>
+                
+                <div 
+                  ref={previewRef}
+                  className={`border border-gray-200 dark:border-gray-700 rounded-md overflow-auto bg-white ${previewExpanded ? 'fixed inset-4 z-50' : 'h-[500px]'}`}
+                >
+                  <div className={`${previewExpanded ? 'p-8' : 'p-4'}`}>
+                    <iframe
+                      srcDoc={previewHtml}
+                      className="w-full h-full border-0"
+                      style={{ height: previewExpanded ? 'calc(100vh - 120px)' : '460px' }}
+                    ></iframe>
+                  </div>
+                </div>
+                
+                <div className="flex justify-end mt-4">
+                  <Button 
+                    variant="default"
+                    onClick={() => setMode('send')}
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Passer à l'envoi
+                  </Button>
+                </div>
+              </div>
+            )}
+            
+            {mode === 'send' && (
+              <div className="space-y-6">
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
+                  <h3 className="text-amber-800 dark:text-amber-300 font-medium flex items-center">
+                    <Mail className="h-5 w-5 mr-2" />
+                    Préparation à l'envoi
+                  </h3>
+                  <p className="text-amber-700 dark:text-amber-400 mt-2">
+                    Vous allez envoyer des demandes d'avis Google à vos clients. Vérifiez l'aperçu de l'email avant de continuer.
+                  </p>
+                  
+                  <div className="mt-4 flex space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setMode('preview')}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Voir l'aperçu
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setMode('edit')}
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Modifier le contenu
+                    </Button>
+                  </div>
+                </div>
+                
+                <Card className="border-gray-200 dark:border-gray-700">
+                  <CardContent className="p-4">
+                    <GmailSenderClient
+                      newsletterHtml={previewHtml}
+                      recipients={[]}
+                      subject={emailSubject}
+                      senderName={senderName}
+                      onComplete={(results) => {
+                        console.log('Résultats de l\'envoi:', results);
+                        toast.success(`${results.success} emails envoyés avec succès. ${results.failed} échecs.`);
+                      }}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
             )}
           </CardContent>
         </Card>
