@@ -1,204 +1,150 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Bell, BellOff, RefreshCcw, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
-import { cn } from '@/lib/utils';
-import { useAuth } from '@/app/hooks/useAuth';
-import { useNotifications } from '@/app/hooks/useNotifications';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { SendTestNotificationButton } from '@/components/notifications';
+import { Bell, BellOff, BellRing } from 'lucide-react';
+import { requestNotificationPermission, logNotificationPermissionStatus, checkConsultantPermission } from '../services/notificationService';
+import { regenerateAndSaveToken } from '../services/clientNotificationService';
+import { useAuth } from '../hooks/useAuth';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useSearchParams } from 'next/navigation';
 
-export interface NotificationPermissionProps {
+interface NotificationPermissionProps {
   className?: string;
   iconOnly?: boolean;
-  consultant?: string;
 }
 
-export default function NotificationPermission({ 
-  className, 
-  iconOnly = true,
-  consultant
-}: NotificationPermissionProps) {
+export default function NotificationPermission({ className, iconOnly = true }: NotificationPermissionProps) {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const { status, requestPermission, checkStatus } = useNotifications(consultant);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const searchParams = useSearchParams();
+  const consultant = searchParams.get('consultant');
+  const [permissionStatus, setPermissionStatus] = useState<string>('default');
+  const [consultantPermissionStatus, setConsultantPermissionStatus] = useState<string>('default');
+  const [loading, setLoading] = useState<boolean>(false);
+  
+  // Identifiant pour les notifications - combinaison de l'email de l'utilisateur et du consultant
+  const notificationId = consultant ? `${user?.email}_${consultant}` : user?.email;
 
-  // Helper pour déterminer la couleur du badge
-  const getBadgeColor = () => {
-    if (status.isLoading) return 'bg-yellow-500';
-    if (status.permission === 'granted' && status.hasTokens) return 'bg-green-500';
-    if (status.permission === 'granted' && !status.hasTokens) return 'bg-yellow-500';
-    if (status.permission === 'denied') return 'bg-red-500';
-    return 'bg-yellow-500'; // default/prompt
-  };
-
-  // Helper pour déterminer le texte du statut
-  const getStatusText = () => {
-    if (status.isLoading) return 'Vérification...';
-    if (status.permission === 'granted' && status.hasTokens) return 'Activées';
-    if (status.permission === 'granted' && !status.hasTokens) return 'Partielles';
-    if (status.permission === 'denied') return 'Bloquées';
-    return 'Non activées';
-  };
-
-  // Actualiser manuellement le statut des notifications
-  const refreshStatus = async () => {
-    if (!user?.email) return;
-    
-    setIsRefreshing(true);
-    try {
-      await checkStatus();
-      toast({
-        title: 'Statut actualisé',
-        description: `Notifications: ${getStatusText()}`,
-        duration: 3000,
-      });
-    } catch (error) {
-      console.error('Erreur lors de l\'actualisation du statut:', error);
-      toast({
-        title: 'Erreur',
-        description: 'Impossible de vérifier le statut des notifications',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsRefreshing(false);
+  // Vérifier l'état des notifications au chargement
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Vérifier le statut global des notifications du navigateur
+      const status = logNotificationPermissionStatus();
+      setPermissionStatus(status);
+      
+      // Vérifier si ce consultant spécifique a déjà des notifications activées
+      if (user?.email && consultant) {
+        checkConsultantPermission(user.email, consultant)
+          .then(hasPermission => {
+            console.log(`Vérification des permissions pour ${consultant}: ${hasPermission ? 'activées' : 'désactivées'}`);
+            setConsultantPermissionStatus(hasPermission ? 'granted' : 'default');
+          })
+          .catch(error => {
+            console.error(`Erreur lors de la vérification des permissions pour ${consultant}:`, error);
+            setConsultantPermissionStatus('default');
+          });
+      } else {
+        setConsultantPermissionStatus('default');
+      }
     }
-  };
+  }, [user?.email, consultant]); // Réexécuter quand le consultant change
 
-  // Activer les notifications
-  const activateNotifications = async () => {
+  // Demander la permission pour les notifications
+  const handleRequestPermission = async () => {
     if (!user?.email) {
-      toast({
-        title: 'Erreur',
-        description: 'Vous devez être connecté pour activer les notifications',
-        variant: 'destructive',
-      });
+      console.error('Utilisateur non connecté');
       return;
     }
     
+    setLoading(true);
     try {
-      const success = await requestPermission();
-      if (success) {
-        toast({
-          title: 'Notifications activées',
-          description: 'Vous recevrez désormais des notifications sur cet appareil',
-        });
-      } else if (status.error) {
-        toast({
-          title: 'Erreur',
-          description: status.error,
-          variant: 'destructive',
-        });
+      // Utiliser la nouvelle fonction pour régénérer et enregistrer un token FCM
+      const result = consultant 
+        ? await regenerateAndSaveToken(user.email, consultant)
+        : await requestNotificationPermission(notificationId || user.email);
+      
+      if (result === true) {
+        setPermissionStatus('granted');
+        setConsultantPermissionStatus('granted');
+        console.log(`Notifications activées pour: ${notificationId}`);
+      } else {
+        setPermissionStatus('denied');
+        setConsultantPermissionStatus('default');
       }
     } catch (error) {
-      console.error('Erreur lors de l\'activation des notifications:', error);
-      toast({
-        title: 'Erreur',
-        description: 'Impossible d\'activer les notifications',
-        variant: 'destructive',
-      });
+      console.error('Erreur lors de la demande de permission:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Afficher uniquement l'icône avec une info-bulle
-  if (iconOnly) {
-    return (
-      <div className="flex items-center gap-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn("h-8 w-8 relative", className)}
-              onClick={status.permission === 'granted' ? refreshStatus : activateNotifications}
-              disabled={status.isLoading || isRefreshing}
-            >
-              {status.isLoading || isRefreshing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : status.permission === 'granted' && status.hasTokens ? (
-                <Bell className="h-4 w-4" />
-              ) : (
-                <BellOff className="h-4 w-4" />
-              )}
-              <span className={cn("absolute -top-1 -right-1 flex h-3 w-3 rounded-full", getBadgeColor())} />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Notifications: {getStatusText()}</p>
-            {status.permission !== 'granted' && <p>Cliquez pour activer</p>}
-            {status.permission === 'granted' && !status.hasTokens && <p>Tokens manquants. Cliquez pour réactiver.</p>}
-          </TooltipContent>
-        </Tooltip>
-        
-        {/* Bouton de test uniquement si les notifications sont activées */}
-        {status.permission === 'granted' && status.hasTokens && (
-          <SendTestNotificationButton 
-            consultant={consultant} 
-            email={user?.email}
-          />
-        )}
-      </div>
-    );
+  // Si on est côté serveur ou si les notifications ne sont pas supportées
+  if (permissionStatus === 'server-side' || permissionStatus === 'not-supported') {
+    return null;
   }
 
-  // Affichage complet avec texte et bouton
+  // Déterminer le statut de notification pour les styles et tooltip
+  const getStatusInfo = () => {
+    // Le message à afficher dépend de si un consultant est sélectionné
+    const tooltipMessage = consultant 
+      ? `Notifications pour ${consultant}`
+      : "Notifications";
+    
+    // Priorité au statut du consultant spécifique
+    if (consultantPermissionStatus === 'granted') {
+      return {
+        icon: <BellRing className={`h-5 w-5 ${iconOnly ? 'text-green-500' : ''}`} />,
+        text: 'Notifications activées',
+        tooltip: `${tooltipMessage} activées (cliquez pour réactiver)`,
+        variant: 'ghost' as const,
+        onClick: handleRequestPermission, // Permettre la réactivation
+        disabled: false,
+        className: iconOnly ? 'text-green-500' : 'text-green-600'
+      };
+    } else if (permissionStatus === 'denied') {
+      return {
+        icon: <BellOff className={`h-5 w-5 ${iconOnly ? 'text-red-500' : ''}`} />,
+        text: 'Notifications bloquées',
+        tooltip: 'Notifications bloquées - Cliquez pour ouvrir les paramètres',
+        variant: 'ghost' as const,
+        onClick: () => window.open('chrome://settings/content/notifications', '_blank'),
+        disabled: false,
+        className: iconOnly ? 'text-red-500' : 'text-red-600'
+      };
+    } else {
+      return {
+        icon: <Bell className={`h-5 w-5 ${loading ? 'animate-ping' : ''}`} />,
+        text: loading ? 'Activation...' : 'Activer',
+        tooltip: `Activer les ${tooltipMessage.toLowerCase()}`,
+        variant: 'ghost' as const,
+        onClick: handleRequestPermission,
+        disabled: loading || !notificationId,
+        className: loading ? 'animate-pulse' : ''
+      };
+    }
+  };
+
+  const statusInfo = getStatusInfo();
+
   return (
-    <div className={cn("flex flex-col space-y-2", className)}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className={cn("h-3 w-3 rounded-full", getBadgeColor())} />
-          <span className="text-sm font-medium">
-            Notifications: {getStatusText()}
-          </span>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8"
-          onClick={refreshStatus}
-          disabled={isRefreshing}
-        >
-          {isRefreshing ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCcw className="mr-2 h-4 w-4" />
-          )}
-          Actualiser
-        </Button>
-      </div>
-      
-      <div className="flex items-center gap-2">
-        <Button
-          variant={status.permission === 'granted' && status.hasTokens ? "outline" : "default"}
-          size="sm"
-          className="flex-1"
-          onClick={activateNotifications}
-          disabled={status.isLoading}
-        >
-          {status.isLoading ? (
-            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Chargement...</>
-          ) : status.permission === 'granted' && status.hasTokens ? (
-            <><Bell className="mr-2 h-4 w-4" /> Réactiver</>
-          ) : (
-            <><Bell className="mr-2 h-4 w-4" /> Activer les notifications</>
-          )}
-        </Button>
-        
-        {status.permission === 'granted' && status.hasTokens && (
-          <SendTestNotificationButton 
-            consultant={consultant} 
-            email={user?.email}
-            className="flex-1"
-          />
-        )}
-      </div>
-      
-      {status.error && (
-        <p className="text-sm text-red-500">{status.error}</p>
-      )}
-    </div>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant={statusInfo.variant}
+            size="icon"
+            className={`${className} ${statusInfo.className}`}
+            onClick={statusInfo.onClick}
+            disabled={statusInfo.disabled}
+          >
+            {statusInfo.icon}
+            {!iconOnly && <span className="ml-2">{statusInfo.text}</span>}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{statusInfo.tooltip}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 } 

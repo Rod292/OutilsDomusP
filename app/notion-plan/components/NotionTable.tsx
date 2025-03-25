@@ -77,8 +77,11 @@ import { useToast } from "@/components/ui/use-toast";
 import { useTasks } from '../hooks/useTasks';
 import { ComboboxDemo } from './ComboboxDemo';
 import { NotionContext } from '../context/NotionContext';
-import { sendTaskAssignedNotification } from '@/app/services/notificationService';
+import { sendTaskAssignedNotification, sendCurrentUserNotification } from '@/app/services/clientNotificationService';
 import { getBadgeColor } from '../utils/badgeHelper';
+import DatePickerCell from './DatePickerCell';
+import { formatFullDate } from '@/app/utils/dateUtils';
+import { toast } from 'sonner';
 
 // Liste des consultants disponibles pour l'assignation des tâches
 const CONSULTANTS = [
@@ -869,41 +872,37 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
           // Préparer les données de notification
           const taskTitle = taskData.title || 'Tâche sans titre';
           const communicationType = communicationDetails[communicationIndex].type || 'Communication';
-          const notificationId = `task_communication_${taskId}_${communicationIndex}_${Date.now()}`;
           const consultantName = emailToAdd.split('@')[0] || emailToAdd;
 
-          // Construire les données de notification
+          // 1. Envoyer une notification à la personne assignée
+          console.log('Envoi de notification pour le destinataire assigné:', emailToAdd);
+          
+          // Construire les données de notification pour l'assigné
           const notificationData = {
-            userId: `${user.email}_${consultantName}`,
+            userId: `${emailToAdd}_${user.email.split('@')[0]}`, // ID utilisateur correct pour la personne assignée
             title: '📬 Nouvelle communication assignée',
-            body: `${consultantName} a été assigné à la communication "${communicationType}" pour la tâche "${taskTitle}".`,
-            type: 'task_communication_assigned',
+            body: `Vous avez été assigné à la communication "${communicationType}" pour la tâche "${taskTitle}".`,
             taskId,
+            isCommunication: true,
             communicationIndex,
-            notificationId,
-            mode: 'FCM'
+            recipientEmail: emailToAdd
           };
 
-          console.log('Envoi de notification pour la communication assignée:', notificationData);
-
-          // Tentative d'envoi via le service de notification
-          try {
-            const result = await sendTaskAssignedNotification({
-              userId: `${user.email}_${consultantName}`,
-              title: notificationData.title,
-              body: notificationData.body,
-              taskId,
-              isCommunication: true,
-              communicationIndex,
-              recipientEmail: emailToAdd
-            });
+          // Tentative d'envoi à l'assigné via le service de notification
+          const result = await sendTaskAssignedNotification(notificationData);
+          console.log('Résultat de l\'envoi au destinataire:', result);
+          
+          // 2. Envoyer une notification directe à l'utilisateur courant
+          if (Notification.permission === 'granted') {
+            console.log('Envoi de notification directe à l\'utilisateur courant:', user.email);
             
-            console.log('Résultat de sendTaskAssignedNotification:', result);
-            // Si la notification a été envoyée avec succès, on s'arrête ici
-            // Plus besoin de l'envoi direct ci-dessous
-          } catch (notifServiceError) {
-            console.error('Erreur du service de notification:', notifServiceError);
-            // On ne fait rien - si le service a échoué, on ne tente pas un deuxième envoi
+            const directResult = await sendCurrentUserNotification(
+              '✅ Assignation effectuée',
+              `Vous avez assigné ${consultantName} à la communication "${communicationType}" pour la tâche "${taskTitle}".`,
+              { taskId, type: 'communication_assigned_confirmation' }
+            );
+            
+            console.log('Résultat de l\'envoi direct à l\'utilisateur courant:', directResult);
           }
         } catch (notifError) {
           console.error('Erreur lors de la préparation de la notification:', notifError);
@@ -931,7 +930,7 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
         toast({
           title: 'Collaborateur ajouté',
           description: `${emailToAdd} a été ajouté à la communication`,
-          variant: 'success'
+          variant: 'default'
         });
       }
     } catch (error) {
@@ -1493,6 +1492,28 @@ export default function NotionTable({ tasks, onEditTask, onCreateTask, onUpdateT
         id: taskId,
         assignedTo: [...currentAssignees, email]
       });
+      
+      // Envoyer une notification à l'utilisateur assigné
+      if (email && user?.email) {
+        try {
+          const consultantName = email.split('@')[0] || email;
+          const taskTitle = task.title || 'Tâche sans titre';
+          
+          // Envoyer une notification
+          const result = await sendTaskAssignedNotification({
+            userId: `${user.email}_${consultantName}`,
+            title: '📋 Nouvelle tâche assignée',
+            body: `${consultantName} a été assigné à la tâche "${taskTitle}".`,
+            taskId,
+            isCommunication: false,
+            recipientEmail: email
+          });
+          
+          console.log('Résultat de la notification d\'assignation de tâche:', result);
+        } catch (error) {
+          console.error('Erreur lors de l\'envoi de la notification:', error);
+        }
+      }
     }
   };
 

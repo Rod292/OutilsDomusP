@@ -46,4 +46,7 @@ function NotionPlanContent() {
       <NotionPlanWorkspace consultant={consultant} />
     </>
   );
-} 
+}
+
+// Vérifier que le fichier existe 
+// Si le fichier n'existe pas, cette opération n'aura pas d'effet 

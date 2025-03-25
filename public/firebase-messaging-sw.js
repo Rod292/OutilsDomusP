@@ -1,151 +1,136 @@
-// Firebase Messaging Service Worker
-// Ce service worker gère la réception des notifications en arrière-plan
+// Service worker pour les notifications Firebase Cloud Messaging
+// Ce fichier doit être à la racine du domaine
 
-// Version du service worker - à incrémenter pour forcer la mise à jour
-const SW_VERSION = 'v2.0.0';
-console.log(`[Firebase Messaging SW] Initialisation (${SW_VERSION})`);
+// Version du service worker
+const SW_VERSION = '1.4.1';
 
-// Configuration Firebase (doit correspondre à celle du client)
+// Configuration Firebase pour le service worker
 const firebaseConfig = {
-  apiKey: self.FIREBASE_API_KEY || 'AIzaSyA9AEJKD0Cf30LCrNbw9buhVMoiN_Mb1f4',
-  authDomain: "etat-des-lieux-arthur-loyd.firebaseapp.com",
-  projectId: "etat-des-lieux-arthur-loyd",
-  storageBucket: "etat-des-lieux-arthur-loyd.firebasestorage.app",
-  messagingSenderId: "602323147221",
-  appId: "1:602323147221:web:7a1d976ac0478b593b455c"
+  apiKey: self.FIREBASE_API_KEY || "AIzaSyDujTJIyvicJnP-nMgodJs63rU0fDA69Qc",
+  authDomain: self.FIREBASE_AUTH_DOMAIN || "etat-des-lieux-arthur-loyd.firebaseapp.com",
+  projectId: self.FIREBASE_PROJECT_ID || "etat-des-lieux-arthur-loyd",
+  storageBucket: self.FIREBASE_STORAGE_BUCKET || "etat-des-lieux-arthur-loyd.firebasestorage.app",
+  messagingSenderId: self.FIREBASE_MESSAGING_SENDER_ID || "602323147221",
+  appId: self.FIREBASE_APP_ID || "1:602323147221:web:7a1d976ac0478b593b455c"
 };
 
-// Cache pour stocker les informations utilisateur
-let userInfo = {
-  email: null,
-  lastUpdated: null
-};
+// Configuration de la clé VAPID pour les Web Push API
+const VAPID_KEY = "BH4d9fbB2K03fd3E-WTtull3cTODxrtVhFQ94FKQgtt_grFm4QQkV6FzC6LlFNttXFCve5CKvDYlplXX1YbzHDo";
 
-self.addEventListener('install', (event) => {
-  console.log('[Firebase Messaging SW] Service Worker installé');
-  
-  // Activer immédiatement le nouveau service worker
-  self.skipWaiting();
-});
+// Import des scripts Firebase
+importScripts('https://www.gstatic.com/firebasejs/9.17.2/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.17.2/firebase-messaging-compat.js');
 
-self.addEventListener('activate', (event) => {
-  console.log('[Firebase Messaging SW] Service Worker activé');
-  
-  // Prendre le contrôle immédiatement des clients
-  event.waitUntil(clients.claim());
-  
-  // Essayer de récupérer l'email depuis le localStorage
-  event.waitUntil(
-    (async () => {
-      try {
-        const allClients = await clients.matchAll({ includeUncontrolled: true, type: 'window' });
-        if (allClients.length > 0) {
-          console.log(`[Firebase Messaging SW] ${allClients.length} clients trouvés`);
-          
-          // Demander l'email à tous les clients
-          allClients.forEach(client => {
-            client.postMessage({
-              type: 'GET_USER_EMAIL'
-            });
-          });
-        }
-      } catch (error) {
-        console.error('[Firebase Messaging SW] Erreur lors de la récupération des clients:', error);
-      }
-    })()
-  );
-});
+// Log de démarrage
+console.log(`[Firebase SW] Service Worker v${SW_VERSION} initialisation...`);
 
-// Écouter les messages du client
-self.addEventListener('message', (event) => {
-  console.log('[Firebase Messaging SW] Message reçu du client:', event.data);
-  
-  if (event.data && event.data.type === 'STORE_USER_EMAIL' && event.data.email) {
-    userInfo = {
-      email: event.data.email,
-      lastUpdated: new Date().toISOString()
-    };
-    
-    console.log(`[Firebase Messaging SW] Email utilisateur stocké: ${userInfo.email}`);
-  }
-});
-
-// Importer les scripts Firebase dynamiquement lorsque Firebase Messaging est nécessaire
-importScripts('https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/9.6.1/firebase-messaging-compat.js');
-
-// Initialiser l'application Firebase
+// Initialisation de Firebase
 firebase.initializeApp(firebaseConfig);
+
+// Récupération de l'instance de messaging
 const messaging = firebase.messaging();
 
-// Gérer les messages de notification en arrière-plan
+// Définir la clé VAPID pour le service worker
+if (messaging.vapidKey === undefined) {
+  try {
+    messaging.vapidKey = VAPID_KEY;
+    console.log('[Firebase SW] VAPID Key configurée avec succès');
+  } catch (error) {
+    console.error('[Firebase SW] Erreur lors de la configuration de la VAPID Key:', error);
+  }
+}
+
+// Gestionnaire de messages en arrière-plan
 messaging.onBackgroundMessage((payload) => {
-  console.log('[Firebase Messaging SW] Message reçu en arrière-plan:', payload);
+  console.log('[Firebase SW] Message reçu en arrière-plan:', payload);
   
-  const notificationTitle = payload.notification.title || 'Nouvelle notification';
-  const notificationOptions = {
-    body: payload.notification.body || 'Vous avez une nouvelle notification',
-    icon: '/icons/arthur-loyd-logo-192.png',
-    badge: '/icons/arthur-loyd-badge-96.png',
-    tag: payload.data && payload.data.taskId ? payload.data.taskId : 'notification',
-    data: payload.data || {},
-    requireInteraction: true,
+  // Extraire les données de la notification
+  const notification = payload.notification || {};
+  const data = payload.data || {};
+  
+  // Titre et corps par défaut
+  const title = notification.title || 'Nouvelle notification';
+  const body = notification.body || 'Vous avez reçu une nouvelle notification.';
+  
+  // Options pour la notification
+  const options = {
+    body: body,
+    icon: notification.icon || '/images/icons/icon-192x192.png',
+    badge: '/images/icons/badge-128x128.png',
+    data: data,
+    tag: data.threadId || data.taskId || `notification-${Date.now()}`,
+    requireInteraction: true, // Garder la notification jusqu'à ce que l'utilisateur interagisse avec
     actions: [
       {
         action: 'view',
-        title: 'Voir la tâche'
+        title: 'Voir'
       }
     ]
   };
   
-  // Ajouter des informations sur l'utilisateur à la notification
-  if (userInfo.email) {
-    console.log(`[Firebase Messaging SW] Ajout de l'email ${userInfo.email} aux données de notification`);
-    notificationOptions.data.userEmail = userInfo.email;
-  }
-  
-  return self.registration.showNotification(notificationTitle, notificationOptions);
+  // Afficher la notification
+  return self.registration.showNotification(title, options);
 });
 
-// Gérer le clic sur une notification
-self.addEventListener('notificationclick', (event) => {
-  console.log('[Firebase Messaging SW] Clic sur notification:', event);
+// Gestionnaire pour recevoir des messages du client (page web)
+self.addEventListener('message', (event) => {
+  console.log('[Firebase SW] Message reçu du client:', event.data);
   
+  // Si le message contient une clé VAPID, l'utiliser
+  if (event.data && event.data.type === 'SET_VAPID_KEY' && event.data.vapidKey) {
+    try {
+      const vapidKey = event.data.vapidKey;
+      console.log('[Firebase SW] Clé VAPID reçue du client:', vapidKey.substring(0, 10) + '...');
+      
+      // Mettre à jour la clé VAPID
+      if (messaging && typeof messaging.getToken === 'function') {
+        messaging.vapidKey = vapidKey;
+        console.log('[Firebase SW] VAPID Key mise à jour depuis le client');
+      }
+    } catch (error) {
+      console.error('[Firebase SW] Erreur lors de la mise à jour de la clé VAPID:', error);
+    }
+  }
+});
+
+// Gestionnaire de clic sur les notifications
+self.addEventListener('notificationclick', (event) => {
+  console.log('[Firebase SW] Notification cliquée:', event);
+  
+  // Fermer la notification
   event.notification.close();
   
-  // Extraire les informations de la notification
-  const taskId = event.notification.data && event.notification.data.taskId;
-  const notificationType = event.notification.data && event.notification.data.type;
+  // Récupérer les données de la notification
+  const data = event.notification.data || {};
+  const taskId = data.taskId;
+  const comunicationId = data.communicationId;
   
-  // URL à ouvrir au clic
-  let urlToOpen;
+  // URL à ouvrir lorsque l'utilisateur clique sur la notification
+  let url = '/notion-plan';
   
+  // Si on a un ID de tâche, ajouter à l'URL
   if (taskId) {
-    // Ouvrir la page de la tâche spécifique
-    urlToOpen = `/notion-plan?taskId=${taskId}`;
-  } else {
-    // Ouvrir la page principale des tâches
-    urlToOpen = '/notion-plan';
+    url = `/notion-plan?taskId=${taskId}`;
   }
   
-  const urlToOpenWithOrigin = self.location.origin + urlToOpen;
+  // Créer une promesse pour ouvrir l'URL
+  const promiseChain = clients.openWindow(url);
   
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Vérifier si une fenêtre existe déjà avec l'URL
-      const existingClient = windowClients.find(
-        (client) => client.url === urlToOpenWithOrigin && 'focus' in client
-      );
-      
-      if (existingClient) {
-        // Si un client existe, le mettre au premier plan
-        return existingClient.focus();
-      }
-      
-      // Sinon, ouvrir une nouvelle fenêtre
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
-      }
-    })
-  );
+  // Attendre que la promesse soit résolue avant de terminer l'événement
+  event.waitUntil(promiseChain);
+});
+
+// Log de fin d'initialisation
+console.log(`[Firebase SW] Service Worker v${SW_VERSION} initialisé avec succès`);
+
+// Afficher un message lors de l'installation
+self.addEventListener('install', (event) => {
+  console.log(`[Firebase SW] Service Worker v${SW_VERSION} installé`);
+  self.skipWaiting();
+});
+
+// Afficher un message lors de l'activation
+self.addEventListener('activate', (event) => {
+  console.log(`[Firebase SW] Service Worker v${SW_VERSION} activé`);
+  return self.clients.claim();
 }); 

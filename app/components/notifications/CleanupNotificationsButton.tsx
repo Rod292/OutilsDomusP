@@ -3,21 +3,22 @@ import { Button } from '@/components/ui/button';
 import { Eraser, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useToast } from '@/components/ui/use-toast';
-import { cleanupDuplicateTokens } from '@/app/services/notificationService';
+import { cleanupDuplicateTokens } from '@/app/services/clientNotificationService';
 import { 
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { RefreshCw, Check, X } from "lucide-react";
+import { toast } from "sonner";
 
 interface CleanupNotificationsButtonProps {
   className?: string;
   showText?: boolean;
   variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
   size?: 'default' | 'sm' | 'lg' | 'icon';
-  userId?: string;
-  onCleaned?: () => void;
+  onSuccess?: () => void;
 }
 
 export default function CleanupNotificationsButton({ 
@@ -25,8 +26,7 @@ export default function CleanupNotificationsButton({
   showText = true,
   variant = 'outline',
   size = 'sm',
-  userId,
-  onCleaned
+  onSuccess 
 }: CleanupNotificationsButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -34,9 +34,7 @@ export default function CleanupNotificationsButton({
   const { toast } = useToast();
 
   const handleCleanup = async () => {
-    const userIdentifier = userId || user?.email;
-    
-    if (!userIdentifier) {
+    if (!user?.email) {
       toast({
         title: "Erreur",
         description: "Vous devez être connecté pour effectuer cette action.",
@@ -49,7 +47,7 @@ export default function CleanupNotificationsButton({
     setStatus('idle');
 
     try {
-      const deletedCount = await cleanupDuplicateTokens(userIdentifier);
+      const deletedCount = await cleanupDuplicateTokens(user.email);
       
       if (deletedCount > 0) {
         toast({
@@ -59,8 +57,8 @@ export default function CleanupNotificationsButton({
         });
         setStatus('success');
         
-        if (onCleaned) {
-          onCleaned();
+        if (onSuccess) {
+          onSuccess();
         }
       } else {
         toast({

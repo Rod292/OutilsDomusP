@@ -2,17 +2,30 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bell, BellOff, BellRing } from 'lucide-react';
-import { requestNotificationPermission, checkConsultantPermission } from '@/app/services/notificationService';
+import { Bell, BellOff, BellRing, RefreshCw, Settings, RotateCcw } from 'lucide-react';
+import { 
+  requestNotificationPermission, 
+  checkConsultantPermission, 
+  regenerateAndSaveToken, 
+  checkRealNotificationPermission,
+  resetNotificationSettings
+} from '@/app/services/clientNotificationService';
 import { useAuth } from '@/app/hooks/useAuth';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { getFirestore } from 'firebase/firestore';
-import { query, collection, getDocs, where } from 'firebase/firestore';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
+import { toast } from '@/components/ui/use-toast';
+import { useRouter } from 'next/navigation';
 
 interface GlobalNotificationButtonProps {
   consultantName: string;
   className?: string;
-  size?: 'default' | 'sm' | 'lg' | 'icon';
+  size?: 'icon' | 'default';
 }
 
 export default function GlobalNotificationButton({ 
@@ -23,49 +36,50 @@ export default function GlobalNotificationButton({
   const { user } = useAuth();
   const [permissionStatus, setPermissionStatus] = useState<string>('default');
   const [loading, setLoading] = useState<boolean>(false);
+  const router = useRouter();
 
   // Vérifier le statut des notifications au chargement du composant
   useEffect(() => {
     if (user?.email && consultantName) {
-      checkConsultantPermission(user.email, consultantName)
-        .then(hasPermission => {
-          setPermissionStatus(hasPermission ? 'granted' : 'default');
-        })
-        .catch(() => {
-          setPermissionStatus('default');
-        });
+      checkNotificationStatus();
+      
+      // Ajouter un écouteur d'événement pour les changements de permission
+      const handlePermissionChange = (event: Event) => {
+        const customEvent = event as CustomEvent;
+        console.log('Événement de changement de permission détecté:', customEvent.detail);
+        checkNotificationStatus();
+      };
+      
+      window.addEventListener('notification-permission-changed', handlePermissionChange);
+      
+      // Nettoyage lors du démontage du composant
+      return () => {
+        window.removeEventListener('notification-permission-changed', handlePermissionChange);
+      };
     }
   }, [user?.email, consultantName]);
 
-  // Vérifier si des tokens existent pour cet utilisateur
-  useEffect(() => {
-    const checkNotificationToken = async () => {
-      if (user?.email && consultantName) {
-        try {
-          const db = getFirestore();
-          if (!db) return;
-          
-          const notificationId = `${user.email}_${consultantName}`;
-          const q = query(
-            collection(db, 'notificationTokens'),
-            where('userId', '==', notificationId)
-          );
-          
-          const snapshot = await getDocs(q);
-          if (snapshot.empty) {
-            console.log(`Aucun token trouvé pour ${notificationId}, affichage d'un indicateur d'erreur`);
-            setPermissionStatus(snapshot.empty ? 'missing' : permissionStatus);
-          } else {
-            console.log(`${snapshot.size} token(s) trouvé(s) pour ${notificationId}`);
-          }
-        } catch (error) {
-          console.error('Erreur lors de la vérification des tokens:', error);
-        }
-      }
-    };
+  // Fonction séparée pour vérifier le statut des notifications
+  const checkNotificationStatus = async () => {
+    if (!user?.email || !consultantName) return;
     
-    checkNotificationToken();
-  }, [user?.email, consultantName]);
+    // Vérifier d'abord le statut réel des permissions dans le navigateur
+    const realStatus = await checkRealNotificationPermission();
+    console.log(`Statut réel des notifications: ${realStatus}`);
+    
+    if (realStatus === 'denied') {
+      setPermissionStatus('denied');
+    } else {
+      // Si ce n'est pas bloqué, vérifier si l'utilisateur a activé les notifications pour ce consultant
+      try {
+        const hasPermission = await checkConsultantPermission(user.email as string, consultantName);
+        setPermissionStatus(hasPermission ? 'granted' : 'default');
+      } catch (error) {
+        console.error("Erreur lors de la vérification des permissions:", error);
+        setPermissionStatus('default');
+      }
+    }
+  };
 
   // Identifiant pour les notifications - combinaison de l'email de l'utilisateur et du consultant
   const notificationId = user?.email && consultantName ? `${user.email}_${consultantName}` : null;
@@ -79,17 +93,146 @@ export default function GlobalNotificationButton({
     
     setLoading(true);
     try {
-      // Même si les notifications sont déjà activées, on permet de les réactiver
+      console.log("Tentative de demande de permission pour les notifications...");
+      
+      // Vérifier d'abord l'état réel des permissions
+      const realStatus = await checkRealNotificationPermission();
+      console.log(`Statut réel avant demande: ${realStatus}`);
+      
+      if (realStatus === 'denied') {
+        // Si les notifications sont bloquées, montrer des instructions
+        toast({
+          title: "Notifications bloquées",
+          description: "Les notifications sont bloquées dans votre navigateur. Utilisez les paramètres du navigateur pour les autoriser.",
+          variant: "destructive"
+        });
+        
+        // Tenter quand même une réinitialisation en mode fallback
+        if (notificationId) {
+          console.log("Tentative de réinitialisation en mode fallback...");
+          const resetSuccess = await resetNotificationSettings(notificationId);
+          if (resetSuccess) {
+            toast({
+              title: "Mode alternatif activé",
+              description: "Un mode alternatif de notification a été activé",
+              variant: "default"
+            });
+          }
+        }
+        
+        setPermissionStatus('denied');
+        return;
+      }
+      
+      // Même si les notifications sont déjà activées, on tente de les réactiver
+      console.log("Appel de requestNotificationPermission...");
       const result = await requestNotificationPermission(notificationId);
+      console.log(`Résultat de la demande: ${result}`);
       
       if (result === true) {
         setPermissionStatus('granted');
         console.log(`Notifications activées pour: ${notificationId}`);
+        
+        // Afficher un toast de confirmation
+        toast({
+          title: "Notifications activées",
+          description: `Vous recevrez désormais les notifications pour ${consultantName}`,
+          variant: "default"
+        });
       } else {
+        // Tenter une approche alternative en cas d'échec
+        console.log("La demande a échoué, tentative de régénération du token...");
+        if (user?.email) {
+          const tokenResult = await regenerateAndSaveToken(user.email, consultantName);
+          if (tokenResult) {
+            setPermissionStatus('granted');
+            toast({
+              title: "Notifications activées",
+              description: "Les notifications ont été activées avec succès.",
+              variant: "default"
+            });
+            return;
+          }
+        }
+        
         setPermissionStatus('denied');
+        toast({
+          title: "Échec d'activation",
+          description: "Impossible d'activer les notifications. Vérifiez les paramètres de votre navigateur.",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error('Erreur lors de la demande de permission:', error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de l'activation des notifications.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegenerateToken = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user?.email) return;
+    
+    setLoading(true);
+    try {
+      const success = await regenerateAndSaveToken(user.email, consultantName);
+      if (success) {
+        toast({
+          title: "Token régénéré",
+          description: "Le token a été régénéré avec succès.",
+          variant: "default"
+        });
+        setPermissionStatus('granted');
+      } else {
+        toast({
+          title: "Échec",
+          description: "Impossible de régénérer le token.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de la régénération du token.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetNotifications = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!notificationId) return;
+    
+    setLoading(true);
+    try {
+      const success = await resetNotificationSettings(notificationId);
+      if (success) {
+        toast({
+          title: "Notifications réinitialisées",
+          description: "Les paramètres de notification ont été réinitialisés avec succès.",
+          variant: "default"
+        });
+        setPermissionStatus('granted');
+      } else {
+        toast({
+          title: "Échec",
+          description: "Impossible de réinitialiser les paramètres de notification.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de la réinitialisation des notifications.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -111,42 +254,124 @@ export default function GlobalNotificationButton({
     buttonClass += ' text-green-500';
   } else if (permissionStatus === 'denied') {
     icon = <BellOff className="h-5 w-5 text-red-500" />;
-    tooltipText = 'Notifications bloquées - Cliquez pour ouvrir les paramètres';
+    tooltipText = 'Notifications bloquées - Cliquez pour les options';
     buttonClass += ' text-red-500';
-  } else if (permissionStatus === 'missing') {
-    icon = <Bell className="h-5 w-5 text-yellow-500" />;
-    tooltipText = `Aucun token trouvé pour ${consultantName} - Cliquez pour activer`;
-    buttonClass += ' text-yellow-500 animate-pulse';
   }
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (permissionStatus === 'denied') {
-      window.open('chrome://settings/content/notifications', '_blank');
+    
+    // Si les notifications sont actuellement activées, vérifier d'abord si elles le sont réellement
+    if (permissionStatus === 'granted') {
+      checkRealNotificationPermission().then(realStatus => {
+        if (realStatus !== 'granted') {
+          // Si le statut réel est différent, mettre à jour notre état
+          setPermissionStatus(realStatus);
+          
+          // Afficher un message
+          toast({
+            title: "Statut des notifications incorrect",
+            description: "Les notifications semblaient activées mais ne le sont plus. Tentative de réactivation...",
+            variant: "destructive"
+          });
+          
+          // Essayer de les réactiver
+          handleRequestPermission();
+        } else {
+          // Si elles sont bien activées, permettre de les réactiver
+          handleRequestPermission();
+        }
+      });
+    } else if (permissionStatus === 'denied') {
+      // Afficher un message explicatif
+      toast({
+        title: "Notifications bloquées",
+        description: "Les notifications sont bloquées dans les paramètres de votre navigateur. Utilisez le bouton 'Paramètres du navigateur' pour les activer.",
+        variant: "destructive"
+      });
     } else {
       handleRequestPermission();
     }
   };
+  
+  const openBrowserSettings = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      if (navigator.userAgent.includes('Chrome')) {
+        // Ouvrir directement les paramètres Chrome
+        window.open('chrome://settings/content/notifications', '_blank');
+        
+        // Également ouvrir notre page d'aide au cas où l'ouverture des paramètres Chrome échoue
+        setTimeout(() => {
+          router.push('/help/notifications');
+        }, 500);
+      } else if (navigator.userAgent.includes('Firefox')) {
+        window.open('about:preferences#privacy', '_blank');
+        
+        // Également ouvrir notre page d'aide au cas où l'ouverture des paramètres Firefox échoue
+        setTimeout(() => {
+          router.push('/help/notifications');
+        }, 500);
+      } else {
+        // Pour les autres navigateurs, rediriger vers notre page d'aide
+        router.push('/help/notifications');
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'ouverture des paramètres:', error);
+      
+      // Rediriger vers notre page d'aide
+      router.push('/help/notifications');
+    }
+  };
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size={size}
-            className={buttonClass}
-            onClick={handleClick}
-            disabled={disabled}
-          >
-            {icon}
-            <span className="sr-only">Notifications</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{tooltipText}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size={size}
+                className={buttonClass}
+                disabled={disabled}
+                onClick={(e) => {
+                  // Arrêter la propagation pour éviter que le dropdown ne s'ouvre pas
+                  e.stopPropagation();
+                  handleClick(e);
+                }}
+              >
+                {icon}
+                <span className="sr-only">Notifications</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{tooltipText}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={handleClick}>
+          {permissionStatus === 'granted' ? 'Réactiver les notifications' : 'Activer les notifications'}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleRegenerateToken}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Régénérer le token
+        </DropdownMenuItem>
+        
+        <DropdownMenuSeparator />
+        
+        <DropdownMenuItem onClick={handleResetNotifications}>
+          <RotateCcw className="h-4 w-4 mr-2" />
+          Réinitialiser complètement
+        </DropdownMenuItem>
+        
+        <DropdownMenuItem onClick={openBrowserSettings}>
+          <Settings className="h-4 w-4 mr-2" />
+          Paramètres du navigateur
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 } 

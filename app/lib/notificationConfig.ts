@@ -1,36 +1,26 @@
-// Clé publique VAPID pour les notifications Web Push (à remplacer par votre clé VAPID)
-export const FIREBASE_VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
-
-// Configuration pour le service worker
-export const SERVICE_WORKER_PATH = '/firebase-messaging-sw.js';
-
-// Chemin des icônes de notification
-export const NOTIFICATION_ICONS = {
-  icon: '/icons/icon-192x192.png',
-  badge: '/icons/badge-72x72.png',
-};
-
-// Types de notifications
-export enum NotificationType {
-  TASK_ASSIGNED = 'task_assigned',
-  TASK_REMINDER = 'task_reminder',
-  DAILY_REMINDER = 'daily_reminder',
-  SYSTEM = 'system',
-}
-
-// Paramètres des notifications
-export const NOTIFICATION_SETTINGS = {
-  // Intervalle pour les rappels de tâches (en minutes)
-  reminderInterval: 30,
+// Configuration des notifications
+export const NOTIFICATION_CONFIG = {
+  // Si les notifications sont activées
+  ENABLED: true,
   
-  // URL de base pour l'API de notifications
-  apiUrl: '/api/notifications',
+  // Activer/désactiver Firebase Cloud Messaging
+  USE_FCM: process.env.NEXT_PUBLIC_USE_FCM === 'true',
   
-  // Titres par défaut pour les différents types de notifications
-  defaultTitles: {
-    [NotificationType.TASK_ASSIGNED]: '📋 Nouvelle tâche assignée',
-    [NotificationType.TASK_REMINDER]: '⏰ Rappel de tâche',
-    [NotificationType.DAILY_REMINDER]: '📅 Vos tâches du jour',
-    [NotificationType.SYSTEM]: 'Notification système',
-  },
+  // Clé VAPID pour les notifications push Web
+  VAPID_KEY: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || 'BGzPLt8Qmv6lFQDwKZLJzcIqH4cwWJN2P_aPCp8HYXJn7LIXHA5RL9rUd2uxSCnD2XHJZFGVtV11i3n2Ux9JYXM',
+  
+  // Si on utilise la clé API Firebase
+  USE_API_KEY: false,
+  
+  // Clé API Firebase
+  API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  
+  // Délai d'attente pour FCM (en millisecondes)
+  FCM_TIMEOUT: 3000,
+  
+  // Activer les tokens de test en développement
+  USE_TEST_TOKENS_IN_DEV: true,
+  
+  // Préfixe pour les tokens de test
+  TEST_TOKEN_PREFIX: 'test-token',
 }; 

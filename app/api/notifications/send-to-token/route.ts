@@ -1,158 +1,123 @@
 import { NextRequest, NextResponse } from 'next/server';
-import admin from '@/app/firebase-admin';
-import { NOTIFICATION_CONFIG } from '../config';
 
-// Initialiser l'application Firebase Admin si nécessaire
-// (déjà fait dans l'import)
+// Configuration Firebase Admin pour le serveur
+interface ServiceAccount {
+  type?: string;
+  project_id: string;
+  private_key_id: string;
+  private_key: string;
+  client_email: string;
+  client_id?: string;
+  auth_uri?: string;
+  token_uri?: string;
+  auth_provider_x509_cert_url?: string;
+  client_x509_cert_url?: string;
+  universe_domain?: string;
+}
 
-export async function POST(request: NextRequest) {
+const FIREBASE_CONFIG: ServiceAccount = {
+  type: process.env.FIREBASE_TYPE as string,
+  project_id: process.env.FIREBASE_PROJECT_ID || 'etat-des-lieux-arthur-loyd',
+  private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || '',
+  private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n') || '',
+  client_email: process.env.FIREBASE_CLIENT_EMAIL || '',
+  client_id: process.env.FIREBASE_CLIENT_ID,
+  auth_uri: process.env.FIREBASE_AUTH_URI,
+  token_uri: process.env.FIREBASE_TOKEN_URI,
+  auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_CERT_URL,
+  client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL,
+  universe_domain: process.env.FIREBASE_UNIVERSE_DOMAIN
+};
+
+// Vérifier si nous avons accès à l'API Firebase Admin
+let admin: any;
+try {
+  admin = require('firebase-admin');
+  
+  // Initialiser l'app Admin si elle n'est pas déjà initialisée
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert(FIREBASE_CONFIG)
+    });
+  }
+} catch (error) {
+  console.error('Erreur lors de l\'initialisation de Firebase Admin:', error);
+}
+
+// POST: Envoyer une notification à un token spécifique
+export async function POST(req: NextRequest) {
   try {
-    // Vérifier l'authentification si l'API key est activée
-    if (NOTIFICATION_CONFIG.USE_API_KEY) {
-      const authHeader = request.headers.get('Authorization');
-      const apiKey = process.env.NOTIFICATIONS_API_KEY;
-      
-      // Vérifier si c'est une requête locale
-      const origin = request.headers.get('origin') || '';
-      const referer = request.headers.get('referer') || '';
-      const host = request.headers.get('host') || '';
-      const isLocalRequest = host.includes('localhost') || 
-                             origin.includes('localhost') ||
-                             referer.includes('localhost');
-      
-      if (!isLocalRequest && (!authHeader || authHeader !== apiKey)) {
-        return NextResponse.json(
-          { error: 'Non autorisé: API key invalide ou manquante' },
-          { status: 401 }
-        );
-      }
-    }
+    const data = await req.json();
+    const { token, title, body, data: notificationData = {} } = data;
     
-    const { token, title, body, data = {} } = await request.json();
-
-    // Valider les paramètres requis
+    // Vérification des paramètres requis
     if (!token || !title || !body) {
       return NextResponse.json(
-        { error: 'Paramètres requis manquants: token, title, body' },
+        { success: false, error: 'token, title et body sont requis' },
         { status: 400 }
       );
     }
     
-    // Journaliser la demande de test
-    console.log(`Test d'envoi direct de notification:`, {
-      token: token.substring(0, 10) + '...',
-      title,
-      body
-    });
-    
-    // Si FCM est désactivé, on retourne une réponse spéciale
-    if (!NOTIFICATION_CONFIG.USE_FCM) {
-      return NextResponse.json({
-        success: false,
-        message: 'Mode FCM désactivé',
-        useLocalMode: true,
-        fcmStatus: 'disabled'
-      });
-    }
-    
-    try {
-      // Initialiser Firebase Cloud Messaging
-      const messaging = admin.messaging();
-      
-      // Construire le message FCM
-      const message: any = {
-        notification: {
-          title,
-          body
-        },
-        data: {
-          type: 'test',
-          timestamp: Date.now().toString(),
-          ...data
-        },
-        token
-      };
-
-      // Envoyer la notification
-      const response = await messaging.send(message);
-
-      console.log(`Test notification envoyée, réponse:`, response);
-      
-      // Enregistrer la notification dans Firestore pour garder une trace
-      try {
-        const db = admin.firestore();
-        await db.collection('notifications').add({
-          token,
-          title,
-          body, 
-          timestamp: new Date(),
-          success: true,
-          type: 'test',
-          read: false
-        });
-      } catch (dbError) {
-        console.warn('Erreur lors de l\'enregistrement de la notification de test:', dbError);
-        // Ne pas échouer pour cette erreur
-      }
-
-      return NextResponse.json({
-        success: true,
-        messageId: response,
-        message: 'Test notification envoyée avec succès'
-      });
-
-    } catch (error: any) {
-      console.error('Erreur lors de l\'envoi du test de notification:', error);
-      
-      let errorMessage = 'Erreur lors de l\'envoi de la notification';
-      let errorCode = 'unknown_error';
-      
-      // Vérifier si le token est valide
-      if (error.code === 'messaging/invalid-argument' || 
-          error.code === 'messaging/registration-token-not-registered' ||
-          error.code === 'messaging/invalid-recipient') {
-        
-        // Marquer le token comme obsolète dans Firestore
-        try {
-          const db = admin.firestore();
-          const tokenQuery = await db.collection('notificationTokens')
-            .where('token', '==', token)
-            .get();
-          
-          if (!tokenQuery.empty) {
-            await db.collection('notificationTokens')
-              .doc(tokenQuery.docs[0].id)
-              .update({
-                obsolete: true,
-                lastUpdated: new Date()
-              });
-            
-            console.log('Token marqué comme obsolète');
-          }
-        } catch (dbError) {
-          console.warn('Erreur lors du marquage du token comme obsolète:', dbError);
-        }
-        
-        errorMessage = 'Token FCM invalide ou expiré. Il sera supprimé automatiquement.';
-      }
-      
+    // Si nous n'avons pas accès à l'API Firebase Admin, retourner une erreur
+    if (!admin) {
       return NextResponse.json(
-        { 
-          success: false,
-          error: errorMessage,
-          errorCode: error.code || 'unknown_error',
-          details: error.message || 'Pas de détails disponibles'
-        },
+        { success: false, error: 'Firebase Admin n\'est pas disponible' },
         { status: 500 }
       );
     }
+    
+    // Créer le message pour Firebase Cloud Messaging
+    const message = {
+      notification: {
+        title,
+        body,
+      },
+      data: {
+        ...notificationData,
+        title,
+        body,
+        clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+      token: token,
+      // Options spécifiques pour iOS
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+            contentAvailable: true,
+          },
+        },
+        headers: {
+          'apns-priority': '10',
+        },
+      },
+      // Options pour Android
+      android: {
+        priority: 'high',
+        notification: {
+          sound: 'default',
+          clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+        },
+      },
+    };
+    
+    // Envoyer la notification via Firebase Cloud Messaging
+    const response = await admin.messaging().send(message);
+    
+    // Retourner les résultats
+    return NextResponse.json({
+      success: true,
+      result: response,
+      message: `Notification envoyée au token ${token.substring(0, 10)}...`
+    });
   } catch (error: any) {
-    console.error('Erreur lors du traitement de la requête:', error);
+    console.error('Erreur lors de l\'envoi de la notification:', error);
+    
     return NextResponse.json(
       { 
-        success: false,
-        error: 'Erreur interne du serveur',
-        details: error.message || 'Pas de détails disponibles'
+        success: false, 
+        error: error.message || 'Une erreur est survenue lors de l\'envoi de la notification'
       },
       { status: 500 }
     );

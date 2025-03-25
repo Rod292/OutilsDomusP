@@ -107,7 +107,6 @@ export const LandingPage: React.FC = () => {
   const [user, setUser] = useState<User | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [showAvatar, setShowAvatar] = useState(false)
   const [isExiting, setIsExiting] = useState(false)
 
   useEffect(() => {
@@ -130,7 +129,6 @@ export const LandingPage: React.FC = () => {
 
   const handleConsultantSelect = (consultant: string) => {
     setSelectedConsultant(consultant)
-    setShowAvatar(true)
   }
 
   const handleContinue = () => {
@@ -288,27 +286,6 @@ export const LandingPage: React.FC = () => {
                 {user ? (
                   <>
                     <div className="relative">
-                      <AnimatePresence>
-                        {selectedConsultantData?.avatarUrl && showAvatar && (
-                          <motion.div 
-                            className="absolute left-1/2 -translate-x-1/2 -top-28 transform"
-                            variants={avatarVariants}
-                            initial="hidden"
-                            animate="visible"
-                            exit={{ scale: 0.8, opacity: 0, transition: { duration: 0.3 } }}
-                          >
-                            <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg">
-                              <Image
-                                src={selectedConsultantData.avatarUrl || "/placeholder.svg"}
-                                alt={`Avatar de ${selectedConsultantData.name}`}
-                                width={128}
-                                height={128}
-                                className="object-cover w-full h-full"
-                              />
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
                       <motion.div 
                         className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8"
                         variants={containerVariants}
@@ -321,18 +298,20 @@ export const LandingPage: React.FC = () => {
                             whileHover="hover"
                             whileTap="tap"
                           >
-                            <motion.button
-                              onClick={() => handleConsultantSelect(consultant.name)}
-                              className={`w-full h-16 text-base font-medium rounded-lg border transition-all duration-300 ${
-                                selectedConsultant === consultant.name 
-                                  ? "bg-[#DC0032] text-white border-[#DC0032]" 
-                                  : "bg-white text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700"
-                              }`}
-                              animate={selectedConsultant === consultant.name ? "selected" : "visible"}
-                              initial="hidden"
-                            >
-                              {consultant.name}
-                            </motion.button>
+                            <div className="flex flex-col space-y-2">
+                              <motion.button
+                                onClick={() => handleConsultantSelect(consultant.name)}
+                                className={`w-full h-16 text-base font-medium rounded-lg border transition-all duration-300 ${
+                                  selectedConsultant === consultant.name 
+                                    ? "bg-[#DC0032] text-white border-[#DC0032]" 
+                                    : "bg-white text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700"
+                                }`}
+                                animate={selectedConsultant === consultant.name ? "selected" : "visible"}
+                                initial="hidden"
+                              >
+                                {consultant.name}
+                              </motion.button>
+                            </div>
                           </motion.div>
                         ))}
                       </motion.div>

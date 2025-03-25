@@ -81,27 +81,10 @@ async function checkNotificationPreferences(
       return true; // Par défaut, autoriser l'envoi
     }
     
-    // Mapper le nom du consultant à son email réel
-    const CONSULTANTS = [
-      { name: "Anne", email: "acoat@arthurloydbretagne.fr" },
-      { name: "Elowan", email: "ejouan@arthurloydbretagne.fr" },
-      { name: "Erwan", email: "eleroux@arthurloydbretagne.fr" },
-      { name: "Julie", email: "jdalet@arthurloydbretagne.fr" },
-      { name: "Justine", email: "jjambon@arthurloydbretagne.fr" },
-      { name: "Morgane", email: "agencebrest@arthurloydbretagne.fr" },
-      { name: "Nathalie", email: "npers@arthurloydbretagne.fr" },
-      { name: "Pierre", email: "pmottais@arthurloydbretagne.fr" },
-      { name: "Pierre-Marie", email: "pmjaumain@arthurloydbretagne.fr" },
-      { name: "Sonia", email: "shadjlarbi@arthur-loyd.com" }
-    ];
-    
-    const consultant = CONSULTANTS.find(c => c.name.toLowerCase() === consultantName.toLowerCase());
-    const consultantEmail = consultant ? consultant.email : `${consultantName.toLowerCase()}@arthurloydbretagne.fr`;
-    
     // Rechercher les préférences avec l'API admin
     const prefsQuery = db.collection(PREFERENCES_COLLECTION)
       .where('userId', '==', userEmail)
-      .where('consultantEmail', '==', consultantEmail);
+      .where('consultantEmail', '==', `${consultantName}@arthurloydbretagne.fr`);
     
     const prefsSnapshot = await prefsQuery.get();
     
@@ -133,154 +116,344 @@ async function checkNotificationPreferences(
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, title, body, type, taskId, communicationIndex } = await request.json();
-    
-    if (!userId || !title || !body) {
-      return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 });
-    }
-    
-    // Initialiser Firebase Admin
-    const db = getAdminFirestore();
-    if (!db) {
-      return NextResponse.json({ error: 'Firebase Admin non initialisé' }, { status: 500 });
-    }
-    
-    // Extraire l'email et le consultant depuis userId
-    const [userEmail, consultantName] = userId.includes('_') ? userId.split('_') : [userId, null];
-    console.log(`Envoi de notification pour email: ${userEmail}, consultant: ${consultantName || 'non spécifié'}`);
-    
-    // Vérifier les préférences de notification
-    const notificationEnabled = await checkNotificationPreferences(db, userId, type);
-    if (!notificationEnabled) {
-      console.log(`Notifications désactivées pour ${userId} (type: ${type})`);
-      return NextResponse.json({ 
-        success: false,
-        error: 'Notifications désactivées',
-        total: 0
-      });
-    }
-    
-    // Ensemble pour stocker les tokens uniques
-    const tokensToNotify = new Set<string>();
-    let appleDeviceCount = 0;
-    let nonAppleDeviceCount = 0;
-    
-    // 1. Chercher d'abord les tokens spécifiques (email_consultant)
-    if (consultantName) {
-      console.log(`Recherche de tokens spécifiques pour ${userId}`);
-      const specificQuery = await db.collection(TOKEN_COLLECTION)
-        .where('userId', '==', userId)
-        .get();
+    // Vérifier l'authentification si l'API key est activée
+    if (NOTIFICATION_CONFIG.USE_API_KEY) {
+      const authHeader = request.headers.get('Authorization');
+      const apiKey = process.env.NOTIFICATIONS_API_KEY;
       
-      if (!specificQuery.empty) {
-        console.log(`${specificQuery.size} token(s) spécifique(s) trouvé(s)`);
-        specificQuery.forEach(doc => {
-          const data = doc.data();
-          if (data.token) {
-            tokensToNotify.add(data.token);
-            if (data.platform?.toLowerCase().includes('ios') || 
-                data.userAgent?.toLowerCase().includes('iphone') ||
-                data.userAgent?.toLowerCase().includes('ipad')) {
-              appleDeviceCount++;
-            } else {
-              nonAppleDeviceCount++;
-            }
-          }
+      // Vérifier si c'est une requête locale ou du même domaine
+      const origin = request.headers.get('origin') || '';
+      const referer = request.headers.get('referer') || '';
+      const host = request.headers.get('host') || '';
+      
+      // Autoriser les requêtes locales (localhost) ou du même domaine que le serveur
+      const isLocalRequest = host.includes('localhost') || 
+                             origin.includes('localhost') ||
+                             referer.includes('localhost');
+      
+      // Autoriser les requêtes du même domaine
+      const currentDomain = host.replace(/:\d+$/, ''); // Enlever le port éventuel
+      const isSameDomain = (origin && origin.includes(currentDomain)) || 
+                          (referer && referer.includes(currentDomain));
+      
+      if (!isLocalRequest && !isSameDomain && (!authHeader || authHeader !== apiKey)) {
+        console.error('Erreur d\'authentification pour les notifications:', { 
+          authHeader,
+          origin,
+          referer,
+          host,
+          currentDomain,
+          isLocalRequest,
+          isSameDomain
         });
+        
+        return NextResponse.json(
+          { error: 'Non autorisé: API key invalide ou manquante' },
+          { status: 401 }
+        );
       }
     }
     
-    // 2. Chercher ensuite les tokens par email
-    console.log(`Recherche de tokens par email: ${userEmail}`);
-    const emailQuery = await db.collection(TOKEN_COLLECTION)
-      .where('email', '==', userEmail)
-      .get();
-    
-    if (!emailQuery.empty) {
-      console.log(`${emailQuery.size} token(s) trouvé(s) par email`);
-      emailQuery.forEach(doc => {
-        const data = doc.data();
-        if (data.token) {
-          tokensToNotify.add(data.token);
-          if (data.platform?.toLowerCase().includes('ios') || 
-              data.userAgent?.toLowerCase().includes('iphone') ||
-              data.userAgent?.toLowerCase().includes('ipad')) {
-            appleDeviceCount++;
-          } else {
-            nonAppleDeviceCount++;
-          }
-        }
-      });
+    const { 
+      userId, 
+      title, 
+      body, 
+      type = 'system',
+      taskId = '',
+      communicationIndex,
+      mode = 'auto',
+      data = {}
+    } = await request.json();
+
+    // Valider les paramètres requis
+    if (!userId || !title || !body) {
+      return NextResponse.json(
+        { error: 'Paramètres requis manquants: userId, title, body' },
+        { status: 400 }
+      );
     }
     
-    // Si aucun token n'a été trouvé
-    if (tokensToNotify.size === 0) {
-      console.log(`Aucun token trouvé pour ${userId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Aucun token trouvé',
-        useLocalMode: true,
-        total: 0
-      });
-    }
-    
-    // Préparer le message FCM
-    const message = {
-      notification: {
-        title,
-        body,
-      },
-      data: {
-        type,
-        taskId: taskId || '',
-        communicationIndex: communicationIndex?.toString() || '',
-        userId,
-        timestamp: Date.now().toString(),
-      }
-    };
-    
-    // Envoyer la notification via FCM
-    console.log(`Envoi de ${tokensToNotify.size} notification(s)...`);
-    const response = await admin.messaging().sendEachForMulticast({
-      tokens: Array.from(tokensToNotify),
-      notification: message.notification,
-      data: message.data
-    });
-    
-    console.log('Résultat de l\'envoi:', {
-      success: response.successCount,
-      failure: response.failureCount,
-      appleDevices: appleDeviceCount,
-      nonAppleDevices: nonAppleDeviceCount
-    });
-    
-    // Sauvegarder la notification dans Firestore
-    await db.collection(NOTIFICATION_COLLECTION).add({
+    // Journaliser la demande de notification
+    console.log(`Demande d'envoi de notification:`, {
       userId,
       title,
       body,
       type,
-      taskId,
-      communicationIndex,
-      timestamp: new Date(),
-      read: false,
-      success: response.successCount > 0
+      taskId: taskId || 'non spécifié',
+      mode: NOTIFICATION_CONFIG.USE_FCM ? 'FCM' : 'local'
     });
     
-    return NextResponse.json({
-      success: response.successCount > 0,
-      total: tokensToNotify.size,
-      results: {
-        success: response.successCount,
-        failure: response.failureCount,
-        appleDevices: appleDeviceCount,
-        nonAppleDevices: nonAppleDeviceCount
+    // Initialiser Firestore
+    const db = getAdminFirestore();
+    if (!db) {
+      return NextResponse.json({
+        success: false,
+        error: 'Erreur d\'initialisation Firebase Admin'
+      }, { status: 500 });
+    }
+    
+    // Vérifier si la notification doit être envoyée selon les préférences utilisateur
+    const shouldSendNotification = await checkNotificationPreferences(db, userId, type);
+    
+    if (!shouldSendNotification) {
+      console.log(`Notification non envoyée car l'utilisateur ${userId} a désactivé les notifications de type ${type}`);
+      return NextResponse.json({
+        success: false,
+        message: 'Notification non envoyée (désactivée dans les préférences)',
+        notificationStatus: 'disabled'
+      });
+    }
+
+    // Enregistrement de la notification dans Firestore
+    const notificationData = {
+      userId,
+      title,
+      body,
+      type,
+      taskId: taskId || null,
+      communicationIndex: communicationIndex || null,
+      read: false,
+      timestamp: new Date(),
+      data: sanitizeFirestoreData(data)
+    };
+    
+    await db.collection(NOTIFICATION_COLLECTION).add(notificationData);
+    console.log(`Notification enregistrée dans Firestore pour ${userId}`);
+    
+    // Extraire l'email utilisateur et le consultant à partir de l'ID
+    const [userEmail, consultantName] = userId.split('_');
+    console.log(`Extraction de l'email utilisateur: ${userEmail} et consultant: ${consultantName}`);
+
+    // Si FCM est désactivé, on retourne une réponse spéciale pour le mode local
+    if (!NOTIFICATION_CONFIG.USE_FCM) {
+      return NextResponse.json({
+        success: true,
+        message: 'Notification enregistrée (mode FCM désactivé)',
+        useLocalMode: true,
+        notification: {
+          title,
+          body,
+          taskId,
+          type
+        },
+        fcmStatus: 'disabled'
+      });
+    }
+    
+    // Chercher les tokens FCM pour cet utilisateur dans Firestore
+    if (!db) {
+      return NextResponse.json({
+        success: false,
+        useLocalMode: true,
+        notification: {
+          title,
+          body,
+          taskId,
+          type
+        },
+        warning: 'Firebase Admin non initialisé, utilisation du mode local'
+      });
+    }
+    
+    // IMPORTANTE MODIFICATION: Chercher tous les tokens pour cet email utilisateur
+    // et pour la combinaison spécifique email_consultant, 
+    // AINSI QUE les tokens qui ont urlConsultant = consultantName
+    let tokensSnapshot;
+    
+    if (consultantName) {
+      // Format spécifique email_consultant ou tokens avec urlConsultant correspondant
+      const directTokens = await db.collection(TOKEN_COLLECTION)
+        .where('userId', '==', userId)
+        .get();
+      
+      // Récupérer aussi les tokens des utilisateurs ayant inscrit ce consultant dans leurs préférences
+      const urlConsultantTokens = await db.collection(TOKEN_COLLECTION)
+        .where('urlConsultant', '==', consultantName)
+        .get();
+      
+      // Créer un objet avec la même structure qu'un QuerySnapshot
+      const combinedDocs = [...directTokens.docs, ...urlConsultantTokens.docs];
+      tokensSnapshot = {
+        empty: combinedDocs.length === 0,
+        docs: combinedDocs,
+        forEach: (callback: (doc: FirebaseFirestore.QueryDocumentSnapshot) => void) => combinedDocs.forEach(callback)
+      };
+    } else {
+      // Dans le cas d'une notification sans consultant spécifique, utiliser seulement l'email
+      tokensSnapshot = await db.collection(TOKEN_COLLECTION)
+        .where('email', '==', userEmail)
+        .get();
+    }
+
+    if (tokensSnapshot.empty) {
+      console.log(`Aucun token trouvé pour l'utilisateur ${userId}`);
+      return NextResponse.json({
+        success: false,
+        error: 'Aucun token trouvé',
+        useLocalMode: true
+      });
+    }
+
+    // Récupérer les tokens en évitant les doublons
+    const tokens: string[] = [];
+    const uniqueDeviceTokens = new Set<string>();
+    const tokensWithDeviceInfo: Array<{token: string, platform: string, isAppleDevice: boolean, timestamp: number}> = [];
+    
+    tokensSnapshot.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
+      const tokenData = doc.data();
+      if (tokenData.token && tokenData.token !== 'local-notifications-mode') {
+        // Vérifier si nous avons déjà ce token
+        if (!uniqueDeviceTokens.has(tokenData.token)) {
+          uniqueDeviceTokens.add(tokenData.token);
+          tokens.push(tokenData.token);
+          
+          // Ajouter des infos sur la plateforme pour faire des ajustements par appareil
+          const isAppleDevice = tokenData.userAgent?.toLowerCase().includes('iphone') || 
+                              tokenData.userAgent?.toLowerCase().includes('ipad') || 
+                              tokenData.userAgent?.toLowerCase().includes('mac') ||
+                              tokenData.platform?.toLowerCase().includes('iphone') ||
+                              tokenData.platform?.toLowerCase().includes('ipad') ||
+                              tokenData.platform?.toLowerCase().includes('mac');
+                              
+          tokensWithDeviceInfo.push({
+            token: tokenData.token,
+            platform: tokenData.platform || 'unknown',
+            isAppleDevice,
+            timestamp: tokenData.timestamp || Date.now()
+          });
+        }
       }
     });
-    
+
+    // Trier les tokens Apple par timestamp (le plus récent d'abord)
+    const sortedAppleTokens = tokensWithDeviceInfo
+      .filter(t => t.isAppleDevice)
+      .sort((a, b) => b.timestamp - a.timestamp);
+
+    // Récupérer les tokens non-Apple
+    const nonAppleTokens = tokensWithDeviceInfo
+      .filter(t => !t.isAppleDevice)
+      .map(t => t.token);
+
+    // Pour les appareils Apple, ne garder que le token le plus récent
+    const tokensToNotify = [
+      ...(sortedAppleTokens.length > 0 ? [sortedAppleTokens[0].token] : []),
+      ...nonAppleTokens
+    ];
+
+    if (tokensToNotify.length === 0) {
+      console.log(`Aucun token FCM valide trouvé pour l'utilisateur ${userId}, suggestion du mode local`);
+      return NextResponse.json({
+        success: false,
+        useLocalMode: true,
+        notification: {
+          title,
+          body,
+          taskId,
+          type
+        },
+        warning: `Aucun token FCM valide trouvé pour l'utilisateur ${userId}`
+      }, { status: 404 });
+    }
+
+    try {
+      // Initialiser Firebase Cloud Messaging
+      const messaging = admin.messaging();
+      
+      // Construire le message FCM avec les options spécifiques pour iOS
+      const message = {
+        notification: {
+          title,
+          body
+        },
+        data: {
+          type,
+          taskId: taskId || '',
+          userId,
+          click_action: 'FLUTTER_NOTIFICATION_CLICK'
+        },
+        // Options spécifiques pour iOS pour améliorer le regroupement
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+              badge: 1,
+              'thread-id': `${type || 'default'}_${taskId || Date.now()}`
+            }
+          }
+        }
+      };
+
+      // Envoyer les notifications avec les tokens filtrés
+      const response = await messaging.sendEachForMulticast({
+        tokens: tokensToNotify,
+        ...message
+      });
+
+      console.log(`Notification envoyée (${tokensToNotify.length} appareils):`, {
+        success: response.successCount,
+        failure: response.failureCount,
+        appleDevices: sortedAppleTokens.length,
+        nonAppleDevices: nonAppleTokens.length
+      });
+
+      // Traiter les tokens invalides pour les nettoyer
+      if (response.failureCount > 0) {
+        // Récupérer les résultats détaillés pour identifier les tokens à supprimer
+        const failedTokens = response.responses
+          .map((resp, idx) => {
+            if (!resp.success && 
+                (resp.error?.code === 'messaging/invalid-registration-token' || 
+                 resp.error?.code === 'messaging/registration-token-not-registered')) {
+              return tokensToNotify[idx];
+            }
+            return null;
+          })
+          .filter(token => token !== null);
+
+        // Supprimer les tokens invalides
+        if (failedTokens.length > 0) {
+          console.log(`Nettoyage de ${failedTokens.length} tokens FCM invalides...`);
+          
+          // Rechercher et supprimer ces tokens dans Firestore
+          const batch = db.batch();
+          const tokensRef = db.collection(TOKEN_COLLECTION);
+          
+          for (const token of failedTokens) {
+            const tokenQuery = await tokensRef.where('token', '==', token).get();
+            tokenQuery.forEach(doc => {
+              batch.delete(doc.ref);
+            });
+          }
+          
+          // Exécuter le lot de suppressions
+          await batch.commit();
+          console.log(`${failedTokens.length} tokens invalides supprimés avec succès`);
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        sent: response.successCount,
+        failed: response.failureCount,
+        total: tokensToNotify.length
+      });
+
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi FCM de la notification:', error);
+      // Ne pas retourner de réponse ici, laisser le catch extérieur gérer la réponse
+      // pour éviter la double réponse
+      throw error; // Remonter l'erreur au catch extérieur
+    }
   } catch (error) {
     console.error('Erreur lors de l\'envoi de la notification:', error);
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json(
+      { 
+        error: 'Erreur interne du serveur lors de l\'envoi de la notification',
+        useLocalMode: true, // Suggérer le mode local en cas d'erreur
+      },
+      { status: 500 }
+    );
   }
 }
 

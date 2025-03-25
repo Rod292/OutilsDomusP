@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import admin from '@/app/firebase-admin';
 
-// Force la route à être dynamique pour éviter l'erreur de compilation statique
-export const dynamic = 'force-dynamic';
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const db = admin.firestore();
 
