@@ -5,11 +5,11 @@ import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { Timestamp } from 'firebase/firestore';
 import { getFirestore, collection, addDoc, getDocs, query, where, updateDoc, serverTimestamp, Firestore, deleteDoc, doc } from 'firebase/firestore';
 import { clientApp } from '../api/client-config';
-import { initializeFirebase } from '../services/firebase';
+import { initializeFirebase, VAPID_KEY } from '../services/firebase';
 
 // Configuration des notifications
 export const NOTIFICATION_CONFIG = {
-  vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+  vapidKey: VAPID_KEY || process.env.NEXT_PUBLIC_VAPID_KEY || 'BH4d9fbB2K03fd3E-WTtull3cTODxrtVhFQ94FKQgtt_grFm4QQkV6FzC6LlFNttXFCve5CKvDYlplXX1YbzHDo',
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   USE_FCM: process.env.NEXT_PUBLIC_USE_FCM !== 'false',
   MESSAGES: {

@@ -2,7 +2,7 @@
 // Ce fichier doit être à la racine du domaine
 
 // Version du service worker
-const SW_VERSION = '1.4.0';
+const SW_VERSION = '1.4.1';
 
 // Configuration Firebase pour le service worker
 const firebaseConfig = {
@@ -13,6 +13,9 @@ const firebaseConfig = {
   messagingSenderId: self.FIREBASE_MESSAGING_SENDER_ID || "602323147221",
   appId: self.FIREBASE_APP_ID || "1:602323147221:web:7a1d976ac0478b593b455c"
 };
+
+// Configuration de la clé VAPID pour les Web Push API
+const VAPID_KEY = "BH4d9fbB2K03fd3E-WTtull3cTODxrtVhFQ94FKQgtt_grFm4QQkV6FzC6LlFNttXFCve5CKvDYlplXX1YbzHDo";
 
 // Import des scripts Firebase
 importScripts('https://www.gstatic.com/firebasejs/9.17.2/firebase-app-compat.js');
@@ -26,6 +29,16 @@ firebase.initializeApp(firebaseConfig);
 
 // Récupération de l'instance de messaging
 const messaging = firebase.messaging();
+
+// Définir la clé VAPID pour le service worker
+if (messaging.vapidKey === undefined) {
+  try {
+    messaging.vapidKey = VAPID_KEY;
+    console.log('[Firebase SW] VAPID Key configurée avec succès');
+  } catch (error) {
+    console.error('[Firebase SW] Erreur lors de la configuration de la VAPID Key:', error);
+  }
+}
 
 // Gestionnaire de messages en arrière-plan
 messaging.onBackgroundMessage((payload) => {
@@ -57,6 +70,27 @@ messaging.onBackgroundMessage((payload) => {
   
   // Afficher la notification
   return self.registration.showNotification(title, options);
+});
+
+// Gestionnaire pour recevoir des messages du client (page web)
+self.addEventListener('message', (event) => {
+  console.log('[Firebase SW] Message reçu du client:', event.data);
+  
+  // Si le message contient une clé VAPID, l'utiliser
+  if (event.data && event.data.type === 'SET_VAPID_KEY' && event.data.vapidKey) {
+    try {
+      const vapidKey = event.data.vapidKey;
+      console.log('[Firebase SW] Clé VAPID reçue du client:', vapidKey.substring(0, 10) + '...');
+      
+      // Mettre à jour la clé VAPID
+      if (messaging && typeof messaging.getToken === 'function') {
+        messaging.vapidKey = vapidKey;
+        console.log('[Firebase SW] VAPID Key mise à jour depuis le client');
+      }
+    } catch (error) {
+      console.error('[Firebase SW] Erreur lors de la mise à jour de la clé VAPID:', error);
+    }
+  }
 });
 
 // Gestionnaire de clic sur les notifications

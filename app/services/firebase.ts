@@ -14,13 +14,30 @@ const firebaseConfig = {
 };
 
 // Clé VAPID pour les notifications Web Push
-export const VAPID_KEY = process.env.NEXT_PUBLIC_VAPID_KEY || '';
+export const VAPID_KEY = process.env.NEXT_PUBLIC_VAPID_KEY || 'BH4d9fbB2K03fd3E-WTtull3cTODxrtVhFQ94FKQgtt_grFm4QQkV6FzC6LlFNttXFCve5CKvDYlplXX1YbzHDo';
 
 // Initialiser Firebase seulement côté client
 export const initializeFirebase = () => {
   if (typeof window !== 'undefined' && !getApps().length) {
     try {
       console.log('Initialisation de Firebase...');
+      console.log('VAPID Key disponible:', !!VAPID_KEY);
+      
+      // Si nous sommes côté client, définir la clé VAPID pour le service worker
+      if (typeof window !== 'undefined' && window.navigator.serviceWorker) {
+        try {
+          // Tenter de passer la clé au service worker
+          if (navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+              type: 'SET_VAPID_KEY',
+              vapidKey: VAPID_KEY
+            });
+          }
+        } catch (swError) {
+          console.warn('Impossible d\'envoyer la clé VAPID au service worker:', swError);
+        }
+      }
+      
       return initializeApp(firebaseConfig);
     } catch (error) {
       console.error('Erreur lors de l\'initialisation de Firebase:', error);
