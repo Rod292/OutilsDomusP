@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 
+// Nouvelles URLs des logos
+const HEADER_LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/etat-des-lieux-arthur-loyd.appspot.com/o/newsletter-images%2Flogo-arthur-loyd.png?alt=media";
+const FOOTER_LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/etat-des-lieux-arthur-loyd.appspot.com/o/newsletter-images%2FLogoFooterEmail.png?alt=media";
+
 const templates = {
   nouveau: {
     htmlContent: `
@@ -79,7 +83,7 @@ const templates = {
       </head>
       <body>
         <div class="container">
-          <img src="/images/logo-arthur-loyd.png" alt="Arthur Loyd - Créateur de possibilités" class="logo">
+          <img src="${HEADER_LOGO_URL}" alt="Arthur Loyd - Créateur de possibilités" class="logo">
           <div class="content">
             <p>Bonjour [NOM_CLIENT],</p>
             <p>Nous espérons que vous vous sentez déjà chez vous dans vos nouveaux locaux ! <span class="emoji">😊</span> Toute l'équipe d'Arthur Loyd Bretagne tient à vous féliciter pour cette nouvelle étape et vous remercie pour la confiance que vous nous avez accordée. <span class="emoji">🤝</span></p>
@@ -91,7 +95,7 @@ const templates = {
             <p>Encore une fois, merci pour votre confiance, et nous restons à votre disposition si vous avez besoin de quoi que ce soit. <span class="emoji">🤝</span> Très belle continuation dans vos nouveaux espaces.</p>
           </div>
           <div class="footer">
-            <img src="/images/mailing/logo-createur-de-possibilites.png" alt="Arthur Loyd - Créateur de possibilités" class="logo" style="filter: brightness(1.1);">
+            <img src="${FOOTER_LOGO_URL}" alt="Arthur Loyd - Créateur de possibilités" class="logo" style="filter: brightness(1.1);">
             <div class="signature">
               <p style="color: #ffffff;">Arthur Loyd Bretagne</p>
             </div>
@@ -186,7 +190,7 @@ const templates = {
       </head>
       <body>
         <div class="container">
-          <img src="/images/logo-arthur-loyd.png" alt="Arthur Loyd - Créateur de possibilités" class="logo">
+          <img src="${HEADER_LOGO_URL}" alt="Arthur Loyd - Créateur de possibilités" class="logo">
           <div class="content">
             <p>Bonjour [NOM_CLIENT],</p>
             <p>Il est difficile de croire que cela fait déjà un an que vous avez investi vos nouveaux locaux ! Toute l'équipe d'Arthur Loyd Bretagne espère que vous vous sentez toujours aussi bien et que cette première année a été une belle réussite pour vous. <span class="emoji">🌟</span></p>
@@ -198,7 +202,7 @@ const templates = {
             <p>Nous vous souhaitons encore beaucoup de succès dans vos locaux,</p>
           </div>
           <div class="footer">
-            <img src="/images/mailing/logo-createur-de-possibilites.png" alt="Arthur Loyd - Créateur de possibilités" class="logo" style="filter: brightness(1.1);">
+            <img src="${FOOTER_LOGO_URL}" alt="Arthur Loyd - Créateur de possibilités" class="logo" style="filter: brightness(1.1);">
             <div class="signature">
               <p style="color: #ffffff;">Arthur Loyd Bretagne</p>
             </div>
@@ -293,7 +297,7 @@ const templates = {
       </head>
       <body>
         <div class="container">
-          <img src="/images/logo-arthur-loyd.png" alt="Arthur Loyd - Créateur de possibilités" class="logo">
+          <img src="${HEADER_LOGO_URL}" alt="Arthur Loyd - Créateur de possibilités" class="logo">
           <div class="content">
             <p>Bonjour [NOM_BAILLEUR],</p>
             <p>Nous tenons à vous remercier chaleureusement pour votre collaboration avec Arthur Loyd Bretagne. <span class="emoji">🤝</span> En tant que bailleur, votre confiance nous permet de connecter des entreprises avec les espaces idéaux pour leurs besoins.</p>
@@ -306,7 +310,7 @@ const templates = {
             <p>Sincères salutations,</p>
           </div>
           <div class="footer">
-            <img src="/images/mailing/logo-createur-de-possibilites.png" alt="Arthur Loyd - Créateur de possibilités" class="logo" style="filter: brightness(1.1);">
+            <img src="${FOOTER_LOGO_URL}" alt="Arthur Loyd - Créateur de possibilités" class="logo" style="filter: brightness(1.1);">
             <div class="signature">
               <p style="color: #ffffff;">Arthur Loyd Bretagne</p>
             </div>

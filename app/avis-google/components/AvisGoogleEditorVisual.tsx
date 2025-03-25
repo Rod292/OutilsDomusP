@@ -24,9 +24,9 @@ import {
 // Récupérer la clé API TinyMCE depuis les variables d'environnement ou utiliser la clé en dur comme fallback
 const TINYMCE_API_KEY = process.env.NEXT_PUBLIC_TINYMCE_API_KEY || 'r4grgrcqwxc80gk44x3aaiqm3rqa29t3utou9a0224ixu4gc';
 
-// URLs des logos - Utiliser les URL absolues avec l'origine
-const HEADER_LOGO_URL = "/images/logo-arthur-loyd.png";
-const FOOTER_LOGO_URL = "/images/mailing/logo-createur-de-possibilites.png";
+// URLs des logos - Utiliser les URLs Firebase
+const HEADER_LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/etat-des-lieux-arthur-loyd.appspot.com/o/newsletter-images%2Flogo-arthur-loyd.png?alt=media";
+const FOOTER_LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/etat-des-lieux-arthur-loyd.appspot.com/o/newsletter-images%2FLogoFooterEmail.png?alt=media";
 
 // Types pour TinyMCE
 type TinyMCEEditor = {
