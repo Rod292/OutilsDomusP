@@ -24,9 +24,9 @@ import {
 // Récupérer la clé API TinyMCE depuis les variables d'environnement ou utiliser la clé en dur comme fallback
 const TINYMCE_API_KEY = process.env.NEXT_PUBLIC_TINYMCE_API_KEY || 'r4grgrcqwxc80gk44x3aaiqm3rqa29t3utou9a0224ixu4gc';
 
-// URLs des logos
+// URLs des logos - Utiliser les URL absolues avec l'origine
 const HEADER_LOGO_URL = "/images/logo-arthur-loyd.png";
-const FOOTER_LOGO_URL = "/images/logo-createur-de-possibilites.png";
+const FOOTER_LOGO_URL = "/images/mailing/logo-createur-de-possibilites.png";
 
 // Types pour TinyMCE
 type TinyMCEEditor = {
@@ -387,10 +387,27 @@ export default function AvisGoogleEditorVisual() {
     ];
   };
 
+  // Générer des URLs absolues pour les ressources
+  const getAbsoluteUrl = (path: string): string => {
+    // En développement, utiliser le localhost
+    if (typeof window !== 'undefined') {
+      const origin = window.location.origin;
+      // S'assurer que le chemin commence par un slash
+      const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+      return `${origin}${normalizedPath}`;
+    }
+    // Fallback pour SSR
+    return path;
+  };
+
   const generateHtml = (sections: AvisGoogleSection[]): string => {
     const headerSection = sections.find(s => s.type === 'header');
     const contentSection = sections.find(s => s.type === 'content');
     const footerSection = sections.find(s => s.type === 'footer');
+
+    // Transformer les URLs relatives en URLs absolues
+    const headerLogoUrl = getAbsoluteUrl(headerSection?.content.logo || HEADER_LOGO_URL);
+    const footerLogoUrl = getAbsoluteUrl(FOOTER_LOGO_URL);
 
     return `
       <!DOCTYPE html>
@@ -488,7 +505,7 @@ export default function AvisGoogleEditorVisual() {
           <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff;">
             <tr>
               <td align="center" style="padding: 20px; text-align: center;">
-                <img src="${headerSection?.content.logo || HEADER_LOGO_URL}" alt="Arthur Loyd Logo" class="logo" width="180" height="auto" style="display: block; margin: 0 auto; float: none; text-align: center;">
+                <img src="${headerLogoUrl}" alt="Arthur Loyd Logo" class="logo" width="180" height="auto" style="display: block; margin: 0 auto; float: none; text-align: center;">
               </td>
             </tr>
           </table>
@@ -506,7 +523,7 @@ export default function AvisGoogleEditorVisual() {
                 <table border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#464254" style="background-color: #464254 !important; background: #464254 !important;">
                   <tr bgcolor="#464254" style="background-color: #464254 !important;">
                     <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 0;">
-                      <img src="${FOOTER_LOGO_URL}" alt="Arthur Loyd - Créateur de possibilités" style="width: 400px; max-width: 100%; height: auto; display: inline-block;" width="400">
+                      <img src="${footerLogoUrl}" alt="Arthur Loyd - Créateur de possibilités" style="width: 400px; max-width: 100%; height: auto; display: inline-block;" width="400">
                     </td>
                   </tr>
                   <tr bgcolor="#464254" style="background-color: #464254 !important;">
