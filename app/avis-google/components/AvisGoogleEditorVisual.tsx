@@ -803,54 +803,163 @@ export default function AvisGoogleEditorVisual() {
                   />
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="tinymce-editor">Contenu de l'email</Label>
-                  <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
-                    <Editor
-                      id="tinymce-editor"
-                      apiKey={TINYMCE_API_KEY}
-                      onInit={(evt, editor) => editorRef.current = editor as any}
-                      initialValue={emailContent}
-                      init={{
-                        height: 500,
-                        menubar: false,
-                        plugins: [
-                          'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
-                          'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                          'insertdatetime', 'media', 'table', 'preview', 'wordcount', 'template'
-                        ],
-                        toolbar: 'undo redo | blocks | bold italic underline | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image | template | removeformat | code',
-                        content_style: 'body { font-family:Arial,sans-serif; font-size:14px }',
-                        skin: 'oxide',
-                        skin_url: '/tinymce/skins/ui/oxide',
-                        content_css: '/tinymce/skins/content/default/content.css',
-                        branding: false,
-                        // Ajouter la gestion des templates
-                        templates: [
-                          { title: 'Demande d\'avis (nouveau client)', description: 'Template pour demander un avis Google à un nouveau client', content: getDefaultContent('nouveau') },
-                          { title: 'Relance client', description: 'Template pour relancer un client existant', content: getDefaultContent('relance') },
-                          { title: 'Bailleur', description: 'Template pour demander un avis à un bailleur', content: getDefaultContent('bailleur') }
-                        ]
-                      }}
-                    />
+                {/* Nouvelle disposition en deux colonnes : l'éditeur à gauche, l'aperçu à droite */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Colonne gauche : éditeur TinyMCE */}
+                  <div className="space-y-2">
+                    <Label htmlFor="tinymce-editor">Contenu de l'email</Label>
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
+                      <Editor
+                        id="tinymce-editor"
+                        apiKey={TINYMCE_API_KEY}
+                        onInit={(evt, editor) => editorRef.current = editor as any}
+                        initialValue={emailContent}
+                        init={{
+                          height: 500,
+                          menubar: false,
+                          plugins: [
+                            'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
+                            'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                            'insertdatetime', 'media', 'table', 'preview', 'wordcount', 'template'
+                          ],
+                          toolbar: 'undo redo | blocks | bold italic underline | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image | template | removeformat | code',
+                          content_style: 'body { font-family:Arial,sans-serif; font-size:14px }',
+                          skin: 'oxide',
+                          skin_url: '/tinymce/skins/ui/oxide',
+                          content_css: '/tinymce/skins/content/default/content.css',
+                          branding: false,
+                          // Mise à jour en temps réel lors de la frappe ou des changements
+                          setup: (editor) => {
+                            editor.on('change keyup blur', () => {
+                              // Synchroniser le contenu avec l'aperçu en temps réel
+                              if (editor) {
+                                const content = editor.getContent();
+                                // Mettre à jour le contenu dans les sections
+                                const updatedSections = sections.map(section => {
+                                  if (section.type === 'content') {
+                                    return {
+                                      ...section,
+                                      content: {
+                                        ...section.content,
+                                        content: content
+                                      }
+                                    };
+                                  }
+                                  return section;
+                                });
+                                
+                                // Mettre à jour les états
+                                setEmailContent(content);
+                                setSections(updatedSections);
+                                
+                                // Régénérer l'aperçu HTML
+                                setPreviewHtml(generateHtml(updatedSections));
+                              }
+                            });
+                          },
+                          // Ajouter la gestion des templates
+                          templates: [
+                            { title: 'Demande d\'avis (nouveau client)', description: 'Template pour demander un avis Google à un nouveau client', content: getDefaultContent('nouveau') },
+                            { title: 'Relance client', description: 'Template pour relancer un client existant', content: getDefaultContent('relance') },
+                            { title: 'Bailleur', description: 'Template pour demander un avis à un bailleur', content: getDefaultContent('bailleur') }
+                          ]
+                        }}
+                      />
+                      
+                      <div className="flex justify-end space-x-2 mt-4">
+                        <Button
+                          variant="outline"
+                          onClick={loadDefaultTemplate}
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Réinitialiser
+                        </Button>
+                        <Button
+                          variant="default"
+                          onClick={handleUpdateContent}
+                        >
+                          <Save className="h-4 w-4 mr-2" />
+                          Enregistrer
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="flex justify-end space-x-2">
-                  <Button
-                    variant="outline"
-                    onClick={loadDefaultTemplate}
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Réinitialiser
-                  </Button>
-                  <Button
-                    variant="default"
-                    onClick={handleUpdateContent}
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    Enregistrer
-                  </Button>
+                  
+                  {/* Colonne droite : aperçu en temps réel */}
+                  <div className="space-y-2">
+                    <Label>Aperçu en temps réel</Label>
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-auto bg-white h-[500px]">
+                      <div className="p-4">
+                        <iframe
+                          srcDoc={previewHtml}
+                          className="w-full h-full border-0"
+                          style={{ height: '460px' }}
+                        ></iframe>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end space-x-2 mt-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowTestForm(!showTestForm)}
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        {showTestForm ? "Annuler" : "Envoyer un test"}
+                      </Button>
+                      <Button 
+                        variant="default"
+                        size="sm"
+                        onClick={() => {
+                          // S'assurer que le contenu est à jour avant de passer en mode aperçu
+                          handleUpdateContent();
+                          setMode('preview');
+                        }}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Mode aperçu
+                      </Button>
+                    </div>
+                    
+                    {/* Formulaire de test intégré dans le panneau d'édition */}
+                    {showTestForm && (
+                      <Card className="p-4 border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 mt-4">
+                        <div className="space-y-4">
+                          <h4 className="font-medium text-blue-800 dark:text-blue-300">Envoyer un email de test</h4>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="test-email">Email de test</Label>
+                              <Input
+                                id="test-email"
+                                value={testEmail}
+                                onChange={(e) => setTestEmail(e.target.value)}
+                                placeholder="Adresse email pour le test"
+                                type="email"
+                              />
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor="test-name">Nom (optionnel)</Label>
+                              <Input
+                                id="test-name"
+                                value={testName}
+                                onChange={(e) => setTestName(e.target.value)}
+                                placeholder="Nom du destinataire de test"
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="flex justify-end">
+                            <Button onClick={sendTestEmail}>
+                              <Send className="h-4 w-4 mr-2" />
+                              Envoyer le test
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
