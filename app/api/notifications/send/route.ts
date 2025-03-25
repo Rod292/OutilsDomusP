@@ -271,8 +271,20 @@ export async function POST(request: NextRequest) {
         .where('urlConsultant', '==', consultantName)
         .get();
       
+      // AJOUT: Pour un cas spécial avec photos.pers@gmail.com qui veut recevoir les notifications pour npers
+      let specialUserTokens: FirebaseFirestore.QuerySnapshot = { empty: true, docs: [], forEach: () => {} } as any;
+      
+      if (consultantName === 'nathalie' || consultantName.toLowerCase() === 'npers') {
+        const specialUserEmail = 'photos.pers@gmail.com';
+        specialUserTokens = await db.collection(TOKEN_COLLECTION)
+          .where('userId', '==', specialUserEmail)
+          .get();
+        
+        console.log(`Tokens spéciaux trouvés pour ${specialUserEmail} concernant ${consultantName}: ${specialUserTokens.size} tokens`);
+      }
+      
       // Créer un objet avec la même structure qu'un QuerySnapshot
-      const combinedDocs = [...directTokens.docs, ...urlConsultantTokens.docs];
+      const combinedDocs = [...directTokens.docs, ...urlConsultantTokens.docs, ...specialUserTokens.docs];
       tokensSnapshot = {
         empty: combinedDocs.length === 0,
         docs: combinedDocs,

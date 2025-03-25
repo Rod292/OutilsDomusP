@@ -766,8 +766,23 @@ export const sendTaskAssignedNotification = async (params: {
     
     // Utiliser des valeurs par défaut pour les champs manquants
     const userId = params.userId || '';
-    const title = params.title || 'Nouvelle notification';
-    const body = params.body || 'Vous avez une nouvelle notification';
+    let title = params.title || 'Nouvelle notification';
+    let body = params.body || 'Vous avez une nouvelle notification';
+    
+    // Pour les cas spéciaux comme photos.pers@gmail.com qui veut recevoir des notifications pour nathalie
+    if (params.recipientEmail && 
+        (params.recipientEmail.toLowerCase().includes('npers') || 
+         params.recipientEmail.toLowerCase().includes('nathalie'))) {
+      
+      // Si c'est une notification pour Nathalie, modifier le titre pour être plus clair
+      if (title.includes('assigné') && title.toLowerCase().includes('nathalie')) {
+        title = 'Nouvelle tâche pour Nathalie';
+        // Garder le corps original pour les détails de la tâche
+      }
+      
+      console.log('Notification adaptée pour Nathalie:', { title, body });
+    }
+    
     const notificationType = params.isCommunication ? "communication_assigned" : "task_assigned";
     
     // Log plus détaillé des paramètres reçus pour le débogage

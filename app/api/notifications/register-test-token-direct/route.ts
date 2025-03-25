@@ -19,8 +19,21 @@ export async function POST(request: NextRequest) {
     // Générer un ID unique pour le token
     const tokenId = uuidv4();
 
+    // Définir le type avec un champ optionnel specialAccess
+    interface TokenData {
+      token: string;
+      platform: string;
+      userAgent: string;
+      createdAt: string;
+      userId: string;
+      consultant: string | null;
+      isTestToken: boolean;
+      specialAccess?: string[];
+      urlConsultant?: string;
+    }
+
     // Préparer les données du token
-    const tokenData = {
+    const tokenData: TokenData = {
       token: `test-token-${tokenId}`,
       platform: data.platform || 'web',
       userAgent: data.userAgent || 'test-device',
@@ -30,10 +43,35 @@ export async function POST(request: NextRequest) {
       isTestToken: true
     };
 
+    // Ajouter un champ spécial pour photos.pers@gmail.com
+    if (email.toLowerCase() === 'photos.pers@gmail.com') {
+      tokenData.specialAccess = ['nathalie', 'npers'];
+      console.log('Ajout d\'un accès spécial aux notifications de Nathalie pour photos.pers@gmail.com');
+    }
+
     // Enregistrer le token dans Firestore
     await adminDb.collection('notificationTokens').doc(tokenId).set(tokenData);
 
     console.log(`Token de test créé avec succès pour ${email}`, tokenData);
+
+    // Si c'est photos.pers@gmail.com, créer aussi un token spécifique pour Nathalie
+    if (email.toLowerCase() === 'photos.pers@gmail.com' && !consultant) {
+      const nathTokenId = uuidv4();
+      const nathTokenData: TokenData = {
+        token: `test-token-${nathTokenId}`,
+        platform: data.platform || 'web',
+        userAgent: data.userAgent || 'test-device',
+        createdAt: new Date().toISOString(),
+        userId: email,
+        consultant: 'nathalie',
+        urlConsultant: 'nathalie',
+        isTestToken: true,
+        specialAccess: ['nathalie', 'npers']
+      };
+      
+      await adminDb.collection('notificationTokens').doc(nathTokenId).set(nathTokenData);
+      console.log(`Token supplémentaire créé pour ${email} avec accès à nathalie`, nathTokenData);
+    }
 
     return NextResponse.json({
       success: true,
