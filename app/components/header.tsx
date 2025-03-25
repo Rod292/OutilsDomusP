@@ -177,8 +177,6 @@ export function Header() {
                 <h1 className="text-white text-sm sm:text-lg font-semibold tracking-wide truncate max-w-[120px] sm:max-w-none">Sélection d'Outil</h1>
               ) : pathname.includes('/avis-google') ? (
                 <h1 className="text-white text-sm sm:text-lg font-semibold tracking-wide truncate max-w-[120px] sm:max-w-none">Avis Google</h1>
-              ) : pathname.includes('/guides-immobilier') ? (
-                <h1 className="text-white text-sm sm:text-lg font-semibold tracking-wide truncate max-w-[120px] sm:max-w-none">Guides Immobilier</h1>
               ) : pathname.includes('/newsletter') ? (
                 <h1 className="text-white text-sm sm:text-lg font-semibold tracking-wide truncate max-w-[120px] sm:max-w-none">Newsletter</h1>
               ) : (
@@ -260,12 +258,6 @@ export function Header() {
                           <DropdownMenuItem onClick={() => navigateTo("/avis-google")} className="flex items-center p-2 cursor-pointer">
                             <Star className="mr-2 h-4 w-4 text-[#DC0032]" />
                             <span className="dark:text-gray-200">Avis Google</span>
-                          </DropdownMenuItem>
-                        </motion.div>
-                        <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
-                          <DropdownMenuItem onClick={() => navigateTo("/guides-immobilier")} className="flex items-center p-2 cursor-pointer">
-                            <BookOpen className="mr-2 h-4 w-4 text-[#DC0032]" />
-                            <span className="dark:text-gray-200">Guides Immobilier</span>
                           </DropdownMenuItem>
                         </motion.div>
                         <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">

@@ -215,12 +215,6 @@ export default function NotionHeader({ consultant }: NotionHeaderProps) {
                           </DropdownMenuItem>
                         </motion.div>
                         <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
-                          <DropdownMenuItem onClick={() => navigateTo("/guides-immobilier")} className="flex items-center p-2 cursor-pointer">
-                            <BookOpen className="mr-2 h-4 w-4 text-[#DC0032]" />
-                            <span className="dark:text-gray-200">Guides Immobilier</span>
-                          </DropdownMenuItem>
-                        </motion.div>
-                        <motion.div variants={menuItemVariants} className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
                           <DropdownMenuItem onClick={() => navigateTo("/newsletter")} className="flex items-center p-2 cursor-pointer">
                             <Mail className="mr-2 h-4 w-4 text-[#DC0032]" />
                             <span className="dark:text-gray-200">Newsletter</span>

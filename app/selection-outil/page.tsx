@@ -387,43 +387,6 @@ function SelectionOutilClient() {
                   </CardFooter>
                 </Card>
               </motion.div>
-              
-              <motion.div variants={itemVariants} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
-                <Card className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:border-[#DC0032] dark:hover:border-[#DC0032] transition-all duration-300 hover:shadow-lg cursor-pointer group dark:bg-gray-800" onClick={() => navigateTo('/guides-immobilier')}>
-                  <CardHeader className="bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-950/20 dark:to-red-900/20 p-6 border-b border-gray-100 dark:border-gray-700">
-                    <div className="flex items-center gap-5">
-                      <motion.div 
-                        className="bg-[#DC0032] text-white p-3.5 rounded-full w-16 h-16 flex items-center justify-center shadow-md"
-                        whileHover={{ scale: 1.1, rotate: 5 }}
-                        transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                      >
-                        <BookOpen size={28} />
-                      </motion.div>
-                      <div>
-                        <CardTitle className="text-xl font-bold text-[#2D2D2D] dark:text-white">Guides Immobilier</CardTitle>
-                        <CardDescription className="text-sm text-gray-600 dark:text-gray-400 mt-1">Bonnes pratiques professionnelles</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="py-5 px-6">
-                    <ul className="space-y-3 text-base text-gray-700 dark:text-gray-300">
-                      <li className="flex items-center">
-                        <span className="bg-red-100 dark:bg-red-900/30 text-[#DC0032] dark:text-red-300 rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
-                        Baux commerciaux et loi Hoguet
-                      </li>
-                      <li className="flex items-center">
-                        <span className="bg-red-100 dark:bg-red-900/30 text-[#DC0032] dark:text-red-300 rounded-full p-0.5 mr-2.5 flex items-center justify-center w-5 h-5">✓</span>
-                        Droit au bail et investissements
-                      </li>
-                    </ul>
-                  </CardContent>
-                  <CardFooter className="pt-0 pb-5 px-6">
-                    <Button className="w-full bg-[#DC0032] hover:bg-[#DC0032]/90 text-white text-base font-medium py-5 rounded-lg shadow-sm group-hover:shadow-md transition-all">
-                      Accéder à l'outil
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </motion.div>
 
               <motion.div variants={itemVariants} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
                 <Card className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:border-[#DC0032] dark:hover:border-[#DC0032] transition-all duration-300 hover:shadow-lg cursor-pointer group dark:bg-gray-800" onClick={() => navigateTo('/newsletter')}>
