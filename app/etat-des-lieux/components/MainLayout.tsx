@@ -133,7 +133,12 @@ export default function MainLayout() {
       }
     };
     
-    fetchRecentEDLs();
+    // Ne charger les données que côté client, pas pendant le rendu statique
+    if (typeof window !== 'undefined') {
+      fetchRecentEDLs();
+    } else {
+      setLoading(false);
+    }
   }, [user]);
   
   // Fonction pour créer un nouvel état des lieux

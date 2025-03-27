@@ -1,14 +1,21 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
+import { google } from 'googleapis';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { oAuth2Client } from '@/lib/gmail';
 
 // Client ID et secret doivent être configurés dans votre projet Google Cloud Console
 const CLIENT_ID = process.env.GMAIL_CLIENT_ID || '';
 const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET || '';
 const REDIRECT_URI = process.env.GMAIL_REDIRECT_URI || 'http://localhost:3000/api/gmail/callback';
 
-export async function GET(request: Request) {
+// Spécifier que cette route est dynamique et ne doit pas être rendue statiquement
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    console.log("Callback Gmail appelé");
+    const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get('code');
     const error = searchParams.get('error');
 

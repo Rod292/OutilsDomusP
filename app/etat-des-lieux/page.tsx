@@ -2,7 +2,13 @@
 
 import { useEffect, Suspense } from 'react';
 import { useTheme } from 'next-themes';
-import MainLayout from './components/MainLayout';
+import dynamic from 'next/dynamic';
+
+// Utiliser dynamic pour éviter les problèmes de rendu côté serveur
+const DynamicMainLayout = dynamic(() => import('./components/MainLayout'), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center min-h-screen">Chargement...</div>
+});
 
 function EtatDesLieuxContent() {
   const { setTheme } = useTheme();
@@ -12,7 +18,7 @@ function EtatDesLieuxContent() {
     setTheme('light');
   }, [setTheme]);
   
-  return <MainLayout />;
+  return <DynamicMainLayout />;
 }
 
 export default function EtatDesLieuxPage() {

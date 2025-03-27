@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { oAuth2Client } from '@/lib/gmail';
+
+// Spécifier que cette route est dynamique et ne doit pas être rendue statiquement
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    console.log("Vérification de l'authentification Gmail");
     const cookieStore = cookies();
     const accessToken = cookieStore.get('gmail_access_token')?.value;
     const refreshToken = cookieStore.get('gmail_refresh_token')?.value;

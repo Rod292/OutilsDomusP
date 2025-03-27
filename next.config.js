@@ -3,6 +3,7 @@ const webpack = require('webpack');
 const path = require('path');
 
 const nextConfig = {
+  output: 'standalone', // Utiliser le mode standalone pour une meilleure compatibilité
   reactStrictMode: true,
   // Configuration pour désactiver la pré-génération statique de certaines pages
   // et les forcer en mode client-side rendering uniquement
