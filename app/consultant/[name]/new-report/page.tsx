@@ -103,12 +103,12 @@ export default function NewReportPage() {
       console.log("Récupération des rapports récents pour le consultant:", consultantName)
       const reportsRef = collection(db as Firestore, "reports")
       
-      // Créer une requête sans orderBy pour éviter les erreurs d'index Firebase
-      // On fera le tri côté client en attendant de créer l'index
+      // Créer une requête qui filtre uniquement par nom de consultant
+      // Cela permet à n'importe quel utilisateur de voir les rapports d'un consultant spécifique
       const q = query(
         reportsRef, 
-        where("userId", "==", user.uid),
         where("consultant", "==", consultantName)
+        // Ne plus filtrer par userId pour permettre à tous les utilisateurs d'accéder aux rapports
         // orderBy retiré temporairement jusqu'à la création de l'index
       )
       

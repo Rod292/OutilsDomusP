@@ -47,10 +47,11 @@ export default function MainLayout() {
     setLoading(true);
     try {
       const edlRef = collection(db, "reports");
-      // Retirer orderBy pour éviter l'erreur d'index Firebase
+      // Requête sans filtre sur l'utilisateur pour afficher tous les états des lieux récents
+      // Cela permet à tous les utilisateurs connectés de voir les mêmes données
       const q = query(
-        edlRef,
-        where("userId", "==", user.uid)
+        edlRef
+        // Ne plus filtrer par userId pour montrer tous les états des lieux récents
         // orderBy temporairement retiré - on va trier côté client
       );
       
