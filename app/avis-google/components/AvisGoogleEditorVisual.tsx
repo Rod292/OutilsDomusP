@@ -388,10 +388,10 @@ export default function AvisGoogleEditorVisual() {
       url: (link as HTMLAnchorElement).href
     }));
 
-    sections.push({
-      id: 'footer',
-      type: 'footer',
-      content: {
+      sections.push({
+        id: 'footer',
+        type: 'footer',
+        content: {
         signature: signature?.textContent || 'Arthur Loyd Bretagne',
         socialLinks: socialLinks.length > 0 ? socialLinks : [
           { platform: 'LinkedIn', url: 'https://www.linkedin.com/company/arthur-loyd-bretagne/' },
@@ -490,7 +490,7 @@ export default function AvisGoogleEditorVisual() {
           .newsletter-container {
             width: 100%;
             max-width: 700px;
-            margin: 0 auto;
+            margin: 0 auto; 
             background-color: #ffffff;
           }
           .header {
@@ -498,7 +498,7 @@ export default function AvisGoogleEditorVisual() {
             padding: 20px;
             background-color: #ffffff;
           }
-          .logo {
+          .logo { 
             max-width: 180px;
             width: 180px;
             height: auto;
@@ -524,7 +524,7 @@ export default function AvisGoogleEditorVisual() {
             margin: 0 auto 20px auto;
             filter: brightness(1.1);
           }
-          .social-links {
+          .social-links { 
             margin: 25px 0;
           }
           .social-links a {
@@ -605,7 +605,7 @@ export default function AvisGoogleEditorVisual() {
                   </tr>
                   <tr bgcolor="#464254" style="background-color: #464254 !important;">
                     <td align="center" bgcolor="#464254" style="background-color: #464254 !important; padding: 0;">
-                      <div class="social-links">
+              <div class="social-links">
                         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 400px; margin: 0 auto;" bgcolor="#464254">
                           <tr bgcolor="#464254" style="background-color: #464254 !important;">
                             ${footerSection?.content.socialLinks?.map((link, index) => `
@@ -625,7 +625,7 @@ export default function AvisGoogleEditorVisual() {
                             `}
                           </tr>
                         </table>
-                      </div>
+              </div>
                     </td>
                   </tr>
                   <tr bgcolor="#464254" style="background-color: #464254 !important;">
@@ -643,7 +643,7 @@ export default function AvisGoogleEditorVisual() {
       </html>
     `;
   };
-  
+
   // Fonction pour envoyer un email de test
   const sendTestEmail = async () => {
     if (!testEmail.trim()) {
@@ -704,6 +704,20 @@ export default function AvisGoogleEditorVisual() {
     }
   };
 
+  // Fonction pour tester si TinyMCE s'initialise correctement
+  const debugTinyMCE = () => {
+    console.log("Debugging TinyMCE initialization...");
+    console.log("TinyMCE API Key:", TINYMCE_API_KEY);
+    console.log("Email content:", emailContent);
+    
+    // Vérifier si les ressources TinyMCE sont disponibles
+    if (typeof window !== 'undefined') {
+      console.log("TinyMCE global object:", typeof (window as any).tinymce !== 'undefined' ? "Available" : "Not available");
+    }
+    
+    return null;
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center p-8">
@@ -745,15 +759,15 @@ export default function AvisGoogleEditorVisual() {
           </TabsList>
           
           <div className="flex space-x-2">
-            <Button 
+          <Button
               variant={mode === 'edit' ? "default" : "outline"}
-              onClick={() => setMode('edit')}
+            onClick={() => setMode('edit')}
               size="sm"
             >
               <Edit className="h-4 w-4 mr-2" />
-              Éditer
-            </Button>
-            <Button 
+            Éditer
+          </Button>
+          <Button
               variant={mode === 'preview' ? "default" : "outline"}
               onClick={() => {
                 // S'assurer que le contenu est à jour avant de passer en mode aperçu
@@ -768,7 +782,7 @@ export default function AvisGoogleEditorVisual() {
             >
               <Eye className="h-4 w-4 mr-2" />
               Aperçu
-            </Button>
+          </Button>
             <Button 
               variant={mode === 'send' ? "default" : "outline"}
               onClick={() => {
@@ -809,29 +823,30 @@ export default function AvisGoogleEditorVisual() {
                   <div className="space-y-2">
                     <Label htmlFor="tinymce-editor">Contenu de l'email</Label>
                     <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
-                      <Editor
+                      {debugTinyMCE()}
+                      
+                      {/* Éditeur TinyMCE avec configuration minimale */}
+                  <Editor
                         id="tinymce-editor"
-                        apiKey={TINYMCE_API_KEY}
+                    apiKey={TINYMCE_API_KEY}
                         onInit={(evt, editor) => editorRef.current = editor as any}
-                        initialValue={emailContent}
-                        init={{
+                    initialValue={emailContent}
+                    init={{
                           height: 500,
-                          menubar: false,
-                          plugins: [
-                            'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
-                            'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                            'insertdatetime', 'media', 'table', 'preview', 'wordcount', 'template'
+                      menubar: false,
+                      plugins: [
+                            'link', 'lists', 'fullscreen'
                           ],
-                          toolbar: 'undo redo | blocks | bold italic underline | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image | template | removeformat | code',
+                          toolbar: 'undo redo | bold italic | link | bullist numlist',
                           content_style: 'body { font-family:Arial,sans-serif; font-size:14px }',
-                          skin: 'oxide',
+                      skin: 'oxide',
                           skin_url: '/tinymce/skins/ui/oxide',
                           content_css: '/tinymce/skins/content/default/content.css',
-                          branding: false,
+                      branding: false,
+                          base_url: '/tinymce', // Pour s'assurer que TinyMCE sait où chercher les ressources
                           // Mise à jour en temps réel lors de la frappe ou des changements
                           setup: (editor) => {
-                            editor.on('change keyup blur', () => {
-                              // Synchroniser le contenu avec l'aperçu en temps réel
+                            editor.on('change keyup', () => {
                               if (editor) {
                                 const content = editor.getContent();
                                 // Mettre à jour le contenu dans les sections
@@ -855,16 +870,10 @@ export default function AvisGoogleEditorVisual() {
                                 // Régénérer l'aperçu HTML
                                 setPreviewHtml(generateHtml(updatedSections));
                               }
-                            });
-                          },
-                          // Ajouter la gestion des templates
-                          templates: [
-                            { title: 'Demande d\'avis (nouveau client)', description: 'Template pour demander un avis Google à un nouveau client', content: getDefaultContent('nouveau') },
-                            { title: 'Relance client', description: 'Template pour relancer un client existant', content: getDefaultContent('relance') },
-                            { title: 'Bailleur', description: 'Template pour demander un avis à un bailleur', content: getDefaultContent('bailleur') }
-                          ]
-                        }}
-                      />
+                        });
+                      }
+                    }}
+                  />
                       
                       <div className="flex justify-end space-x-2 mt-4">
                         <Button
@@ -876,7 +885,29 @@ export default function AvisGoogleEditorVisual() {
                         </Button>
                         <Button
                           variant="default"
-                          onClick={handleUpdateContent}
+                          onClick={() => {
+                            if (editorRef.current) {
+                              const content = editorRef.current.getContent();
+                              // Mettre à jour les sections pour l'aperçu
+                              const updatedSections = sections.map(section => {
+                                if (section.type === 'content') {
+                                  return {
+                                    ...section,
+                                    content: {
+                                      ...section.content,
+                                      content: content
+                                    }
+                                  };
+                                }
+                                return section;
+                              });
+                              
+                              setEmailContent(content);
+                              setSections(updatedSections);
+                              setPreviewHtml(generateHtml(updatedSections));
+                              toast.success("Contenu mis à jour avec succès");
+                            }
+                          }}
                         >
                           <Save className="h-4 w-4 mr-2" />
                           Enregistrer
@@ -899,7 +930,7 @@ export default function AvisGoogleEditorVisual() {
                     </div>
                     
                     <div className="flex justify-end space-x-2 mt-4">
-                      <Button
+                  <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setShowTestForm(!showTestForm)}
@@ -918,7 +949,7 @@ export default function AvisGoogleEditorVisual() {
                       >
                         <Eye className="h-4 w-4 mr-2" />
                         Mode aperçu
-                      </Button>
+                  </Button>
                     </div>
                     
                     {/* Formulaire de test intégré dans le panneau d'édition */}
@@ -1052,9 +1083,9 @@ export default function AvisGoogleEditorVisual() {
                   </Button>
                 </div>
               </div>
-            )}
-            
-            {mode === 'send' && (
+          )}
+
+          {mode === 'send' && (
               <div className="space-y-6">
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
                   <h3 className="text-amber-800 dark:text-amber-300 font-medium flex items-center">
@@ -1091,7 +1122,7 @@ export default function AvisGoogleEditorVisual() {
                       newsletterHtml={previewHtml}
                       recipients={[]}
                       subject={emailSubject}
-                      senderName={senderName}
+                  senderName={senderName}
                       onComplete={(results) => {
                         console.log('Résultats de l\'envoi:', results);
                         toast.success(`${results.success} emails envoyés avec succès. ${results.failed} échecs.`);
