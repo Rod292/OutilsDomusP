@@ -103,13 +103,13 @@ export default function NewReportPage() {
       console.log("Récupération des rapports récents pour le consultant:", consultantName)
       const reportsRef = collection(db as Firestore, "reports")
       
-      // Créer une requête pour obtenir les rapports du consultant actuel
+      // Créer une requête sans orderBy pour éviter les erreurs d'index Firebase
+      // On fera le tri côté client en attendant de créer l'index
       const q = query(
         reportsRef, 
         where("userId", "==", user.uid),
-        where("consultant", "==", consultantName),
-        orderBy("lastUpdated", "desc"),  // Tri par date de mise à jour décroissante
-        limit(20)  // Augmenter la limite pour voir plus de rapports
+        where("consultant", "==", consultantName)
+        // orderBy retiré temporairement jusqu'à la création de l'index
       )
       
       // Forcer la récupération des données fraîches depuis le serveur
@@ -124,7 +124,17 @@ export default function NewReportPage() {
         reports.push({ id: doc.id, ...data } as RecentReport)
       })
       
-      setRecentReports(reports)
+      // Tri manuel par date de mise à jour décroissante
+      reports.sort((a, b) => {
+        const dateA = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
+        const dateB = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
+        return dateB - dateA;
+      });
+      
+      // Limiter le nombre de rapports affichés
+      const limitedReports = reports.slice(0, 20);
+      
+      setRecentReports(limitedReports)
       setLoadingReports(false)
     } catch (error) {
       console.error("Erreur lors de la récupération des rapports récents:", error)

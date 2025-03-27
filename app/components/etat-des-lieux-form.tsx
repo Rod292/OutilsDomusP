@@ -1662,9 +1662,25 @@ export function EtatDesLieuxForm({
         .then((success) => {
           if (success) {
             console.log("Autosauvegarde réussie ✓");
+            
+            // Pour s'assurer que l'ID est bien passé au parent et que la liste des rapports est actualisée
+            if (onProgressUpdate && (currentEdlId || (formData as any)._id)) {
+              console.log("Notification du parent pour mise à jour de la liste des rapports récents");
+              
+              // S'assurer que _id est défini dans les données qu'on passe au parent
+              const updatedData = { 
+                ...formData, 
+                _id: (formData as any)._id || currentEdlId 
+              };
+              
+              onProgressUpdate(updatedData);
+            }
           } else {
             console.warn("Échec de l'autosauvegarde ✗");
           }
+        })
+        .catch((error) => {
+          console.error("Erreur lors de l'autosauvegarde:", error);
         });
     }, 1000); // Délai de 1 seconde après la dernière modification
   };

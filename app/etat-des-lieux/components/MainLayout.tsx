@@ -47,11 +47,11 @@ export default function MainLayout() {
     setLoading(true);
     try {
       const edlRef = collection(db, "reports");
+      // Retirer orderBy pour éviter l'erreur d'index Firebase
       const q = query(
         edlRef,
-        where("userId", "==", user.uid),
-        orderBy("lastUpdated", "desc"),
-        limit(10)
+        where("userId", "==", user.uid)
+        // orderBy temporairement retiré - on va trier côté client
       );
       
       const querySnapshot = await getDocs(q);
@@ -126,8 +126,18 @@ export default function MainLayout() {
         });
       });
       
-      console.log(`Récupération de ${edls.length} états des lieux terminée`);
-      setRecentEDLs(edls);
+      // Tri manuel par date de dernière mise à jour (décroissante)
+      edls.sort((a, b) => {
+        const dateA = new Date(a.lastUpdated).getTime();
+        const dateB = new Date(b.lastUpdated).getTime();
+        return dateB - dateA;
+      });
+      
+      // Limiter le nombre d'états des lieux (équivalent à limit(10))
+      const limitedEdls = edls.slice(0, 10);
+      
+      console.log(`Récupération de ${limitedEdls.length} états des lieux terminée`);
+      setRecentEDLs(limitedEdls);
       setLoading(false);
     } catch (error) {
       console.error("Erreur lors de la récupération des états des lieux récents:", error);
