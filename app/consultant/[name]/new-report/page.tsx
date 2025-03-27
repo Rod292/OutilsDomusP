@@ -49,10 +49,14 @@ export default function NewReportPage() {
   const [rapport, setRapport] = useState<string | null>(null)
   const [formData, setFormData] = useState<any>({})
   const [editingReportId, setEditingReportId] = useState<string | null>(null)
+  const [loadingReports, setLoadingReports] = useState(true)
   const [recentReports, setRecentReports] = useState<RecentReport[]>([])
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false)
   const [activeTemplateId, setActiveTemplateId] = useState("")
   const [activeReportId, setActiveReportId] = useState("")
+  
+  // Référence pour le timer de rafraîchissement automatique
+  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Vérifier que auth n'est pas null
@@ -73,6 +77,7 @@ export default function NewReportPage() {
     return () => unsubscribe()
   }, [router])
 
+  // Fonction pour charger les rapports récents
   const fetchRecentReports = async () => {
     // Vérifier que auth et db ne sont pas null
     if (!auth) {
@@ -83,6 +88,7 @@ export default function NewReportPage() {
     const user = auth.currentUser
     if (!user) {
       console.log("No user logged in, cannot fetch reports")
+      setLoadingReports(false)
       return
     }
 
@@ -93,6 +99,7 @@ export default function NewReportPage() {
     }
 
     try {
+      setLoadingReports(true)
       console.log("Récupération des rapports récents pour le consultant:", consultantName)
       const reportsRef = collection(db as Firestore, "reports")
       
@@ -100,7 +107,9 @@ export default function NewReportPage() {
       const q = query(
         reportsRef, 
         where("userId", "==", user.uid),
-        where("consultant", "==", consultantName)
+        where("consultant", "==", consultantName),
+        orderBy("lastUpdated", "desc"),  // Tri par date de mise à jour décroissante
+        limit(20)  // Augmenter la limite pour voir plus de rapports
       )
       
       // Forcer la récupération des données fraîches depuis le serveur
@@ -114,25 +123,33 @@ export default function NewReportPage() {
         console.log(`Rapport trouvé - ID: ${doc.id}, Titre: ${data.title}, Consultant: ${data.consultant}, Date: ${data.date}, MàJ: ${data.lastUpdated || 'N/A'}`);
         reports.push({ id: doc.id, ...data } as RecentReport)
       })
-
-      // Tri par date de dernière mise à jour (si disponible) ou par date de création
-      // pour assurer le bon fonctionnement même avec d'anciens rapports
-      reports.sort((a, b) => {
-        const dateA = a.lastUpdated ? new Date(a.lastUpdated).getTime() : new Date(a.date).getTime();
-        const dateB = b.lastUpdated ? new Date(b.lastUpdated).getTime() : new Date(b.date).getTime();
-        return dateB - dateA;
-      })
-
-      console.log("Nombre total de rapports après tri:", reports.length)
+      
       setRecentReports(reports)
+      setLoadingReports(false)
     } catch (error) {
-      if (error instanceof FirebaseError) {
-        console.error("Firebase error fetching reports:", error.code, error.message)
-      } else {
-        console.error("Error fetching reports:", error)
-      }
+      console.error("Erreur lors de la récupération des rapports récents:", error)
+      setLoadingReports(false)
     }
   }
+  
+  // Configurer le rafraîchissement périodique des rapports
+  useEffect(() => {
+    // Charger les rapports au chargement initial
+    fetchRecentReports()
+    
+    // Configurer un timer pour rafraîchir les rapports toutes les 10 secondes
+    refreshTimerRef.current = setInterval(() => {
+      console.log("Rafraîchissement automatique des rapports récents...")
+      fetchRecentReports()
+    }, 10000) // 10 secondes
+    
+    // Nettoyer le timer lors du démontage du composant
+    return () => {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current)
+      }
+    }
+  }, [consultantName])  // Se déclenche quand le nom du consultant change
 
   const handleRapportGenerated = async (rapportHtml: string, data: any) => {
     console.log("======= RAPPORT GÉNÉRÉ =======")
@@ -641,7 +658,13 @@ export default function NewReportPage() {
         {activeTab === "recent" && (
           <div className="flex-grow p-4 main-content">
             <div className="grid grid-cols-1 gap-4">
-              {recentReports.length === 0 ? (
+              {loadingReports ? (
+                <Card>
+                  <CardContent className="pt-6">
+                    <p className="text-center text-gray-500">Chargement des rapports...</p>
+                  </CardContent>
+                </Card>
+              ) : recentReports.length === 0 ? (
                 <Card>
                   <CardContent className="pt-6">
                     <p className="text-center text-gray-500">Aucun rapport récent</p>

@@ -1527,9 +1527,10 @@ export function EtatDesLieuxForm({
       
       // Préparer les données de base
       const now = new Date().toISOString();
+      // Utiliser un titre par défaut si aucune adresse n'est spécifiée
       const title = formDataToSave.adresseBien 
         ? `${formDataToSave.adresseBien}${formDataToSave.codePostalBien && formDataToSave.villeBien ? `, ${formDataToSave.codePostalBien} ${formDataToSave.villeBien}` : ''}`
-        : "Adresse non spécifiée";
+        : "Nouvel état des lieux";
       
       // Filtrer les métadonnées commençant par '_' pour ne pas les sauvegarder dans l'objet data
       const cleanedFormData = { ...formDataToSave };
@@ -1565,6 +1566,7 @@ export function EtatDesLieuxForm({
         
         // Métadonnées
         isAutoSave: isAutoSave,
+        createdAt: now, // Ajouter createdAt même pour les mises à jour
       };
       
       // Log pour déboguer
@@ -1587,12 +1589,21 @@ export function EtatDesLieuxForm({
       // Si c'est un nouveau document
       else {
         console.log("➕ CRÉATION d'un nouvel état des lieux");
-        const newEdlRef = await addDoc(collection(db, "reports"), {
-          ...dataToSave,
-          createdAt: now,
-        });
-        setCurrentEdlId(newEdlRef.id);
-        console.log(`✅ Nouvel état des lieux créé avec succès (ID: ${newEdlRef.id})`);
+        const newEdlRef = await addDoc(collection(db, "reports"), dataToSave);
+        const newId = newEdlRef.id;
+        setCurrentEdlId(newId);
+        console.log(`✅ Nouvel état des lieux créé avec succès (ID: ${newId})`);
+        
+        // Notifier la création d'un nouveau document pour l'affichage dans la liste récente
+        if (onProgressUpdate) {
+          // Ajouter l'ID à l'objet formData pour les appels futurs
+          const updatedData = { 
+            ...formData, 
+            _id: newId 
+          };
+          setFormData(updatedData);
+          onProgressUpdate(updatedData);
+        }
       }
       
       setLastSaveTime(new Date());
@@ -1644,25 +1655,17 @@ export function EtatDesLieuxForm({
       
       console.log("Démarrage de l'autosauvegarde...");
       
-      // Vérifier si les données sont suffisantes pour être sauvegardées (adresse ou nom du locataire ou bailleur)
-      const hasMinimumData = 
-        formData.adresseBien?.trim() !== '' || 
-        (formData.bailleur && (formData.bailleur.nom?.trim() !== '' || formData.bailleur.raisonSociale?.trim() !== '')) ||
-        (formData.locataire && (formData.locataire.nom?.trim() !== '' || formData.locataire.raisonSociale?.trim() !== ''));
-      
-      if (hasMinimumData) {
-        console.log("Données minimales présentes, sauvegarde en cours...");
-        saveEtatDesLieux(formData, true)
-          .then((success) => {
-            if (success) {
-              console.log("Autosauvegarde réussie ✓");
-            } else {
-              console.warn("Échec de l'autosauvegarde ✗");
-            }
-          });
-      } else {
-        console.log("Pas assez de données pour l'autosauvegarde");
-      }
+      // Sauvegarder dès qu'un champ est rempli, sans exiger des données minimales
+      // Cela permet de créer l'ID Firebase dès la première modification
+      console.log("Sauvegarde initiale en cours...");
+      saveEtatDesLieux(formData, true)
+        .then((success) => {
+          if (success) {
+            console.log("Autosauvegarde réussie ✓");
+          } else {
+            console.warn("Échec de l'autosauvegarde ✗");
+          }
+        });
     }, 1000); // Délai de 1 seconde après la dernière modification
   };
   

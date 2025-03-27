@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '../../components/header';
 import { db, auth } from '@/lib/firebase';
@@ -34,111 +34,129 @@ export default function MainLayout() {
   const [recentEDLs, setRecentEDLs] = useState<RecentEtatDesLieux[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Référence pour le timer de rafraîchissement automatique
+  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
   // Récupérer les états des lieux récents
-  useEffect(() => {
-    const fetchRecentEDLs = async () => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-      
-      setLoading(true);
-      try {
-        const edlRef = collection(db, "reports");
-        const q = query(
-          edlRef,
-          where("userId", "==", user.uid),
-          orderBy("lastUpdated", "desc"),
-          limit(10)
-        );
-        
-        const querySnapshot = await getDocs(q);
-        const edls: RecentEtatDesLieux[] = [];
-        
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          console.log("Document récupéré:", doc.id, "- Structure:", Object.keys(data));
-          console.log("Consultant trouvé:", data.consultant || "Non spécifié");
-          
-          // Vérifier différentes structures possibles de données
-          let adresseBien = "Adresse non spécifiée";
-          let typeEtatDesLieux = "non spécifié";
-          let lastUpdated = data.lastUpdated || data.createdAt || new Date().toISOString();
-          let createdAt = data.createdAt || lastUpdated;
-          let bailleur = { nom: "", prenom: "" };
-          let locataire = { nom: "", prenom: "" };
-          
-          // Si les données sont dans data.data (structure imbriquée)
-          if (data.data && typeof data.data === 'object') {
-            console.log("Structure imbriquée détectée (data.data)");
-            adresseBien = data.data.adresseBien || data.title || adresseBien;
-            typeEtatDesLieux = data.data.typeEtatDesLieux || typeEtatDesLieux;
-            
-            if (data.data.bailleur) {
-              bailleur = {
-                nom: data.data.bailleur.nom || "",
-                prenom: data.data.bailleur.prenom || ""
-              };
-            }
-            
-            if (data.data.locataire) {
-              locataire = {
-                nom: data.data.locataire.nom || "",
-                prenom: data.data.locataire.prenom || ""
-              };
-            }
-          } else {
-            // Structure directe
-            console.log("Structure directe détectée");
-            adresseBien = data.adresseBien || data.title || adresseBien;
-            typeEtatDesLieux = data.typeEtatDesLieux || typeEtatDesLieux;
-            
-            if (data.bailleur) {
-              bailleur = {
-                nom: data.bailleur.nom || "",
-                prenom: data.bailleur.prenom || ""
-              };
-            }
-            
-            if (data.locataire) {
-              locataire = {
-                nom: data.locataire.nom || "",
-                prenom: data.locataire.prenom || ""
-              };
-            }
-          }
-          
-          // Si le titre est disponible, l'utiliser comme adresse
-          if (data.title && (!adresseBien || adresseBien === "Adresse non spécifiée")) {
-            adresseBien = data.title;
-          }
-          
-          edls.push({
-            id: doc.id,
-            adresseBien,
-            typeEtatDesLieux,
-            lastUpdated,
-            createdAt,
-            bailleur,
-            locataire
-          });
-        });
-        
-        console.log(`Récupération de ${edls.length} états des lieux terminée`);
-        setRecentEDLs(edls);
-        setLoading(false);
-      } catch (error) {
-        console.error("Erreur lors de la récupération des états des lieux récents:", error);
-        setLoading(false);
-      }
-    };
+  const fetchRecentEDLs = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     
+    setLoading(true);
+    try {
+      const edlRef = collection(db, "reports");
+      const q = query(
+        edlRef,
+        where("userId", "==", user.uid),
+        orderBy("lastUpdated", "desc"),
+        limit(10)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const edls: RecentEtatDesLieux[] = [];
+      
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        console.log("Document récupéré:", doc.id, "- Structure:", Object.keys(data));
+        console.log("Consultant trouvé:", data.consultant || "Non spécifié");
+        
+        // Vérifier différentes structures possibles de données
+        let adresseBien = "Adresse non spécifiée";
+        let typeEtatDesLieux = "non spécifié";
+        let lastUpdated = data.lastUpdated || data.createdAt || new Date().toISOString();
+        let createdAt = data.createdAt || lastUpdated;
+        let bailleur = { nom: "", prenom: "" };
+        let locataire = { nom: "", prenom: "" };
+        
+        // Si les données sont dans data.data (structure imbriquée)
+        if (data.data && typeof data.data === 'object') {
+          console.log("Structure imbriquée détectée (data.data)");
+          adresseBien = data.data.adresseBien || data.title || adresseBien;
+          typeEtatDesLieux = data.data.typeEtatDesLieux || typeEtatDesLieux;
+          
+          if (data.data.bailleur) {
+            bailleur = {
+              nom: data.data.bailleur.nom || "",
+              prenom: data.data.bailleur.prenom || ""
+            };
+          }
+          
+          if (data.data.locataire) {
+            locataire = {
+              nom: data.data.locataire.nom || "",
+              prenom: data.data.locataire.prenom || ""
+            };
+          }
+        } else {
+          // Structure directe
+          console.log("Structure directe détectée");
+          adresseBien = data.adresseBien || data.title || adresseBien;
+          typeEtatDesLieux = data.typeEtatDesLieux || typeEtatDesLieux;
+          
+          if (data.bailleur) {
+            bailleur = {
+              nom: data.bailleur.nom || "",
+              prenom: data.bailleur.prenom || ""
+            };
+          }
+          
+          if (data.locataire) {
+            locataire = {
+              nom: data.locataire.nom || "",
+              prenom: data.locataire.prenom || ""
+            };
+          }
+        }
+        
+        // Si le titre est disponible, l'utiliser comme adresse
+        if (data.title && (!adresseBien || adresseBien === "Adresse non spécifiée")) {
+          adresseBien = data.title;
+        }
+        
+        edls.push({
+          id: doc.id,
+          adresseBien,
+          typeEtatDesLieux,
+          lastUpdated,
+          createdAt,
+          bailleur,
+          locataire
+        });
+      });
+      
+      console.log(`Récupération de ${edls.length} états des lieux terminée`);
+      setRecentEDLs(edls);
+      setLoading(false);
+    } catch (error) {
+      console.error("Erreur lors de la récupération des états des lieux récents:", error);
+      setLoading(false);
+    }
+  };
+  
+  // Configurer le rafraîchissement périodique des états des lieux
+  useEffect(() => {
     // Ne charger les données que côté client, pas pendant le rendu statique
     if (typeof window !== 'undefined') {
+      // Charger les EDLs au chargement initial
       fetchRecentEDLs();
+      
+      // Configurer un timer pour rafraîchir les EDLs toutes les 15 secondes
+      refreshTimerRef.current = setInterval(() => {
+        console.log("Rafraîchissement automatique des états des lieux récents...");
+        fetchRecentEDLs();
+      }, 15000); // 15 secondes
     } else {
       setLoading(false);
     }
+    
+    // Nettoyer le timer lors du démontage du composant
+    return () => {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+      }
+    };
   }, [user]);
   
   // Fonction pour créer un nouvel état des lieux
