@@ -41,6 +41,9 @@ export default function NewReportPage() {
   const { name } = useParams()
   const consultantName = decodeURIComponent(name as string)
   
+  // Log pour vérifier que le nom du consultant est correctement récupéré
+  console.log("Nom du consultant récupéré des paramètres:", consultantName)
+  
   const [activeTab, setActiveTab] = useState<"form" | "preview" | "recent">("form")
   const [progress, setProgress] = useState(0)
   const [rapport, setRapport] = useState<string | null>(null)
@@ -90,20 +93,17 @@ export default function NewReportPage() {
     }
 
     try {
-      console.log("Récupération des rapports récents...")
+      console.log("Récupération des rapports récents pour le consultant:", consultantName)
       const reportsRef = collection(db as Firestore, "reports")
       
       // Créer une requête pour obtenir les rapports du consultant actuel
-      // Attention, tous les champs utilisés dans orderBy doivent être indexés et présents
-      // Pour éviter les erreurs avec les anciens rapports sans lastUpdated, 
-      // on utilise uniquement where puis on trie manuellement
       const q = query(
         reportsRef, 
+        where("userId", "==", user.uid),
         where("consultant", "==", consultantName)
       )
       
       // Forcer la récupération des données fraîches depuis le serveur
-      // en désactivant explicitement le cache pour cette requête
       const querySnapshot = await getDocsFromServer(q)
       
       console.log("Nombre de rapports récupérés de Firestore:", querySnapshot.size)
@@ -111,7 +111,7 @@ export default function NewReportPage() {
       const reports: RecentReport[] = []
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        console.log(`Rapport trouvé - ID: ${doc.id}, Titre: ${data.title}, Date: ${data.date}, MàJ: ${data.lastUpdated || 'N/A'}`);
+        console.log(`Rapport trouvé - ID: ${doc.id}, Titre: ${data.title}, Consultant: ${data.consultant}, Date: ${data.date}, MàJ: ${data.lastUpdated || 'N/A'}`);
         reports.push({ id: doc.id, ...data } as RecentReport)
       })
 
@@ -138,6 +138,21 @@ export default function NewReportPage() {
     console.log("======= RAPPORT GÉNÉRÉ =======")
     console.log("Données reçues:", data)
     console.log("Navigation vers l'onglet Preview")
+    
+    // S'assurer que data a les propriétés requises avant de continuer
+    if (!data.pieces) {
+      console.log("Propriété pieces manquante, initialisation avec un tableau vide")
+      data.pieces = []
+    }
+    
+    if (!data.compteurs) {
+      console.log("Propriété compteurs manquante, initialisation")
+      data.compteurs = {
+        eau: { presence: false, photos: [] },
+        electricite: { presence: false, photos: [] },
+        gaz: { presence: false, photos: [] }
+      }
+    }
     
     setRapport(rapportHtml)
     setFormData(data)
@@ -169,23 +184,29 @@ export default function NewReportPage() {
       
       // Vérifier les données des pièces avant sauvegarde
       console.log("Données des pièces avant sauvegarde:", data.pieces)
-      console.log("Nombre de pièces:", data.pieces.length)
       
-      // Vérifier les photos de chaque pièce
-      data.pieces.forEach((piece: any, index: number) => {
-        console.log(`Pièce ${index + 1}: ${piece.nom || 'Sans nom'}`)
-        if (piece.photos && Array.isArray(piece.photos)) {
-          console.log(`  - Nombre de photos: ${piece.photos.length}`)
-          piece.photos.forEach((photo: any, photoIndex: number) => {
-            console.log(`  - Photo ${photoIndex + 1}: Type=${typeof photo}`)
-            if (typeof photo === 'object' && photo !== null) {
-              console.log(`    - Propriétés: ${Object.keys(photo).join(', ')}`)
-            }
-          })
-        } else {
-          console.log(`  - Pas de photos ou format invalide: ${typeof piece.photos}`)
-        }
-      })
+      // S'assurer que data.pieces est un tableau avant d'accéder à length
+      if (Array.isArray(data.pieces)) {
+        console.log("Nombre de pièces:", data.pieces.length)
+        
+        // Vérifier les photos de chaque pièce
+        data.pieces.forEach((piece: any, index: number) => {
+          console.log(`Pièce ${index + 1}: ${piece.nom || 'Sans nom'}`)
+          if (piece.photos && Array.isArray(piece.photos)) {
+            console.log(`  - Nombre de photos: ${piece.photos.length}`)
+            piece.photos.forEach((photo: any, photoIndex: number) => {
+              console.log(`  - Photo ${photoIndex + 1}: Type=${typeof photo}`)
+              if (typeof photo === 'object' && photo !== null) {
+                console.log(`    - Propriétés: ${Object.keys(photo).join(', ')}`)
+              }
+            })
+          } else {
+            console.log(`  - Pas de photos ou format invalide: ${typeof piece.photos}`)
+          }
+        })
+      } else {
+        console.warn("data.pieces n'est pas un tableau valide - type:", typeof data.pieces)
+      }
       
       // Fonction récursive pour nettoyer les objets complexes qui pourraient causer des problèmes avec Firestore
       const sanitizeForFirestore = (obj: any): any => {
@@ -227,7 +248,24 @@ export default function NewReportPage() {
       
       // Vérifier les données après nettoyage
       console.log("Vérification des données après nettoyage:")
-      console.log("Nombre de pièces après nettoyage:", sanitizedData.pieces.length)
+      
+      // S'assurer que les pieces existent toujours après nettoyage
+      if (!sanitizedData.pieces || !Array.isArray(sanitizedData.pieces)) {
+        console.warn("Les pièces sont manquantes ou invalides après nettoyage, initialisation avec un tableau vide")
+        sanitizedData.pieces = []
+      } else {
+        console.log("Nombre de pièces après nettoyage:", sanitizedData.pieces.length)
+      }
+      
+      // S'assurer que les compteurs existent après nettoyage
+      if (!sanitizedData.compteurs || typeof sanitizedData.compteurs !== 'object') {
+        console.warn("Les compteurs sont manquants ou invalides après nettoyage, initialisation")
+        sanitizedData.compteurs = {
+          eau: { presence: false, photos: [] },
+          electricite: { presence: false, photos: [] },
+          gaz: { presence: false, photos: [] }
+        }
+      }
       
       const reportData = {
         userId: user.uid,
@@ -240,6 +278,11 @@ export default function NewReportPage() {
         lastUpdated: new Date().toISOString(),
       }
       
+      console.log("Données préparées pour Firestore:", {
+        ...reportData,
+        data: "... données omises pour la concision ...",
+        consultant: reportData.consultant // Log spécifique pour vérifier le consultant
+      })
       console.log("Préparation des données pour Firestore terminée")
       console.log("Tentative de sauvegarde dans Firestore...")
 
@@ -370,30 +413,8 @@ export default function NewReportPage() {
   }
 
   const handleEdit = (report: RecentReport) => {
-    console.log("Chargement du rapport pour édition:", report.id);
-    
-    // Vérification de sécurité pour les données
-    try {
-      // Vérifier si le rapport contient des données
-      if (!report.data) {
-        console.error("Erreur: Les données du rapport sont manquantes");
-        return;
-      }
-      
-      // Copie profonde pour ne pas modifier les originaux
-      const safeData = JSON.parse(JSON.stringify(report.data));
-      
-      // Migration des anciens rapports vers le nouveau format
-      const migratedData = migrateReportData(safeData);
-      
-      console.log("Rapport corrigé et prêt pour l'édition");
-      setFormData(migratedData);
-      setEditingReportId(report.id);
-      setActiveTab("form");
-    } catch (error) {
-      console.error("Erreur lors de la préparation du rapport pour l'édition:", error);
-      alert("Une erreur est survenue lors du chargement du rapport. Veuillez réessayer.");
-    }
+    // Utiliser la nouvelle fonction handleEditReport pour la cohérence
+    handleEditReport(report);
   }
 
   /**
@@ -556,6 +577,39 @@ export default function NewReportPage() {
       throw error
     }
   }
+
+  // Fonction pour charger un rapport à éditer
+  const handleEditReport = async (report: RecentReport) => {
+    try {
+      console.log("Chargement du rapport pour édition - ID:", report.id);
+
+      // Ajouter explicitement l'ID comme propriété _id pour l'édition
+      const reportData = {
+        ...report.data,
+        _id: report.id,  // Ajouter l'ID explicite pour l'édition
+        _consultant: report.consultant || consultantName
+      };
+
+      console.log("Structure du rapport chargé:", Object.keys(reportData).join(', '));
+      
+      // Passer à l'onglet formulaire avec les données préchargées
+      setFormData(reportData);
+      setEditingReportId(report.id);
+      setActiveTab("form");
+      
+      toast({
+        title: "Rapport chargé",
+        description: "Vous pouvez maintenant continuer l'édition de ce rapport.",
+      });
+    } catch (error) {
+      console.error("Erreur lors du chargement du rapport:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger ce rapport pour édition.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,6 +16,10 @@ import { useToast } from "@/components/ui/use-toast"
 import Image from 'next/image'
 import pdfMake from 'pdfmake/build/pdfmake'
 import pdfFonts from 'pdfmake/build/vfs_fonts'
+import { db, auth } from '@/lib/firebase'
+import { collection, addDoc, getDocs, doc, getDoc, updateDoc, setDoc } from 'firebase/firestore'
+import { useAuthState } from 'react-firebase-hooks/auth'
+import { v4 as uuidv4 } from 'uuid'
 
 // Image placeholder en cas d'erreur de chargement
 const PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23cccccc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E";
@@ -361,276 +365,264 @@ export function EtatDesLieuxForm({
   
   // État pour le formulaire
   const [formData, setFormData] = useState<FormData>(() => {
-    if (initialData) {
-      // Assurer que toutes les pièces ont un ID
-      const dataWithIds = { ...initialData };
+    // Vérifier si les données initiales contiennent un ID existant
+    const existingId = initialData?._id || null;
+    
+    console.log("====== INITIALISATION DU FORMULAIRE ======");
+    if (existingId) {
+      console.log(`Édition d'un état des lieux existant - ID: ${existingId}`);
       
-      // Vérifier et ajouter des IDs aux pièces si nécessaire
-      if (dataWithIds.pieces) {
-        dataWithIds.pieces = dataWithIds.pieces.map((piece: any) => {
-          // Ajouter un ID à la pièce si manquant
-          if (!piece.id) {
-            piece.id = `piece_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-            console.log(`ID généré pour pièce existante: ${piece.id}`);
-          }
-          
-          // Ajouter des IDs aux équipements si nécessaire
-          if (piece.equipements) {
-            piece.equipements = piece.equipements.map((equip: any) => {
-              if (!equip.id) {
-                equip.id = `equip_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-                console.log(`ID généré pour équipement existant: ${equip.id}`);
-              }
-              return equip;
-            });
-          }
-          
-          return piece;
-        });
+      // Vérifier si les données initiales sont correctement structurées
+      console.log("Structure des données initiales:", 
+        Object.keys(initialData || {}).filter(key => !key.startsWith('_')).join(', '));
+      
+      if (initialData.pieces) {
+        console.log(`Nombre de pièces: ${Array.isArray(initialData.pieces) ? initialData.pieces.length : 'Non défini ou invalide'}`);
+      } else {
+        console.warn("Aucune pièce définie dans les données initiales");
       }
-      
-      console.log("Données initiales avec IDs:", dataWithIds);
-      return dataWithIds;
+    } else {
+      console.log("Création d'un nouvel état des lieux");
     }
     
-    return {
-      // Valeurs par défaut ou données initiales si fournies
-      typeEtatDesLieux: initialData?.typeEtatDesLieux || "entree",
-      dateEtatDesLieux: initialData?.dateEtatDesLieux || getTodayDate(),
-      dateEtat: initialData?.dateEtat || getTodayDate(),
+    return initialData || {
+      typeEtatDesLieux: "entree",
+      dateEtatDesLieux: getTodayDate(),
+      dateEtat: getTodayDate(),
       
-      typeBien: initialData?.typeBien || [],
-      adresseBien: initialData?.adresseBien || "",
-      codePostalBien: initialData?.codePostalBien || "",
-      villeBien: initialData?.villeBien || "",
+      typeBien: [],
+      adresseBien: "",
+      codePostalBien: "",
+      villeBien: "",
+      superficieBien: "",
       
       bailleur: {
-        raisonSociale: initialData?.bailleur?.raisonSociale || "",
-        civilite: initialData?.bailleur?.civilite || "",
-        nom: initialData?.bailleur?.nom || "",
-        prenom: initialData?.bailleur?.prenom || "",
-        representant: initialData?.bailleur?.representant || "",
-        adresse: initialData?.bailleur?.adresse || "",
-        codePostal: initialData?.bailleur?.codePostal || "",
-        ville: initialData?.bailleur?.ville || "",
-        telephone: initialData?.bailleur?.telephone || "",
-        email: initialData?.bailleur?.email || "",
+        raisonSociale: "",
+        civilite: "",
+        nom: "",
+        prenom: "",
+        representant: "",
+        adresse: "",
+        codePostal: "",
+        ville: "",
+        telephone: "",
+        email: ""
       },
-      
       locataire: {
-        raisonSociale: initialData?.locataire?.raisonSociale || "",
-        civilite: initialData?.locataire?.civilite || "",
-        nom: initialData?.locataire?.nom || "",
-        prenom: initialData?.locataire?.prenom || "",
-        representant: initialData?.locataire?.representant || "",
-        telephone: initialData?.locataire?.telephone || "",
-        email: initialData?.locataire?.email || "",
-        adresse: initialData?.locataire?.adresse || "",
-        codePostal: initialData?.locataire?.codePostal || "",
-        ville: initialData?.locataire?.ville || "",
+        raisonSociale: "",
+        civilite: "",
+        nom: "",
+        prenom: "",
+        representant: "",
+        telephone: "",
+        email: "",
+        adresse: "",
+        codePostal: "",
+        ville: ""
       },
       
       mandataire: {
-        present: initialData?.mandataire?.present || false,
-        nom: initialData?.mandataire?.nom || "",
-        adresse: initialData?.mandataire?.adresse || "",
-        telephone: initialData?.mandataire?.telephone || "",
+        present: false,
+        nom: "",
+        adresse: "",
+        telephone: ""
       },
       
       contrat: {
-        dateSignature: initialData?.contrat?.dateSignature || "",
-        dateEntree: initialData?.contrat?.dateEntree || "",
-        dureeContrat: initialData?.contrat?.dureeContrat || "",
-        typeActivite: initialData?.contrat?.typeActivite || "",
+        dateSignature: "",
+        dateEntree: "",
+        dureeContrat: "",
+        typeActivite: ""
       },
       
       elements: {
         cles: {
-          nombre: initialData?.elements?.cles?.nombre || "0",
-          detail: initialData?.elements?.cles?.detail || "",
+          nombre: "",
+          detail: ""
         },
         badges: {
-          nombre: initialData?.elements?.badges?.nombre || "0",
-          detail: initialData?.elements?.badges?.detail || "",
+          nombre: "",
+          detail: ""
         },
         telecommandes: {
-          nombre: initialData?.elements?.telecommandes?.nombre || "0",
-          detail: initialData?.elements?.telecommandes?.detail || "",
+          nombre: "",
+          detail: ""
         },
-        autresElements: initialData?.elements?.autresElements || ""
+        autresElements: ""
       },
       
+      // Initialiser les compteurs pour éviter les erreurs
       compteurs: {
         eau: {
-          presence: initialData?.compteurs?.eau?.presence || false,
-          numero: initialData?.compteurs?.eau?.numero || "",
-          releve: initialData?.compteurs?.eau?.releve || "",
-          localisation: initialData?.compteurs?.eau?.localisation || "",
-          observations: initialData?.compteurs?.eau?.observations || "",
-          photos: initialData?.compteurs?.eau?.photos || [],
+          presence: false,
+          numero: "",
+          releve: "",
+          localisation: "",
+          observations: "",
+          photos: []
         },
         electricite: {
-          presence: initialData?.compteurs?.electricite?.presence || false,
-          numero: initialData?.compteurs?.electricite?.numero || "",
-          releve: initialData?.compteurs?.electricite?.releve || "",
-          puissance: initialData?.compteurs?.electricite?.puissance || "",
-          localisation: initialData?.compteurs?.electricite?.localisation || "",
-          observations: initialData?.compteurs?.electricite?.observations || "",
-          photos: initialData?.compteurs?.electricite?.photos || [],
+          presence: false,
+          numero: "",
+          releve: "",
+          puissance: "",
+          localisation: "",
+          observations: "",
+          photos: []
         },
         gaz: {
-          presence: initialData?.compteurs?.gaz?.presence || false,
-          numero: initialData?.compteurs?.gaz?.numero || "",
-          releve: initialData?.compteurs?.gaz?.releve || "",
-          localisation: initialData?.compteurs?.gaz?.localisation || "",
-          observations: initialData?.compteurs?.gaz?.observations || "",
-          photos: initialData?.compteurs?.gaz?.photos || [],
-        },
+          presence: false,
+          numero: "",
+          releve: "",
+          localisation: "",
+          observations: "",
+          photos: []
+        }
       },
       
-      pieces: initialData?.pieces || [
-        {
-          id: "1",
-          nom: "Entrée",
-          sols: {
-            nature: "",
+      // Initialiser le tableau des pièces avec un élément vide pour éviter les erreurs
+      pieces: [{
+        id: uuidv4(),
+        nom: "Pièce 1",
+        sols: {
+          nature: "",
+          etat: "",
+          observations: ""
+        },
+        murs: {
+          nature: "",
+          etat: "",
+          observations: ""
+        },
+        plafonds: {
+          nature: "",
+          etat: "",
+          observations: ""
+        },
+        plinthes: {
+          nature: "",
+          etat: "",
+          observations: ""
+        },
+        fenetres: {
+          nature: "",
+          etat: "",
+          observations: ""
+        },
+        portes: {
+          nature: "",
+          etat: "",
+          observations: ""
+        },
+        chauffage: {
+          nature: "",
+          etat: "",
+          observations: "",
+          testable: false
+        },
+        electricite: {
+          testable: false,
+          prisesMurales: {
+            nombre: "",
             etat: "",
-            observations: "",
+            observations: ""
           },
-          murs: {
-            nature: "",
+          prisesRJ45: {
+            nombre: "",
             etat: "",
-            observations: "",
-          },
-          plafonds: {
-            nature: "",
-            etat: "",
-            observations: "",
-          },
-          plinthes: {
-            nature: "",
-            etat: "",
-            observations: "",
-          },
-          fenetres: {
-            nature: "",
-            etat: "",
-            observations: "",
-          },
-          portes: {
-            nature: "",
-            etat: "",
-            observations: "",
-          },
-          chauffage: {
-            nature: "",
-            etat: "",
-            observations: "",
-          },
-          electricite: {
-            testable: false,
-            prisesMurales: {
-              nombre: "",
-              etat: "",
-              observations: "",
-            },
-            prisesRJ45: {
-              nombre: "",
-              etat: "",
-              observations: "",
-            },
-            interrupteurs: {
-              nombre: "",
-              etat: "",
-              observations: "",
-            },
-            observations: "",
-          },
-          luminaires: {
-            spots: {
-              nombre: "",
-              etat: "",
-              observations: "",
-            },
-            suspensions: {
-              nombre: "",
-              etat: "",
-              observations: "",
-            },
-            dallesLumineuses: {
-              nombre: "",
-              etat: "",
-              observations: "",
-            },
-            neons: {
-              nombre: "",
-              etat: "",
-              observations: "",
-            },
-            observations: "",
-          },
-          prises: {
-            nombre: "0",
-            etat: "",
-            observations: "",
+            observations: ""
           },
           interrupteurs: {
-            nombre: "0",
+            nombre: "",
             etat: "",
-            observations: "",
+            observations: ""
           },
-          equipements: [],
-          photos: [],
-          observations: "",
+          observations: ""
         },
-      ],
+        luminaires: {
+          spots: {
+            nombre: "",
+            etat: "",
+            observations: ""
+          },
+          suspensions: {
+            nombre: "",
+            etat: "",
+            observations: ""
+          },
+          dallesLumineuses: {
+            nombre: "",
+            etat: "",
+            observations: ""
+          },
+          neons: {
+            nombre: "",
+            etat: "",
+            observations: ""
+          },
+          observations: ""
+        },
+        prises: {
+          nombre: "",
+          etat: "",
+          observations: ""
+        },
+        interrupteurs: {
+          nombre: "",
+          etat: "",
+          observations: ""
+        },
+        equipements: [],
+        photos: [],
+        observations: ""
+      }],
       
       exterieur: {
         jardin: {
-          presence: initialData?.exterieur?.jardin?.presence || false,
-          etat: initialData?.exterieur?.jardin?.etat || "",
-          observations: initialData?.exterieur?.jardin?.observations || "",
-          photos: initialData?.exterieur?.jardin?.photos || [],
+          presence: false,
+          etat: "",
+          observations: "",
+          photos: []
         },
         terrasse: {
-          presence: initialData?.exterieur?.terrasse?.presence || false,
-          etat: initialData?.exterieur?.terrasse?.etat || "",
-          observations: initialData?.exterieur?.terrasse?.observations || "",
-          photos: initialData?.exterieur?.terrasse?.photos || [],
+          presence: false,
+          etat: "",
+          observations: "",
+          photos: []
         },
         balcon: {
-          presence: initialData?.exterieur?.balcon?.presence || false,
-          etat: initialData?.exterieur?.balcon?.etat || "",
-          observations: initialData?.exterieur?.balcon?.observations || "",
-          photos: initialData?.exterieur?.balcon?.photos || [],
+          presence: false,
+          etat: "",
+          observations: "",
+          photos: []
         },
         garage: {
-          presence: initialData?.exterieur?.garage?.presence || false,
-          etat: initialData?.exterieur?.garage?.etat || "",
-          observations: initialData?.exterieur?.garage?.observations || "",
-          photos: initialData?.exterieur?.garage?.photos || [],
+          presence: false,
+          etat: "",
+          observations: "",
+          photos: []
         },
         parking: {
-          presence: initialData?.exterieur?.parking?.presence || false,
-          etat: initialData?.exterieur?.parking?.etat || "",
-          observations: initialData?.exterieur?.parking?.observations || "",
-          photos: initialData?.exterieur?.parking?.photos || [],
+          presence: false,
+          etat: "",
+          observations: "",
+          photos: []
         },
         cave: {
-          presence: initialData?.exterieur?.cave?.presence || false,
-          etat: initialData?.exterieur?.cave?.etat || "",
-          observations: initialData?.exterieur?.cave?.observations || "",
-          photos: initialData?.exterieur?.cave?.photos || [],
-        },
+          presence: false,
+          etat: "",
+          observations: "",
+          photos: []
+        }
       },
       
-      observationsGenerales: initialData?.observationsGenerales || "",
+      observationsGenerales: "",
       
       signatures: {
-        bailleur: initialData?.signatures?.bailleur || false,
-        locataire: initialData?.signatures?.locataire || false,
-        mandataire: initialData?.signatures?.mandataire || false,
-      },
+        bailleur: false,
+        locataire: false,
+        mandataire: false
+      }
     }
   })
   
@@ -681,6 +673,14 @@ export function EtatDesLieuxForm({
       // Mettre à jour le champ
       current[paths[paths.length - 1]] = value
       
+      // Mettre à jour la progression si nécessaire
+      if (onProgressUpdate) {
+        onProgressUpdate(newData)
+      }
+      
+      // Déclencher l'autosauvegarde après chaque modification
+      autoSaveEtatDesLieux()
+      
       return newData
     })
   }
@@ -717,6 +717,9 @@ export function EtatDesLieuxForm({
       if (onProgressUpdate) {
         onProgressUpdate(updatedData);
       }
+      
+      // Déclencher l'autosauvegarde après chaque modification
+      autoSaveEtatDesLieux();
       
       return updatedData;
     });
@@ -1310,7 +1313,7 @@ export function EtatDesLieuxForm({
   }
   
   // Gérer la soumission du formulaire
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     console.log("======= SOUMISSION DU FORMULAIRE DÉCLENCHÉE =======")
@@ -1331,6 +1334,10 @@ export function EtatDesLieuxForm({
     console.log("Données du formulaire:", formData)
     
     try {
+      // Sauvegarder les données dans Firebase
+      await saveEtatDesLieux(formData)
+      
+      // Générer le rapport
       const rapport = generateReport()
       onRapportGenerated(rapport, formData)
     } catch (error) {
@@ -1344,9 +1351,12 @@ export function EtatDesLieuxForm({
   }
   
   // Fonction pour générer un PDF
-  const handleGeneratePDF = () => {
+  const handleGeneratePDF = async () => {
     console.log("Génération du PDF demandée")
     try {
+      // Sauvegarder les données dans Firebase
+      await saveEtatDesLieux(formData)
+      
       // Utiliser la même logique que handleSubmit pour générer le rapport
       const rapport = generateReport()
       onRapportGenerated(rapport, formData)
@@ -1482,6 +1492,218 @@ export function EtatDesLieuxForm({
     }
   };
   
+  // État pour suivre l'ID de l'état des lieux en cours
+  const [currentEdlId, setCurrentEdlId] = useState<string | null>(() => {
+    // Initialiser avec l'ID existant s'il est disponible dans les données initiales
+    return initialData?._id || null;
+  });
+  const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
+  const [user] = useAuthState(auth);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // État pour l'indicateur de sauvegarde
+  const [saveStatus, setSaveStatus] = useState<"saving" | "saved" | "error" | null>(null)
+  
+  // Fonction pour sauvegarder l'état des lieux dans Firebase
+  const saveEtatDesLieux = async (formDataToSave: FormData, isAutoSave = false) => {
+    try {
+      if (!user) {
+        console.warn("Autosauvegarde impossible : utilisateur non connecté");
+        return false;
+      }
+      
+      // Vérifier si nous avons un ID existant (édition d'un état des lieux)
+      // Priorité : 1. ID explicit dans les données initiales 2. ID stocké dans le state
+      const existingId = initialData?._id || (formDataToSave as any)._id || currentEdlId;
+      
+      console.log("💾 Sauvegarde de l'état des lieux:");
+      console.log("- ID existant:", existingId ? existingId : "Aucun (création)");
+      console.log("- Mode:", isAutoSave ? "Automatique" : "Manuel");
+      console.log("- Consultant:", consultantName);
+      console.log("- EditMode:", editMode);
+      
+      // Mise à jour de l'état de sauvegarde
+      setSaveStatus("saving");
+      
+      // Préparer les données de base
+      const now = new Date().toISOString();
+      const title = formDataToSave.adresseBien 
+        ? `${formDataToSave.adresseBien}${formDataToSave.codePostalBien && formDataToSave.villeBien ? `, ${formDataToSave.codePostalBien} ${formDataToSave.villeBien}` : ''}`
+        : "Adresse non spécifiée";
+      
+      // Filtrer les métadonnées commençant par '_' pour ne pas les sauvegarder dans l'objet data
+      const cleanedFormData = { ...formDataToSave };
+      Object.keys(cleanedFormData).forEach(key => {
+        if (key.startsWith('_')) {
+          delete cleanedFormData[key as keyof FormData];
+        }
+      });
+      
+      // S'assurer que les propriétés obligatoires sont définies pour éviter les erreurs
+      const dataToSave = {
+        // Données de base pour le document Firestore
+        userId: user.uid,
+        userEmail: user.email,
+        title: title,
+        lastUpdated: now,
+        consultant: consultantName, // Utiliser le consultantName fourni dans les props
+        date: formDataToSave.dateEtatDesLieux || now,
+        typeEtatDesLieux: formDataToSave.typeEtatDesLieux || "entree",
+        
+        // Données complètes du formulaire dans le champ 'data'
+        data: {
+          ...cleanedFormData,
+          // S'assurer que pieces est toujours un tableau valide
+          pieces: Array.isArray(cleanedFormData.pieces) ? cleanedFormData.pieces : [],
+          // S'assurer que compteurs est toujours un objet valide
+          compteurs: cleanedFormData.compteurs || {
+            eau: { presence: false, photos: [] },
+            electricite: { presence: false, photos: [] },
+            gaz: { presence: false, photos: [] }
+          },
+        },
+        
+        // Métadonnées
+        isAutoSave: isAutoSave,
+      };
+      
+      // Log pour déboguer
+      console.log("📤 Données à sauvegarder:", {
+        id: existingId || "Nouveau document",
+        title: dataToSave.title,
+        consultant: dataToSave.consultant,
+        type: dataToSave.typeEtatDesLieux
+      });
+      
+      // Si c'est une mise à jour d'un document existant
+      if (existingId) {
+        console.log(`👆 MISE À JOUR de l'état des lieux existant (ID: ${existingId})`);
+        const edlRef = doc(db, "reports", existingId);
+        await updateDoc(edlRef, dataToSave);
+        console.log(`✅ État des lieux mis à jour avec succès (ID: ${existingId})`);
+        // Mettre à jour l'ID courant
+        setCurrentEdlId(existingId);
+      } 
+      // Si c'est un nouveau document
+      else {
+        console.log("➕ CRÉATION d'un nouvel état des lieux");
+        const newEdlRef = await addDoc(collection(db, "reports"), {
+          ...dataToSave,
+          createdAt: now,
+        });
+        setCurrentEdlId(newEdlRef.id);
+        console.log(`✅ Nouvel état des lieux créé avec succès (ID: ${newEdlRef.id})`);
+      }
+      
+      setLastSaveTime(new Date());
+      setSaveStatus("saved");
+      
+      // Réinitialiser l'état "saved" après 2 secondes
+      setTimeout(() => {
+        setSaveStatus(null);
+      }, 2000);
+      
+      if (!isAutoSave) {
+        toast({
+          title: "Sauvegardé",
+          description: "L'état des lieux a été enregistré avec succès",
+        });
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde de l'état des lieux:", error);
+      setSaveStatus("error");
+      
+      if (!isAutoSave) {
+        toast({
+          title: "Erreur",
+          description: "Erreur lors de la sauvegarde de l'état des lieux",
+          variant: "destructive",
+        });
+      }
+      
+      return false;
+    }
+  };
+  
+  // Fonction pour l'autosauvegarde avec debounce
+  const autoSaveEtatDesLieux = () => {
+    // Annuler tout timeout existant
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    // Créer un nouveau timeout
+    saveTimeoutRef.current = setTimeout(() => {
+      // Vérifier si l'utilisateur est connecté
+      if (!user) {
+        console.warn("Autosauvegarde impossible : utilisateur non connecté");
+        return;
+      }
+      
+      console.log("Démarrage de l'autosauvegarde...");
+      
+      // Vérifier si les données sont suffisantes pour être sauvegardées (adresse ou nom du locataire ou bailleur)
+      const hasMinimumData = 
+        formData.adresseBien?.trim() !== '' || 
+        (formData.bailleur && (formData.bailleur.nom?.trim() !== '' || formData.bailleur.raisonSociale?.trim() !== '')) ||
+        (formData.locataire && (formData.locataire.nom?.trim() !== '' || formData.locataire.raisonSociale?.trim() !== ''));
+      
+      if (hasMinimumData) {
+        console.log("Données minimales présentes, sauvegarde en cours...");
+        saveEtatDesLieux(formData, true)
+          .then((success) => {
+            if (success) {
+              console.log("Autosauvegarde réussie ✓");
+            } else {
+              console.warn("Échec de l'autosauvegarde ✗");
+            }
+          });
+      } else {
+        console.log("Pas assez de données pour l'autosauvegarde");
+      }
+    }, 1000); // Délai de 1 seconde après la dernière modification
+  };
+  
+  // Debugging: Loguer toute modification de l'ID courant
+  useEffect(() => {
+    console.log("🔄 ID actuel de l'état des lieux:", currentEdlId);
+    
+    // Si les données initiales ont un _id mais que currentEdlId n'est pas défini, mettre à jour
+    if (initialData?._id && !currentEdlId) {
+      console.log("📝 Mise à jour de l'ID à partir des données initiales:", initialData._id);
+      setCurrentEdlId(initialData._id);
+    }
+  }, [currentEdlId, initialData]);
+  
+  // Debugging: Loguer tout changement dans les données initiales
+  useEffect(() => {
+    if (initialData) {
+      console.log("📥 Nouvelles données initiales reçues:");
+      console.log("- ID:", initialData._id || "Non spécifié");
+      console.log("- Structure:", Object.keys(initialData).filter(k => !k.startsWith('_')).join(', '));
+      console.log("- Mode d'édition:", editMode ? "Actif" : "Inactif");
+    }
+  }, [initialData, editMode]);
+  
+  // Mettre à jour l'ID de l'état des lieux si les données initiales changent
+  useEffect(() => {
+    if (initialData?._id && initialData._id !== currentEdlId) {
+      console.log(`Mise à jour de l'ID actuel: ${initialData._id} (précédent: ${currentEdlId || 'aucun'})`);
+      setCurrentEdlId(initialData._id);
+    }
+  }, [initialData, currentEdlId]);
+  
+  // Nettoyer le timeout lors du démontage du composant
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
+  
   // Rendu du formulaire
   return (
     <div className="container mx-auto pb-safe main-content">
@@ -1510,10 +1732,35 @@ export function EtatDesLieuxForm({
 
         {/* Contenu du formulaire */}
         <form onSubmit={handleSubmit} className="space-y-8" noValidate>
+          {/* Indicateur de sauvegarde automatique */}
+          <div className="relative">
+            {saveStatus && (
+              <div className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-md text-sm font-medium transition-all duration-300 shadow-md flex items-center ${
+                saveStatus === 'saving' ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' : 
+                saveStatus === 'saved' ? 'bg-green-100 text-green-800 border border-green-300' : 
+                'bg-red-100 text-red-800 border border-red-300'
+              }`}>
+                <div className={`w-2 h-2 rounded-full mr-2 ${
+                  saveStatus === 'saving' ? 'bg-yellow-500 animate-pulse' : 
+                  saveStatus === 'saved' ? 'bg-green-500' : 
+                  'bg-red-500'
+                }`}></div>
+                {saveStatus === 'saving' && 'Sauvegarde automatique...'}
+                {saveStatus === 'saved' && 'Sauvegardé ✓'}
+                {saveStatus === 'error' && 'Erreur de sauvegarde ✗'}
+              </div>
+            )}
+          </div>
+          
           <div className={activeTab === 0 ? "" : "hidden"}>
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="bg-gradient-to-r from-red-50 to-pink-50 px-6 py-4 border-b border-gray-200">
                 <h2 className="text-xl font-bold text-gray-900">Type d'état des lieux</h2>
+                {lastSaveTime && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Dernière sauvegarde: {new Date(lastSaveTime).toLocaleTimeString()}
+                  </p>
+                )}
               </div>
               <div className="p-6 space-y-6">
           {/* Type d'état des lieux */}
